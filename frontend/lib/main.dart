@@ -2,9 +2,13 @@ import 'dart:math';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import 'package:file_picker/file_picker.dart';
+
 import 'package:firebase_auth/firebase_auth.dart';
 
 import 'package:firebase_core/firebase_core.dart';
+
+import 'package:firebase_storage/firebase_storage.dart';
 
 import 'package:flutter/foundation.dart' show kIsWeb;
 
@@ -15,6 +19,12 @@ import 'package:flutter/services.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
 import 'package:shared_preferences/shared_preferences.dart';
+
+import 'package:syncfusion_flutter_pdf/pdf.dart' as sf_pdf;
+
+import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
+
+import 'package:wakelock_plus/wakelock_plus.dart';
 
 
 
@@ -78,7 +88,196 @@ class AppConstants {
 
 }
 
+// --- IDENTIDADES DE COLOR (PALETAS) ---
 
+/// Una identidad visual completa de la app: acento y fondos para modo claro
+/// y oscuro. Cada una está tomada de algo que existe en un escenario real
+/// (la consola, el ámbar del VU, el wash de luces, la luz de trabajo).
+class AppPalette {
+  final String key;
+  final String nombre;
+  final String tag;
+  final Color accentDark;
+  final Color accentLight;
+  final Color bgDark;
+  final Color bgLight;
+  final Color surfaceDark;
+  final Color surfaceLight;
+
+  const AppPalette({
+    required this.key,
+    required this.nombre,
+    required this.tag,
+    required this.accentDark,
+    required this.accentLight,
+    required this.bgDark,
+    required this.bgLight,
+    required this.surfaceDark,
+    required this.surfaceLight,
+  });
+
+  static const consola = AppPalette(
+    key: 'consola',
+    nombre: 'Consola',
+    tag: 'Violeta, refinado',
+    accentDark: Color(0xFF7C5CFA),
+    accentLight: Color(0xFF6C4FD4),
+    bgDark: Color(0xFF15121C),
+    bgLight: Color(0xFFFAF9FD),
+    surfaceDark: Color(0xFF1E1A29),
+    surfaceLight: Color(0xFFFFFFFF),
+  );
+
+  static const placa = AppPalette(
+    key: 'placa',
+    nombre: 'Placa',
+    tag: 'Grafito + ámbar VU',
+    accentDark: Color(0xFFE8A33D),
+    accentLight: Color(0xFFC8862A),
+    bgDark: Color(0xFF17140F),
+    bgLight: Color(0xFFFAF7F0),
+    surfaceDark: Color(0xFF211D16),
+    surfaceLight: Color(0xFFFFFFFF),
+  );
+
+  static const wash = AppPalette(
+    key: 'wash',
+    nombre: 'Wash',
+    tag: 'Teal de luz de escenario',
+    accentDark: Color(0xFF1FBFB0),
+    accentLight: Color(0xFF12928A),
+    bgDark: Color(0xFF0C1618),
+    bgLight: Color(0xFFF5FBFA),
+    surfaceDark: Color(0xFF122326),
+    surfaceLight: Color(0xFFFFFFFF),
+  );
+
+  static const worklight = AppPalette(
+    key: 'worklight',
+    nombre: 'Luz de trabajo',
+    tag: 'Máximo contraste',
+    accentDark: Color(0xFFFF4B6E),
+    accentLight: Color(0xFFE22D53),
+    bgDark: Color(0xFF0A0A0B),
+    bgLight: Color(0xFFFFFFFF),
+    surfaceDark: Color(0xFF141416),
+    surfaceLight: Color(0xFFF7F7F8),
+  );
+
+  static const List<AppPalette> todas = [consola, placa, wash, worklight];
+
+  static AppPalette porClave(String? clave) {
+    return todas.firstWhere((p) => p.key == clave, orElse: () => consola);
+  }
+}
+
+/// Construye el ThemeData de Material 3 para una paleta y un brillo dados.
+ThemeData construirTema(AppPalette paleta, Brightness brightness) {
+  final esOscuro = brightness == Brightness.dark;
+  return ThemeData(
+    useMaterial3: true,
+    brightness: brightness,
+    colorSchemeSeed: esOscuro ? paleta.accentDark : paleta.accentLight,
+    scaffoldBackgroundColor: esOscuro ? paleta.bgDark : paleta.bgLight,
+    appBarTheme: AppBarTheme(
+      backgroundColor: esOscuro ? paleta.surfaceDark : paleta.surfaceLight,
+      foregroundColor: esOscuro ? Colors.white : Colors.black87,
+      elevation: 0,
+    ),
+  );
+}
+
+/// Acceso rápido al color de acento actual desde cualquier widget.
+extension AppColorX on BuildContext {
+  Color get acento => Theme.of(this).colorScheme.primary;
+}
+
+/// Mientras no haya cobro real implementado, las funciones Pro (subir
+/// partituras a la biblioteca personal) quedan liberadas para cualquier
+/// usuario logueado, para poder probarlas. Volver a `false` cuando se
+/// active el cobro.
+const bool kFuncionesProGratisPorAhora = true;
+
+// --- TRANSPOSICIÓN DE CIFRADOS (ACORDES EN TEXTO) ---
+
+/// Transpone acordes en un texto plano ±semitonos. Soporta dos formatos:
+/// - Acordes entre corchetes intercalados con la letra: "Ama[C]zing gra[G]ce".
+/// - Líneas dedicadas a acordes (sueltos, separados por espacios) arriba de
+///   la letra, como se ven en la mayoría de los cifrados de banda.
+/// No modifica el PDF original: opera sobre un texto aparte que el usuario
+/// carga o que se intenta extraer automáticamente del PDF al subirlo.
+class ChordTransposer {
+  static const List<String> _sostenidos = [
+    'C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B',
+  ];
+
+  static const List<String> _bemoles = [
+    'C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B',
+  ];
+
+  static final RegExp _tokenAcorde = RegExp(
+    r'^([A-G])(#|b)?((?:maj|min|dim|aug|sus|add|m)?[0-9]*(?:[#b][0-9]+)?\+?)?(?:/([A-G])(#|b)?)?$',
+  );
+
+  static final RegExp _entreCorchetes = RegExp(r'\[([^\]]+)\]');
+
+  static String transponerTexto(String texto, int semitonos) {
+    if (semitonos == 0) return texto;
+    return texto.split('\n').map((linea) => _transponerLinea(linea, semitonos)).join('\n');
+  }
+
+  static String _transponerLinea(String linea, int semitonos) {
+    if (_entreCorchetes.hasMatch(linea)) {
+      return linea.replaceAllMapped(_entreCorchetes, (m) {
+        final adentro = m.group(1)!;
+        return '[${_transponerToken(adentro, semitonos) ?? adentro}]';
+      });
+    }
+
+    if (!_esLineaDeAcordes(linea)) return linea;
+
+    return linea.replaceAllMapped(RegExp(r'\S+'), (m) {
+      return _transponerToken(m.group(0)!, semitonos) ?? m.group(0)!;
+    });
+  }
+
+  static bool _esLineaDeAcordes(String linea) {
+    final palabras = linea.trim().split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
+    if (palabras.isEmpty) return false;
+    final acordes = palabras.where((w) => _tokenAcorde.hasMatch(w)).length;
+    return acordes / palabras.length >= 0.6;
+  }
+
+  static String? _transponerToken(String token, int semitonos) {
+    final match = _tokenAcorde.firstMatch(token);
+    if (match == null) return null;
+
+    final raiz = match.group(1)!;
+    final alteracion = match.group(2) ?? '';
+    final sufijo = match.group(3) ?? '';
+    final bajoRaiz = match.group(4);
+    final bajoAlteracion = match.group(5) ?? '';
+
+    var resultado = _transponerNota(raiz + alteracion, semitonos) + sufijo;
+    if (bajoRaiz != null) {
+      resultado += '/${_transponerNota(bajoRaiz + bajoAlteracion, semitonos)}';
+    }
+    return resultado;
+  }
+
+  static String _transponerNota(String nota, int semitonos) {
+    final usaBemoles = nota.contains('b');
+    final tablaOrigen = usaBemoles ? _bemoles : _sostenidos;
+    final indice = tablaOrigen.indexOf(nota);
+    if (indice == -1) return nota;
+
+    var nuevoIndice = (indice + semitonos) % 12;
+    if (nuevoIndice < 0) nuevoIndice += 12;
+
+    final tablaDestino = usaBemoles ? _bemoles : _sostenidos;
+    return tablaDestino[nuevoIndice];
+  }
+}
 
 // --- SERVICIO DE AUTENTICACIÓN ---
 
@@ -168,6 +367,7 @@ class UsuarioService {
       'nombre': nombre,
       'rol': rol,
       'email': email,
+      'esPro': false,
       'createdAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
   }
@@ -175,6 +375,14 @@ class UsuarioService {
   static Future<Map<String, dynamic>?> obtenerPerfil(String uid) async {
     final snap = await _ref(uid).get();
     return snap.data();
+  }
+
+  /// Stream reactivo de si el usuario tiene la versión Pro (habilita subir
+  /// PDFs a su repertorio). El campo esPro nunca lo puede escribir el propio
+  /// usuario: lo protegen las reglas de Firestore, y hoy se activa a mano
+  /// desde la consola hasta que haya cobro real integrado.
+  static Stream<bool> streamEsPro(String uid) {
+    return _ref(uid).snapshots().map((snap) => snap.data()?['esPro'] == true);
   }
 }
 
@@ -218,6 +426,150 @@ class FrasesService {
       });
     }
     await batch.commit();
+  }
+}
+
+// --- SERVICIO DE REPERTORIO PERSONAL (BIBLIOTECA DE PARTITURAS) ---
+
+/// Biblioteca de canciones/partituras propia de cada usuario.
+/// PDFs en Storage: usuarios/{uid}/canciones/{archivo}.pdf
+/// Metadatos en Firestore: usuarios/{uid}/mi_repertorio/{cancionId}
+class RepertorioService {
+  static CollectionReference<Map<String, dynamic>> _ref(String uid) =>
+      FirebaseFirestore.instance.collection('usuarios').doc(uid).collection('mi_repertorio');
+
+  static Stream<QuerySnapshot<Map<String, dynamic>>> streamRepertorio(String uid) {
+    return _ref(uid).orderBy('createdAt', descending: true).snapshots();
+  }
+
+  /// Intenta extraer el texto embebido del PDF (best-effort). Si el PDF es
+  /// un escaneo/foto no va a tener texto seleccionable y devuelve ''.
+  static String extraerTextoPdf(Uint8List bytes) {
+    try {
+      final documento = sf_pdf.PdfDocument(inputBytes: bytes);
+      final texto = sf_pdf.PdfTextExtractor(documento).extractText();
+      documento.dispose();
+      return texto.trim();
+    } catch (e) {
+      debugPrint('No se pudo extraer texto del PDF: $e');
+      return '';
+    }
+  }
+
+  /// Sube el PDF a Storage y crea el documento de metadatos en Firestore.
+  /// Devuelve el mapa con los datos guardados (incluye pdfUrl).
+  static Future<Map<String, dynamic>> subirCancion({
+    required String uid,
+    required String titulo,
+    required String tonalidad,
+    required String nombreArchivo,
+    required Uint8List bytes,
+    String cifradoTexto = '',
+  }) async {
+    final nombreUnico = '${DateTime.now().millisecondsSinceEpoch}_$nombreArchivo';
+    final storagePath = 'usuarios/$uid/canciones/$nombreUnico';
+    final storageRef = FirebaseStorage.instance.ref(storagePath);
+
+    await storageRef.putData(bytes, SettableMetadata(contentType: 'application/pdf'));
+    final pdfUrl = await storageRef.getDownloadURL();
+
+    final data = {
+      'titulo': titulo,
+      'tonalidad': tonalidad,
+      'pdfUrl': pdfUrl,
+      'storagePath': storagePath,
+      'cifradoTexto': cifradoTexto,
+      'createdAt': FieldValue.serverTimestamp(),
+    };
+    final doc = await _ref(uid).add(data);
+    return {...data, 'id': doc.id};
+  }
+
+  static Future<void> editarCancion({
+    required String uid,
+    required String cancionId,
+    required String titulo,
+    required String tonalidad,
+    String cifradoTexto = '',
+  }) async {
+    await _ref(uid).doc(cancionId).update({
+      'titulo': titulo,
+      'tonalidad': tonalidad,
+      'cifradoTexto': cifradoTexto,
+    });
+  }
+
+  static Future<void> eliminarCancion({
+    required String uid,
+    required String cancionId,
+    String? storagePath,
+  }) async {
+    if (storagePath != null && storagePath.isNotEmpty) {
+      try {
+        await FirebaseStorage.instance.ref(storagePath).delete();
+      } catch (e) {
+        debugPrint('No se pudo borrar el archivo de Storage: $e');
+      }
+    }
+    await _ref(uid).doc(cancionId).delete();
+  }
+
+  /// Busca canciones por título en TODAS las bibliotecas (collectionGroup).
+  /// Firestore no soporta full-text search: se trae un lote reciente y se
+  /// filtra por substring del lado del cliente.
+  static Future<List<Map<String, dynamic>>> buscarEnTodasLasBibliotecas(String query) async {
+    final snap = await FirebaseFirestore.instance
+        .collectionGroup('mi_repertorio')
+        .orderBy('createdAt', descending: true)
+        .limit(200)
+        .get();
+
+    final queryLower = query.trim().toLowerCase();
+    return snap.docs
+        .map((d) => {...d.data(), 'id': d.id})
+        .where((c) => queryLower.isEmpty || (c['titulo'] as String? ?? '').toLowerCase().contains(queryLower))
+        .toList();
+  }
+}
+
+// --- SERVICIO DE SETLIST DE SALA (LISTA DE TEMAS DEL DÍA) ---
+
+class SetlistService {
+  static CollectionReference<Map<String, dynamic>> _ref(String codigoSala) =>
+      FirebaseFirestore.instance.collection('salas').doc(codigoSala).collection('setlist');
+
+  static Stream<QuerySnapshot<Map<String, dynamic>>> streamSetlist(String codigoSala) {
+    return _ref(codigoSala).orderBy('orden').snapshots();
+  }
+
+  static Future<void> agregarAlSetlist({
+    required String codigoSala,
+    required String titulo,
+    required String pdfUrl,
+    required String subidoPor,
+    required int orden,
+    String cifradoTexto = '',
+  }) async {
+    await _ref(codigoSala).add({
+      'titulo': titulo,
+      'pdfUrl': pdfUrl,
+      'subidoPor': subidoPor,
+      'orden': orden,
+      'cifradoTexto': cifradoTexto,
+      'completado': false,
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  static Future<void> eliminarDelSetlist(String codigoSala, String itemId) async {
+    await _ref(codigoSala).doc(itemId).delete();
+  }
+
+  static Future<void> marcarCompletado(String codigoSala, String itemId, bool completado) async {
+    await _ref(codigoSala).doc(itemId).update({
+      'completado': completado,
+      'completadoAt': completado ? FieldValue.serverTimestamp() : FieldValue.delete(),
+    });
   }
 }
 
@@ -355,7 +707,31 @@ class _SoundCheckProAppState extends State<SoundCheckProApp> {
 
   ThemeMode _themeMode = ThemeMode.light;
 
+  AppPalette _paleta = AppPalette.consola;
 
+  @override
+
+  void initState() {
+
+    super.initState();
+
+    _cargarPaletaGuardada();
+
+  }
+
+  Future<void> _cargarPaletaGuardada() async {
+
+    final prefs = await SharedPreferences.getInstance();
+
+    final clave = prefs.getString('paleta_app');
+
+    if (clave != null && mounted) {
+
+      setState(() => _paleta = AppPalette.porClave(clave));
+
+    }
+
+  }
 
   void toggleTheme() {
 
@@ -366,6 +742,18 @@ class _SoundCheckProAppState extends State<SoundCheckProApp> {
     });
 
   }
+
+  Future<void> setPaleta(AppPalette paleta) async {
+
+    setState(() => _paleta = paleta);
+
+    final prefs = await SharedPreferences.getInstance();
+
+    await prefs.setString('paleta_app', paleta.key);
+
+  }
+
+  AppPalette get paletaActual => _paleta;
 
 
 
@@ -379,25 +767,9 @@ class _SoundCheckProAppState extends State<SoundCheckProApp> {
 
       title: 'Sound Check Pro',
 
-      theme: ThemeData(
+      theme: construirTema(_paleta, Brightness.light),
 
-        useMaterial3: true,
-
-        colorSchemeSeed: Colors.deepPurple,
-
-        brightness: Brightness.light,
-
-      ),
-
-      darkTheme: ThemeData(
-
-        useMaterial3: true,
-
-        colorSchemeSeed: Colors.deepPurple,
-
-        brightness: Brightness.dark,
-
-      ),
+      darkTheme: construirTema(_paleta, Brightness.dark),
 
       themeMode: _themeMode,
 
@@ -535,11 +907,11 @@ class _SplashScreenState extends State<SplashScreen> {
 
   Widget build(BuildContext context) {
 
-    return const Scaffold(
+    return Scaffold(
 
       body: Center(
 
-        child: CircularProgressIndicator(color: Colors.deepPurple),
+        child: CircularProgressIndicator(color: context.acento),
 
       ),
 
@@ -907,7 +1279,7 @@ class _AuthScreenState extends State<AuthScreen> {
 
               children: [
 
-                const Icon(Icons.settings_input_component, size: 64, color: Colors.deepPurpleAccent),
+                Icon(Icons.settings_input_component, size: 64, color: context.acento),
 
                 const SizedBox(height: 16),
 
@@ -1127,6 +1499,16 @@ class IngressMenuScreen extends StatelessWidget {
 
           ),
 
+          IconButton(
+
+            icon: const Icon(Icons.palette_outlined),
+
+            tooltip: 'Color de la app',
+
+            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PaletaPickerScreen())),
+
+          ),
+
           if (user != null)
 
             IconButton(
@@ -1167,7 +1549,7 @@ class IngressMenuScreen extends StatelessWidget {
 
           children: [
 
-            const Icon(Icons.settings_input_component, size: 80, color: Colors.deepPurpleAccent),
+            Icon(Icons.settings_input_component, size: 80, color: context.acento),
 
             const SizedBox(height: 24),
 
@@ -1227,7 +1609,7 @@ class IngressMenuScreen extends StatelessWidget {
 
             const SizedBox(height: 12),
 
-            if (user != null)
+            if (user != null) ...[
 
               OutlinedButton.icon(
 
@@ -1241,6 +1623,22 @@ class IngressMenuScreen extends StatelessWidget {
 
               ),
 
+              const SizedBox(height: 12),
+
+              OutlinedButton.icon(
+
+                icon: const Icon(Icons.library_music),
+
+                label: const Text('MI REPERTORIO'),
+
+                onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MiRepertorioScreen())),
+
+                style: OutlinedButton.styleFrom(padding: const EdgeInsets.all(16)),
+
+              ),
+
+            ],
+
             const SizedBox(height: 32),
 
             TextButton(
@@ -1248,6 +1646,188 @@ class IngressMenuScreen extends StatelessWidget {
               onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SonidistaPinScreen())),
 
               child: const Text('Acceso Sonidista', style: TextStyle(color: Colors.grey)),
+
+            ),
+
+          ],
+
+        ),
+
+      ),
+
+    );
+
+  }
+
+}
+
+// --- SELECTOR DE IDENTIDAD DE COLOR ---
+
+class PaletaPickerScreen extends StatelessWidget {
+
+  const PaletaPickerScreen({super.key});
+
+  @override
+
+  Widget build(BuildContext context) {
+
+    final actual = SoundCheckProApp.of(context).paletaActual;
+
+    final esOscuro = Theme.of(context).brightness == Brightness.dark;
+
+    return Scaffold(
+
+      appBar: AppBar(title: const Text('Color de la app')),
+
+      body: ListView(
+
+        padding: const EdgeInsets.all(16),
+
+        children: [
+
+          Text(
+
+            'Elegí la identidad visual de la app. Se guarda en este dispositivo.',
+
+            style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.onSurfaceVariant),
+
+          ),
+
+          const SizedBox(height: 20),
+
+          for (final paleta in AppPalette.todas) ...[
+
+            _PaletaCard(
+
+              paleta: paleta,
+
+              seleccionada: paleta.key == actual.key,
+
+              oscuro: esOscuro,
+
+              onTap: () => SoundCheckProApp.of(context).setPaleta(paleta),
+
+            ),
+
+            const SizedBox(height: 12),
+
+          ],
+
+        ],
+
+      ),
+
+    );
+
+  }
+
+}
+
+class _PaletaCard extends StatelessWidget {
+
+  final AppPalette paleta;
+
+  final bool seleccionada;
+
+  final bool oscuro;
+
+  final VoidCallback onTap;
+
+  const _PaletaCard({
+
+    required this.paleta,
+
+    required this.seleccionada,
+
+    required this.oscuro,
+
+    required this.onTap,
+
+  });
+
+  @override
+
+  Widget build(BuildContext context) {
+
+    final acento = oscuro ? paleta.accentDark : paleta.accentLight;
+
+    final fondo = oscuro ? paleta.bgDark : paleta.bgLight;
+
+    final superficie = oscuro ? paleta.surfaceDark : paleta.surfaceLight;
+
+    return InkWell(
+
+      onTap: onTap,
+
+      borderRadius: BorderRadius.circular(14),
+
+      child: Container(
+
+        padding: const EdgeInsets.all(14),
+
+        decoration: BoxDecoration(
+
+          borderRadius: BorderRadius.circular(14),
+
+          border: Border.all(
+
+            color: seleccionada ? acento : Theme.of(context).colorScheme.outlineVariant,
+
+            width: seleccionada ? 2 : 1,
+
+          ),
+
+        ),
+
+        child: Row(
+
+          children: [
+
+            Row(
+
+              children: [fondo, superficie, acento].map((c) {
+
+                return Container(
+
+                  width: 20,
+
+                  height: 32,
+
+                  margin: const EdgeInsets.only(right: 3),
+
+                  decoration: BoxDecoration(color: c, borderRadius: BorderRadius.circular(4)),
+
+                );
+
+              }).toList(),
+
+            ),
+
+            const SizedBox(width: 14),
+
+            Expanded(
+
+              child: Column(
+
+                crossAxisAlignment: CrossAxisAlignment.start,
+
+                children: [
+
+                  Text(paleta.nombre, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+
+                  Text(paleta.tag, style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant)),
+
+                ],
+
+              ),
+
+            ),
+
+            Icon(
+
+              seleccionada ? Icons.check_circle : Icons.radio_button_unchecked,
+
+              color: seleccionada ? acento : Theme.of(context).colorScheme.outlineVariant,
 
             ),
 
@@ -1387,7 +1967,7 @@ class _CrearSalaScreenState extends State<CrearSalaScreen> {
 
                 title: const Text('Tu PIN de Sala', textAlign: TextAlign.center),
 
-                subtitle: Text(_pin, textAlign: TextAlign.center, style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.deepPurpleAccent)),
+                subtitle: Text(_pin, textAlign: TextAlign.center, style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: context.acento)),
 
                 trailing: IconButton(icon: const Icon(Icons.copy), onPressed: () {
 
@@ -1631,7 +2211,45 @@ class _RequestScreenState extends State<RequestScreen> {
 
   final _customPedidoController = TextEditingController();
 
+  bool _pantallaEncendida = true;
 
+  @override
+
+  void initState() {
+
+    super.initState();
+
+    WakelockPlus.enable();
+
+  }
+
+  @override
+
+  void dispose() {
+
+    WakelockPlus.disable();
+
+    _customPedidoController.dispose();
+
+    super.dispose();
+
+  }
+
+  void _togglePantallaEncendida() {
+
+    setState(() => _pantallaEncendida = !_pantallaEncendida);
+
+    if (_pantallaEncendida) {
+
+      WakelockPlus.enable();
+
+    } else {
+
+      WakelockPlus.disable();
+
+    }
+
+  }
 
   Future<void> _cerrarSesion(BuildContext context) async {
 
@@ -1713,7 +2331,7 @@ class _RequestScreenState extends State<RequestScreen> {
 
             padding: const EdgeInsets.symmetric(horizontal: 2),
 
-            backgroundColor: Colors.deepPurple.withOpacity(0.05),
+            backgroundColor: context.acento.withOpacity(0.05),
 
             elevation: 0,
 
@@ -1721,7 +2339,7 @@ class _RequestScreenState extends State<RequestScreen> {
 
                 borderRadius: BorderRadius.circular(6),
 
-                side: BorderSide(color: Colors.deepPurple.withOpacity(0.2))
+                side: BorderSide(color: context.acento.withOpacity(0.2))
 
             ),
 
@@ -1747,25 +2365,17 @@ class _RequestScreenState extends State<RequestScreen> {
 
   @override
 
-  void dispose() {
-
-    _customPedidoController.dispose();
-
-    super.dispose();
-
-  }
-
-
-
-  @override
-
   Widget build(BuildContext context) {
 
     final rolStr = widget.role == UserRole.musico ? 'Músico' : 'Cantante';
 
 
 
-    return Scaffold(
+    return DefaultTabController(
+
+      length: 2,
+
+      child: Scaffold(
 
       appBar: AppBar(
 
@@ -1793,7 +2403,7 @@ class _RequestScreenState extends State<RequestScreen> {
 
             decoration: BoxDecoration(
 
-              color: Colors.deepPurple,
+              color: context.acento,
 
               borderRadius: BorderRadius.circular(20),
 
@@ -1807,13 +2417,39 @@ class _RequestScreenState extends State<RequestScreen> {
 
             ),
 
-          )
+          ),
+
+          IconButton(
+
+            icon: Icon(_pantallaEncendida ? Icons.lightbulb : Icons.lightbulb_outline),
+
+            tooltip: _pantallaEncendida ? 'Pantalla siempre encendida: activado' : 'Pantalla siempre encendida: desactivado',
+
+            onPressed: _togglePantallaEncendida,
+
+          ),
 
         ],
 
+        bottom: const TabBar(
+
+          tabs: [
+
+            Tab(text: 'PEDIDOS'),
+
+            Tab(text: 'SETLIST'),
+
+          ],
+
+        ),
+
       ),
 
-      body: Column(
+      body: TabBarView(
+
+        children: [
+
+          Column(
 
         children: [
 
@@ -2035,7 +2671,7 @@ class _RequestScreenState extends State<RequestScreen> {
 
                           "Consola: $respuestaTecnico",
 
-                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.deepPurple),
+                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: context.acento),
 
                         )
 
@@ -2056,6 +2692,598 @@ class _RequestScreenState extends State<RequestScreen> {
           ),
 
         ],
+
+      ),
+
+          SetlistTab(codigoSala: widget.codigoSala, nombreUsuario: widget.userName),
+
+        ],
+
+      ),
+
+      ),
+
+    );
+
+  }
+
+}
+
+
+
+// --- LISTA DE TEMAS COMPARTIDA (SETLIST DE SALA) ---
+
+class SetlistTab extends StatelessWidget {
+
+  final String codigoSala;
+
+  final String nombreUsuario;
+
+  const SetlistTab({super.key, required this.codigoSala, required this.nombreUsuario});
+
+  Future<void> _agregarCancion(BuildContext context) async {
+
+    final opcion = await showModalBottomSheet<String>(
+
+      context: context,
+
+      builder: (context) => SafeArea(
+
+        child: Column(
+
+          mainAxisSize: MainAxisSize.min,
+
+          children: [
+
+            ListTile(
+
+              leading: Icon(Icons.library_music, color: context.acento),
+
+              title: const Text('Desde mi biblioteca'),
+
+              onTap: () => Navigator.pop(context, 'biblioteca'),
+
+            ),
+
+            ListTile(
+
+              leading: Icon(Icons.search, color: context.acento),
+
+              title: const Text('Buscar en todas las bibliotecas'),
+
+              onTap: () => Navigator.pop(context, 'buscar'),
+
+            ),
+
+          ],
+
+        ),
+
+      ),
+
+    );
+
+    if (opcion == null || !context.mounted) return;
+
+    if (opcion == 'biblioteca') {
+
+      await _elegirDesdeBiblioteca(context);
+
+    } else {
+
+      await _buscarGlobal(context);
+
+    }
+
+  }
+
+  Future<void> _elegirDesdeBiblioteca(BuildContext context) async {
+
+    final user = AuthService.currentUser;
+
+    if (user == null) {
+
+      ScaffoldMessenger.of(context).showSnackBar(
+
+        const SnackBar(content: Text('Necesitás iniciar sesión para usar tu biblioteca.')),
+
+      );
+
+      return;
+
+    }
+
+    final seleccion = await showModalBottomSheet<Map<String, dynamic>>(
+
+      context: context,
+
+      isScrollControlled: true,
+
+      builder: (context) => DraggableScrollableSheet(
+
+        expand: false,
+
+        builder: (context, scrollController) => StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+
+          stream: RepertorioService.streamRepertorio(user.uid),
+
+          builder: (context, snapshot) {
+
+            if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+
+            final docs = snapshot.data!.docs;
+
+            if (docs.isEmpty) return const Center(child: Text('Tu biblioteca está vacía.'));
+
+            return ListView.builder(
+
+              controller: scrollController,
+
+              itemCount: docs.length,
+
+              itemBuilder: (context, i) {
+
+                final data = docs[i].data();
+
+                return ListTile(
+
+                  leading: Icon(Icons.picture_as_pdf, color: context.acento),
+
+                  title: Text(data['titulo'] as String? ?? ''),
+
+                  subtitle: Text(data['tonalidad'] as String? ?? ''),
+
+                  onTap: () => Navigator.pop(context, data),
+
+                );
+
+              },
+
+            );
+
+          },
+
+        ),
+
+      ),
+
+    );
+
+    if (seleccion == null || !context.mounted) return;
+
+    await _confirmarAgregar(
+
+      context,
+
+      seleccion['titulo'] as String? ?? '',
+
+      seleccion['pdfUrl'] as String? ?? '',
+
+      cifradoTexto: seleccion['cifradoTexto'] as String? ?? '',
+
+    );
+
+  }
+
+  Future<void> _buscarGlobal(BuildContext context) async {
+
+    final controller = TextEditingController();
+
+    final seleccion = await showModalBottomSheet<Map<String, dynamic>>(
+
+      context: context,
+
+      isScrollControlled: true,
+
+      builder: (context) {
+
+        List<Map<String, dynamic>> resultados = [];
+
+        bool buscando = false;
+
+        bool buscoAlMenosUnaVez = false;
+
+        return StatefulBuilder(
+
+          builder: (context, setModalState) {
+
+            Future<void> ejecutarBusqueda() async {
+
+              setModalState(() => buscando = true);
+
+              final r = await RepertorioService.buscarEnTodasLasBibliotecas(controller.text);
+
+              setModalState(() {
+
+                resultados = r;
+
+                buscando = false;
+
+                buscoAlMenosUnaVez = true;
+
+              });
+
+            }
+
+            return Padding(
+
+              padding: EdgeInsets.only(
+
+                bottom: MediaQuery.of(context).viewInsets.bottom,
+
+                left: 16,
+
+                right: 16,
+
+                top: 16,
+
+              ),
+
+              child: SafeArea(
+
+                child: Column(
+
+                  mainAxisSize: MainAxisSize.min,
+
+                  children: [
+
+                    Row(
+
+                      children: [
+
+                        Expanded(
+
+                          child: TextField(
+
+                            controller: controller,
+
+                            autofocus: true,
+
+                            decoration: const InputDecoration(
+
+                              hintText: 'Buscar canción por título...',
+
+                              border: OutlineInputBorder(),
+
+                            ),
+
+                            onSubmitted: (_) => ejecutarBusqueda(),
+
+                          ),
+
+                        ),
+
+                        const SizedBox(width: 8),
+
+                        IconButton.filled(
+
+                          icon: const Icon(Icons.search),
+
+                          onPressed: ejecutarBusqueda,
+
+                        ),
+
+                      ],
+
+                    ),
+
+                    const SizedBox(height: 12),
+
+                    if (buscando) const Padding(padding: EdgeInsets.all(16), child: CircularProgressIndicator()),
+
+                    if (!buscando && buscoAlMenosUnaVez && resultados.isEmpty)
+
+                      const Padding(padding: EdgeInsets.all(16), child: Text('Sin resultados.')),
+
+                    if (!buscando && resultados.isNotEmpty)
+
+                      Flexible(
+
+                        child: ListView.builder(
+
+                          shrinkWrap: true,
+
+                          itemCount: resultados.length,
+
+                          itemBuilder: (context, i) {
+
+                            final data = resultados[i];
+
+                            return ListTile(
+
+                              leading: Icon(Icons.picture_as_pdf, color: context.acento),
+
+                              title: Text(data['titulo'] as String? ?? ''),
+
+                              subtitle: Text(data['tonalidad'] as String? ?? ''),
+
+                              onTap: () => Navigator.pop(context, data),
+
+                            );
+
+                          },
+
+                        ),
+
+                      ),
+
+                    const SizedBox(height: 12),
+
+                  ],
+
+                ),
+
+              ),
+
+            );
+
+          },
+
+        );
+
+      },
+
+    );
+
+    if (seleccion == null || !context.mounted) return;
+
+    await _confirmarAgregar(
+
+      context,
+
+      seleccion['titulo'] as String? ?? '',
+
+      seleccion['pdfUrl'] as String? ?? '',
+
+      cifradoTexto: seleccion['cifradoTexto'] as String? ?? '',
+
+    );
+
+  }
+
+  Future<void> _confirmarAgregar(BuildContext context, String titulo, String pdfUrl, {String cifradoTexto = ''}) async {
+
+    if (titulo.isEmpty || pdfUrl.isEmpty) return;
+
+    final actual = await SetlistService.streamSetlist(codigoSala).first;
+
+    await SetlistService.agregarAlSetlist(
+
+      codigoSala: codigoSala,
+
+      titulo: titulo,
+
+      pdfUrl: pdfUrl,
+
+      subidoPor: nombreUsuario,
+
+      orden: actual.docs.length,
+
+      cifradoTexto: cifradoTexto,
+
+    );
+
+    if (context.mounted) {
+
+      ScaffoldMessenger.of(context).showSnackBar(
+
+        SnackBar(content: Text('Agregado: $titulo'), duration: const Duration(seconds: 1)),
+
+      );
+
+    }
+
+  }
+
+  @override
+
+  Widget build(BuildContext context) {
+
+    return Scaffold(
+
+      body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+
+        stream: SetlistService.streamSetlist(codigoSala),
+
+        builder: (context, snapshot) {
+
+          if (snapshot.hasError) {
+
+            return Center(child: Text('Error: ${snapshot.error}'));
+
+          }
+
+          if (!snapshot.hasData) {
+
+            return const Center(child: CircularProgressIndicator());
+
+          }
+
+          final docs = snapshot.data!.docs;
+
+          if (docs.isEmpty) {
+
+            return const Center(child: Text('Todavía no hay temas en la lista.'));
+
+          }
+
+          final primerPendienteIndex = docs.indexWhere(
+
+            (d) => (d.data()['completado'] as bool? ?? false) == false,
+
+          );
+
+          return ListView.separated(
+
+            itemCount: docs.length,
+
+            separatorBuilder: (_, __) => const Divider(height: 1),
+
+            itemBuilder: (context, i) {
+
+              final doc = docs[i];
+
+              final data = doc.data();
+
+              final titulo = data['titulo'] as String? ?? '';
+
+              final subidoPor = data['subidoPor'] as String? ?? '';
+
+              final pdfUrl = data['pdfUrl'] as String? ?? '';
+
+              final cifradoTexto = data['cifradoTexto'] as String? ?? '';
+
+              final completado = data['completado'] as bool? ?? false;
+
+              final esProximo = !completado && i == primerPendienteIndex;
+
+              return ListTile(
+
+                tileColor: esProximo ? context.acento.withOpacity(0.06) : null,
+
+                leading: IconButton(
+
+                  icon: Icon(
+
+                    completado ? Icons.check_circle : Icons.check_circle_outline,
+
+                    color: completado ? Colors.green : context.acento.withOpacity(0.5),
+
+                  ),
+
+                  tooltip: completado ? 'Marcar como pendiente' : 'Marcar como tocado',
+
+                  onPressed: () => SetlistService.marcarCompletado(codigoSala, doc.id, !completado),
+
+                ),
+
+                title: Row(
+
+                  children: [
+
+                    Flexible(
+
+                      child: Text(
+
+                        titulo,
+
+                        style: TextStyle(
+
+                          decoration: completado ? TextDecoration.lineThrough : null,
+
+                          color: completado ? Colors.grey : null,
+
+                        ),
+
+                      ),
+
+                    ),
+
+                    if (esProximo) ...[
+
+                      const SizedBox(width: 8),
+
+                      Container(
+
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+
+                        decoration: BoxDecoration(
+
+                          color: context.acento,
+
+                          borderRadius: BorderRadius.circular(10),
+
+                        ),
+
+                        child: const Text(
+
+                          'PRÓXIMO',
+
+                          style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.white),
+
+                        ),
+
+                      ),
+
+                    ],
+
+                  ],
+
+                ),
+
+                subtitle: Text(
+
+                  'Subido por $subidoPor',
+
+                  style: TextStyle(color: completado ? Colors.grey : null),
+
+                ),
+
+                onTap: pdfUrl.isEmpty
+
+                    ? null
+
+                    : () => Navigator.push(
+
+                        context,
+
+                        MaterialPageRoute(builder: (_) => PdfViewerScreen(titulo: titulo, pdfUrl: pdfUrl)),
+
+                      ),
+
+                trailing: Row(
+
+                  mainAxisSize: MainAxisSize.min,
+
+                  children: [
+
+                    if (cifradoTexto.isNotEmpty)
+
+                      IconButton(
+
+                        icon: Icon(Icons.music_note, color: context.acento),
+
+                        tooltip: 'Ver cifrado (transponer)',
+
+                        onPressed: () => Navigator.push(
+
+                          context,
+
+                          MaterialPageRoute(builder: (_) => CifradoViewerScreen(titulo: titulo, cifradoOriginal: cifradoTexto)),
+
+                        ),
+
+                      ),
+
+                    IconButton(
+
+                      icon: const Icon(Icons.delete_outline, color: Colors.red),
+
+                      onPressed: () => SetlistService.eliminarDelSetlist(codigoSala, doc.id),
+
+                    ),
+
+                  ],
+
+                ),
+
+              );
+
+            },
+
+          );
+
+        },
+
+      ),
+
+      floatingActionButton: FloatingActionButton(
+
+        onPressed: () => _agregarCancion(context),
+
+        tooltip: 'Agregar canción',
+
+        child: const Icon(Icons.add),
 
       ),
 
@@ -2301,6 +3529,704 @@ class FrasesAdminScreen extends StatelessWidget {
 
 
 
+// --- MI REPERTORIO (BIBLIOTECA PERSONAL DE PARTITURAS) ---
+
+class MiRepertorioScreen extends StatefulWidget {
+
+  const MiRepertorioScreen({super.key});
+
+  @override
+
+  State<MiRepertorioScreen> createState() => _MiRepertorioScreenState();
+
+}
+
+class _MiRepertorioScreenState extends State<MiRepertorioScreen> {
+
+  bool _subiendo = false;
+
+  Future<void> _mostrarUpsellPro(BuildContext context) async {
+
+    await showDialog<void>(
+
+      context: context,
+
+      builder: (context) => AlertDialog(
+
+        title: const Text('Función Pro'),
+
+        content: const Text('Subir tus propias partituras/cifrados en PDF es parte de Sound Check Pro. Activá tu cuenta Pro para usar esta función.'),
+
+        actions: [
+
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Entendido')),
+
+        ],
+
+      ),
+
+    );
+
+  }
+
+  Future<void> _subirNuevaCancion(String uid) async {
+
+    final esPro = kFuncionesProGratisPorAhora || await UsuarioService.streamEsPro(uid).first;
+
+    if (!esPro) {
+
+      if (mounted) await _mostrarUpsellPro(context);
+
+      return;
+
+    }
+
+    final result = await FilePicker.platform.pickFiles(
+
+      type: FileType.custom,
+
+      allowedExtensions: ['pdf'],
+
+      withData: true,
+
+    );
+
+    if (result == null || result.files.single.bytes == null) return;
+
+    final archivo = result.files.single;
+
+    if (!mounted) return;
+
+    final cifradoExtraido = RepertorioService.extraerTextoPdf(archivo.bytes!);
+
+    if (!mounted) return;
+
+    final datos = await _pedirDatosCancion(context, cifradoInicial: cifradoExtraido);
+
+    if (datos == null) return;
+
+    setState(() => _subiendo = true);
+
+    try {
+
+      await RepertorioService.subirCancion(
+
+        uid: uid,
+
+        titulo: datos.$1,
+
+        tonalidad: datos.$2,
+
+        nombreArchivo: archivo.name,
+
+        bytes: archivo.bytes!,
+
+        cifradoTexto: datos.$3,
+
+      );
+
+    } catch (e) {
+
+      if (mounted) {
+
+        ScaffoldMessenger.of(context).showSnackBar(
+
+          SnackBar(content: Text('Error al subir: $e'), backgroundColor: Colors.redAccent),
+
+        );
+
+      }
+
+    } finally {
+
+      if (mounted) setState(() => _subiendo = false);
+
+    }
+
+  }
+
+  Future<(String, String, String)?> _pedirDatosCancion(
+
+    BuildContext context, {
+
+    String? tituloInicial,
+
+    String? tonalidadInicial,
+
+    String? cifradoInicial,
+
+  }) async {
+
+    final tituloController = TextEditingController(text: tituloInicial ?? '');
+
+    final tonalidadController = TextEditingController(text: tonalidadInicial ?? '');
+
+    final cifradoController = TextEditingController(text: cifradoInicial ?? '');
+
+    final formKey = GlobalKey<FormState>();
+
+    return showDialog<(String, String, String)>(
+
+      context: context,
+
+      builder: (context) => AlertDialog(
+
+        title: Text(tituloInicial == null ? 'Nueva canción' : 'Editar canción'),
+
+        content: SizedBox(
+
+          width: 400,
+
+          child: Form(
+
+            key: formKey,
+
+            child: SingleChildScrollView(
+
+              child: Column(
+
+                mainAxisSize: MainAxisSize.min,
+
+                children: [
+
+                  TextFormField(
+
+                    controller: tituloController,
+
+                    autofocus: true,
+
+                    decoration: const InputDecoration(labelText: 'Título', border: OutlineInputBorder()),
+
+                    validator: (v) => (v == null || v.trim().isEmpty) ? 'Requerido' : null,
+
+                  ),
+
+                  const SizedBox(height: 12),
+
+                  TextFormField(
+
+                    controller: tonalidadController,
+
+                    decoration: const InputDecoration(labelText: 'Tonalidad (opcional)', border: OutlineInputBorder()),
+
+                  ),
+
+                  const SizedBox(height: 12),
+
+                  TextFormField(
+
+                    controller: cifradoController,
+
+                    maxLines: 8,
+
+                    style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+
+                    decoration: const InputDecoration(
+
+                      labelText: 'Cifrado en texto (opcional, para transponer)',
+
+                      hintText: 'Pegá los acordes acá. Ej: [C]Amazing [G]grace...',
+
+                      border: OutlineInputBorder(),
+
+                      alignLabelWithHint: true,
+
+                    ),
+
+                  ),
+
+                ],
+
+              ),
+
+            ),
+
+          ),
+
+        ),
+
+        actions: [
+
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
+
+          TextButton(
+
+            onPressed: () {
+
+              if (!(formKey.currentState?.validate() ?? false)) return;
+
+              Navigator.pop(context, (tituloController.text.trim(), tonalidadController.text.trim(), cifradoController.text.trim()));
+
+            },
+
+            child: const Text('Guardar'),
+
+          ),
+
+        ],
+
+      ),
+
+    );
+
+  }
+
+  Future<void> _editarCancion(String uid, String id, String tituloActual, String tonalidadActual, String cifradoActual) async {
+
+    final datos = await _pedirDatosCancion(
+
+      context,
+
+      tituloInicial: tituloActual,
+
+      tonalidadInicial: tonalidadActual,
+
+      cifradoInicial: cifradoActual,
+
+    );
+
+    if (datos == null) return;
+
+    await RepertorioService.editarCancion(uid: uid, cancionId: id, titulo: datos.$1, tonalidad: datos.$2, cifradoTexto: datos.$3);
+
+  }
+
+  Future<void> _confirmarEliminar(String uid, String id, String? storagePath) async {
+
+    final confirm = await showDialog<bool>(
+
+      context: context,
+
+      builder: (c) => AlertDialog(
+
+        title: const Text('¿Eliminar canción?'),
+
+        content: const Text('Se borra de tu biblioteca. Si está en el setlist de alguna sala, va a dejar de abrir.'),
+
+        actions: [
+
+          TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Cancelar')),
+
+          TextButton(onPressed: () => Navigator.pop(c, true), child: const Text('Eliminar')),
+
+        ],
+
+      ),
+
+    );
+
+    if (confirm == true) {
+
+      await RepertorioService.eliminarCancion(uid: uid, cancionId: id, storagePath: storagePath);
+
+    }
+
+  }
+
+  @override
+
+  Widget build(BuildContext context) {
+
+    final user = AuthService.currentUser;
+
+    return Scaffold(
+
+      appBar: AppBar(title: const Text('Mi repertorio')),
+
+      body: user == null
+
+          ? const Center(child: Text('Necesitás iniciar sesión para tener tu biblioteca.'))
+
+          : Column(
+
+              children: [
+
+                StreamBuilder<bool>(
+
+                  stream: UsuarioService.streamEsPro(user.uid),
+
+                  builder: (context, snapshot) {
+
+                    if (kFuncionesProGratisPorAhora || snapshot.data == true) return const SizedBox.shrink();
+
+                    return Container(
+
+                      width: double.infinity,
+
+                      color: context.acento.withOpacity(0.08),
+
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+
+                      child: Row(
+
+                        children: [
+
+                          Icon(Icons.workspace_premium, color: context.acento, size: 18),
+
+                          const SizedBox(width: 8),
+
+                          const Expanded(
+
+                            child: Text(
+
+                              'Subir tus propias partituras es una función Pro.',
+
+                              style: TextStyle(fontSize: 12),
+
+                            ),
+
+                          ),
+
+                          TextButton(
+
+                            onPressed: () => _mostrarUpsellPro(context),
+
+                            child: const Text('Más info', style: TextStyle(fontSize: 12)),
+
+                          ),
+
+                        ],
+
+                      ),
+
+                    );
+
+                  },
+
+                ),
+
+                Expanded(
+
+                  child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+
+              stream: RepertorioService.streamRepertorio(user.uid),
+
+              builder: (context, snapshot) {
+
+                if (snapshot.hasError) {
+
+                  return Center(child: Text('Error: ${snapshot.error}'));
+
+                }
+
+                if (!snapshot.hasData) {
+
+                  return const Center(child: CircularProgressIndicator());
+
+                }
+
+                final docs = snapshot.data!.docs;
+
+                if (docs.isEmpty) {
+
+                  return const Center(child: Text('Todavía no subiste ninguna canción.'));
+
+                }
+
+                return ListView.separated(
+
+                  itemCount: docs.length,
+
+                  separatorBuilder: (_, __) => const Divider(height: 1),
+
+                  itemBuilder: (context, i) {
+
+                    final doc = docs[i];
+
+                    final data = doc.data();
+
+                    final titulo = data['titulo'] as String? ?? '';
+
+                    final tonalidad = data['tonalidad'] as String? ?? '';
+
+                    final pdfUrl = data['pdfUrl'] as String? ?? '';
+
+                    final cifradoTexto = data['cifradoTexto'] as String? ?? '';
+
+                    return ListTile(
+
+                      leading: Icon(Icons.picture_as_pdf, color: context.acento),
+
+                      title: Text(titulo),
+
+                      subtitle: tonalidad.isNotEmpty ? Text('Tonalidad: $tonalidad') : null,
+
+                      onTap: () => Navigator.push(
+
+                        context,
+
+                        MaterialPageRoute(builder: (_) => PdfViewerScreen(titulo: titulo, pdfUrl: pdfUrl)),
+
+                      ),
+
+                      trailing: Row(
+
+                        mainAxisSize: MainAxisSize.min,
+
+                        children: [
+
+                          if (cifradoTexto.isNotEmpty)
+
+                            IconButton(
+
+                              icon: Icon(Icons.music_note, color: context.acento),
+
+                              tooltip: 'Ver cifrado (transponer)',
+
+                              onPressed: () => Navigator.push(
+
+                                context,
+
+                                MaterialPageRoute(builder: (_) => CifradoViewerScreen(titulo: titulo, cifradoOriginal: cifradoTexto)),
+
+                              ),
+
+                            ),
+
+                          IconButton(
+
+                            icon: const Icon(Icons.edit, color: Colors.blue),
+
+                            onPressed: () => _editarCancion(user.uid, doc.id, titulo, tonalidad, cifradoTexto),
+
+                          ),
+
+                          IconButton(
+
+                            icon: const Icon(Icons.delete, color: Colors.red),
+
+                            onPressed: () => _confirmarEliminar(user.uid, doc.id, data['storagePath'] as String?),
+
+                          ),
+
+                        ],
+
+                      ),
+
+                    );
+
+                  },
+
+                );
+
+              },
+
+            ),
+
+                ),
+
+              ],
+
+            ),
+
+      floatingActionButton: user == null || _subiendo
+
+          ? (_subiendo ? const FloatingActionButton(onPressed: null, child: CircularProgressIndicator(color: Colors.white)) : null)
+
+          : FloatingActionButton(
+
+              onPressed: () => _subirNuevaCancion(user.uid),
+
+              child: const Icon(Icons.upload_file),
+
+            ),
+
+    );
+
+  }
+
+}
+
+// --- VISOR DE CIFRADO (TEXTO CON ACORDES TRANSPONIBLES) ---
+
+class CifradoViewerScreen extends StatefulWidget {
+
+  final String titulo;
+
+  final String cifradoOriginal;
+
+  const CifradoViewerScreen({super.key, required this.titulo, required this.cifradoOriginal});
+
+  @override
+
+  State<CifradoViewerScreen> createState() => _CifradoViewerScreenState();
+
+}
+
+class _CifradoViewerScreenState extends State<CifradoViewerScreen> {
+
+  int _semitonos = 0;
+
+  @override
+
+  Widget build(BuildContext context) {
+
+    final texto = ChordTransposer.transponerTexto(widget.cifradoOriginal, _semitonos);
+
+    final etiquetaSemitonos = _semitonos == 0 ? '0' : (_semitonos > 0 ? '+$_semitonos' : '$_semitonos');
+
+    return Scaffold(
+
+      appBar: AppBar(
+
+        title: Text(widget.titulo, overflow: TextOverflow.ellipsis),
+
+        actions: [
+
+          IconButton(
+
+            icon: const Icon(Icons.remove_circle_outline),
+
+            tooltip: 'Bajar un semitono',
+
+            onPressed: () => setState(() => _semitonos--),
+
+          ),
+
+          Padding(
+
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+
+            child: Center(
+
+              child: Text(etiquetaSemitonos, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+
+            ),
+
+          ),
+
+          IconButton(
+
+            icon: const Icon(Icons.add_circle_outline),
+
+            tooltip: 'Subir un semitono',
+
+            onPressed: () => setState(() => _semitonos++),
+
+          ),
+
+          IconButton(
+
+            icon: const Icon(Icons.refresh),
+
+            tooltip: 'Restablecer tono original',
+
+            onPressed: _semitonos == 0 ? null : () => setState(() => _semitonos = 0),
+
+          ),
+
+        ],
+
+      ),
+
+      body: SingleChildScrollView(
+
+        padding: const EdgeInsets.all(16),
+
+        child: SelectableText(
+
+          texto,
+
+          style: const TextStyle(fontFamily: 'monospace', fontSize: 14, height: 1.6),
+
+        ),
+
+      ),
+
+    );
+
+  }
+
+}
+
+// --- VISOR DE PDF ---
+
+class PdfViewerScreen extends StatefulWidget {
+
+  final String titulo;
+
+  final String pdfUrl;
+
+  const PdfViewerScreen({super.key, required this.titulo, required this.pdfUrl});
+
+  @override
+
+  State<PdfViewerScreen> createState() => _PdfViewerScreenState();
+
+}
+
+class _PdfViewerScreenState extends State<PdfViewerScreen> {
+
+  String? _error;
+
+  @override
+
+  Widget build(BuildContext context) {
+
+    return Scaffold(
+
+      backgroundColor: Colors.black,
+
+      appBar: AppBar(
+
+        title: Text(widget.titulo, overflow: TextOverflow.ellipsis),
+
+      ),
+
+      body: _error != null
+
+          ? Center(
+
+              child: Padding(
+
+                padding: const EdgeInsets.all(24),
+
+                child: Column(
+
+                  mainAxisSize: MainAxisSize.min,
+
+                  children: [
+
+                    const Icon(Icons.error_outline, color: Colors.redAccent, size: 48),
+
+                    const SizedBox(height: 12),
+
+                    Text(
+
+                      'No se pudo cargar el PDF.\n$_error',
+
+                      textAlign: TextAlign.center,
+
+                      style: const TextStyle(color: Colors.white),
+
+                    ),
+
+                  ],
+
+                ),
+
+              ),
+
+            )
+
+          : SfPdfViewer.network(
+
+              widget.pdfUrl,
+
+              onDocumentLoadFailed: (details) {
+
+                setState(() => _error = details.description);
+
+              },
+
+            ),
+
+    );
+
+  }
+
+}
+
 // --- ACCESO SONIDISTA ---
 
 class SonidistaPinScreen extends StatefulWidget {
@@ -2431,13 +4357,57 @@ class _SonidistaPinScreenState extends State<SonidistaPinScreen> {
 
 // --- PANEL DE CONTROL DEL SONIDISTA ---
 
-class SonidistaPage extends StatelessWidget {
+class SonidistaPage extends StatefulWidget {
 
   final String codigoSala;
 
   const SonidistaPage({super.key, required this.codigoSala});
 
+  @override
 
+  State<SonidistaPage> createState() => _SonidistaPageState();
+
+}
+
+class _SonidistaPageState extends State<SonidistaPage> {
+
+  bool _pantallaEncendida = true;
+
+  @override
+
+  void initState() {
+
+    super.initState();
+
+    WakelockPlus.enable();
+
+  }
+
+  @override
+
+  void dispose() {
+
+    WakelockPlus.disable();
+
+    super.dispose();
+
+  }
+
+  void _togglePantallaEncendida() {
+
+    setState(() => _pantallaEncendida = !_pantallaEncendida);
+
+    if (_pantallaEncendida) {
+
+      WakelockPlus.enable();
+
+    } else {
+
+      WakelockPlus.disable();
+
+    }
+
+  }
 
   Future<void> _cerrarSesion(BuildContext context) async {
 
@@ -2513,7 +4483,7 @@ class SonidistaPage extends StatelessWidget {
 
               if (controller.text.trim().isNotEmpty) {
 
-                await FirestoreService.responderPedido(codigoSala, pedidoId, controller.text.trim());
+                await FirestoreService.responderPedido(widget.codigoSala, pedidoId, controller.text.trim());
 
               }
 
@@ -2539,11 +4509,15 @@ class SonidistaPage extends StatelessWidget {
 
   Widget build(BuildContext context) {
 
-    return Scaffold(
+    return DefaultTabController(
+
+      length: 2,
+
+      child: Scaffold(
 
       appBar: AppBar(
 
-        title: Text('Consola: $codigoSala'),
+        title: Text('Consola: ${widget.codigoSala}'),
 
         leading: IconButton(
 
@@ -2583,23 +4557,49 @@ class SonidistaPage extends StatelessWidget {
 
                 );
 
-                if (confirm == true) await FirestoreService.borrarTodo(codigoSala);
+                if (confirm == true) await FirestoreService.borrarTodo(widget.codigoSala);
 
               }
 
-          )
+          ),
+
+          IconButton(
+
+            icon: Icon(_pantallaEncendida ? Icons.lightbulb : Icons.lightbulb_outline),
+
+            tooltip: _pantallaEncendida ? 'Pantalla siempre encendida: activado' : 'Pantalla siempre encendida: desactivado',
+
+            onPressed: _togglePantallaEncendida,
+
+          ),
 
         ],
 
+        bottom: const TabBar(
+
+          tabs: [
+
+            Tab(text: 'PEDIDOS'),
+
+            Tab(text: 'SETLIST'),
+
+          ],
+
+        ),
+
       ),
 
-      body: StreamBuilder<QuerySnapshot>(
+      body: TabBarView(
+
+        children: [
+
+          StreamBuilder<QuerySnapshot>(
 
         stream: FirebaseFirestore.instance
 
             .collection('salas')
 
-            .doc(codigoSala)
+            .doc(widget.codigoSala)
 
             .collection('pedidos')
 
@@ -2641,7 +4641,7 @@ class SonidistaPage extends StatelessWidget {
 
               return ListTile(
 
-                tileColor: isAtendido ? Colors.transparent : Colors.deepPurple.withOpacity(0.05),
+                tileColor: isAtendido ? Colors.transparent : context.acento.withOpacity(0.05),
 
                 title: Text(pedidoTexto, style: TextStyle(fontWeight: isAtendido ? FontWeight.normal : FontWeight.bold, fontSize: 16)),
 
@@ -2655,7 +4655,7 @@ class SonidistaPage extends StatelessWidget {
 
                     if (respuestaActual.isNotEmpty)
 
-                      Text('Tu respuesta: $respuestaActual', style: const TextStyle(color: Colors.deepPurple, fontSize: 12, fontWeight: FontWeight.w500)),
+                      Text('Tu respuesta: $respuestaActual', style: TextStyle(color: context.acento, fontSize: 12, fontWeight: FontWeight.w500)),
 
                   ],
 
@@ -2698,6 +4698,14 @@ class SonidistaPage extends StatelessWidget {
           );
 
         },
+
+      ),
+
+          SetlistTab(codigoSala: widget.codigoSala, nombreUsuario: 'Sonidista'),
+
+        ],
+
+      ),
 
       ),
 
