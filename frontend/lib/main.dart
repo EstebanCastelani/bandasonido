@@ -22,7 +22,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 const FirebaseOptions firebaseOptions = FirebaseOptions(
 
-  apiKey: 'AIzaSyBmIF6Eq5Av-fgDSLILEdRvAoWdKqth-rM',
+  apiKey: 'AIzaSyBmIF6Eq5Av-fgDSLIlEdRvAoWdKqth-rM',
 
   authDomain: 'appbandasonido.firebaseapp.com',
 
