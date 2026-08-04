@@ -668,6 +668,14 @@ class RepertorioService {
     return _ref(uid).orderBy('createdAt', descending: true).snapshots();
   }
 
+  /// Supabase Storage rechaza keys con espacios, tildes, paréntesis, etc.
+  /// (statusCode 400, error InvalidKey). Se sanitiza el nombre de archivo
+  /// original antes de armar el storagePath — no afecta el 'titulo' que
+  /// se muestra en la UI, solo el nombre interno del objeto en el bucket.
+  static String _sanitizarNombreArchivo(String nombre) {
+    return nombre.replaceAll(RegExp(r'[^A-Za-z0-9._-]'), '_');
+  }
+
   /// Intenta extraer el texto embebido del PDF (best-effort). Si el PDF es
   /// un escaneo/foto no va a tener texto seleccionable y devuelve ''.
   static String extraerTextoPdf(Uint8List bytes) {
@@ -693,7 +701,7 @@ class RepertorioService {
     required Uint8List bytes,
     String cifradoTexto = '',
   }) async {
-    final nombreUnico = '${DateTime.now().millisecondsSinceEpoch}_$nombreArchivo';
+    final nombreUnico = '${DateTime.now().millisecondsSinceEpoch}_${_sanitizarNombreArchivo(nombreArchivo)}';
     final storagePath = 'usuarios/$uid/canciones/$nombreUnico';
 
     await supabase.storage.from(kSupabaseRepertorioBucket).uploadBinary(
@@ -815,6 +823,13 @@ class SetlistService {
       'completado': estado == 'tocado',
       'completadoAt': estado == 'tocado' ? FieldValue.serverTimestamp() : FieldValue.delete(),
     });
+  }
+
+  /// Actualiza la transposición (en semitonos) de un tema, para que se
+  /// sincronice en vivo a todos los que estén viendo el cifrado de esa
+  /// canción en la sala.
+  static Future<void> actualizarTransposicion(String codigoSala, String itemId, int semitonos) async {
+    await _ref(codigoSala).doc(itemId).update({'transposicion': semitonos});
   }
 
   /// Reescribe el campo 'orden' de todos los temas según su posición en
@@ -3889,7 +3904,21 @@ class SetlistTab extends StatelessWidget {
 
                           context,
 
-                          MaterialPageRoute(builder: (_) => CifradoViewerScreen(titulo: titulo, cifradoOriginal: cifradoTexto)),
+                          MaterialPageRoute(
+
+                            builder: (_) => CifradoViewerScreen(
+
+                              titulo: titulo,
+
+                              cifradoOriginal: cifradoTexto,
+
+                              codigoSala: codigoSala,
+
+                              itemId: doc.id,
+
+                            ),
+
+                          ),
 
                         ),
 
@@ -4791,7 +4820,35 @@ class CifradoViewerScreen extends StatefulWidget {
 
   final String cifradoOriginal;
 
-  const CifradoViewerScreen({super.key, required this.titulo, required this.cifradoOriginal});
+  /// Si codigoSala e itemId vienen los dos, la transposición se sincroniza
+
+  /// en vivo con todos los que estén viendo el mismo tema en esa sala
+
+  /// (vía salas/{codigoSala}/setlist/{itemId}.transposicion). Si vienen
+
+  /// null (ej. abierto desde Mi Repertorio, fuera de una sala), la
+
+  /// transposición queda local a esta pantalla, como era antes.
+
+  final String? codigoSala;
+
+  final String? itemId;
+
+  const CifradoViewerScreen({
+
+    super.key,
+
+    required this.titulo,
+
+    required this.cifradoOriginal,
+
+    this.codigoSala,
+
+    this.itemId,
+
+  });
+
+  bool get sincronizada => codigoSala != null && itemId != null;
 
   @override
 
@@ -4801,15 +4858,27 @@ class CifradoViewerScreen extends StatefulWidget {
 
 class _CifradoViewerScreenState extends State<CifradoViewerScreen> {
 
-  int _semitonos = 0;
+  int _semitonosLocal = 0;
 
-  @override
+  void _cambiarSemitonos(int actual, int nuevo) {
 
-  Widget build(BuildContext context) {
+    if (widget.sincronizada) {
 
-    final texto = ChordTransposer.transponerTexto(widget.cifradoOriginal, _semitonos);
+      SetlistService.actualizarTransposicion(widget.codigoSala!, widget.itemId!, nuevo);
 
-    final etiquetaSemitonos = _semitonos == 0 ? '0' : (_semitonos > 0 ? '+$_semitonos' : '$_semitonos');
+    } else {
+
+      setState(() => _semitonosLocal = nuevo);
+
+    }
+
+  }
+
+  Widget _construirVisor(BuildContext context, int semitonos) {
+
+    final texto = ChordTransposer.transponerTexto(widget.cifradoOriginal, semitonos);
+
+    final etiquetaSemitonos = semitonos == 0 ? '0' : (semitonos > 0 ? '+$semitonos' : '$semitonos');
 
     return Scaffold(
 
@@ -4825,7 +4894,7 @@ class _CifradoViewerScreenState extends State<CifradoViewerScreen> {
 
             tooltip: 'Bajar un semitono',
 
-            onPressed: () => setState(() => _semitonos--),
+            onPressed: () => _cambiarSemitonos(semitonos, semitonos - 1),
 
           ),
 
@@ -4847,7 +4916,7 @@ class _CifradoViewerScreenState extends State<CifradoViewerScreen> {
 
             tooltip: 'Subir un semitono',
 
-            onPressed: () => setState(() => _semitonos++),
+            onPressed: () => _cambiarSemitonos(semitonos, semitonos + 1),
 
           ),
 
@@ -4857,9 +4926,29 @@ class _CifradoViewerScreenState extends State<CifradoViewerScreen> {
 
             tooltip: 'Restablecer tono original',
 
-            onPressed: _semitonos == 0 ? null : () => setState(() => _semitonos = 0),
+            onPressed: semitonos == 0 ? null : () => _cambiarSemitonos(semitonos, 0),
 
           ),
+
+          if (widget.sincronizada) ...[
+
+            const SizedBox(width: 4),
+
+            const Padding(
+
+              padding: EdgeInsets.only(right: 12),
+
+              child: Tooltip(
+
+                message: 'Sincronizado con toda la sala',
+
+                child: Icon(Icons.sync, size: 18),
+
+              ),
+
+            ),
+
+          ],
 
         ],
 
@@ -4878,6 +4967,42 @@ class _CifradoViewerScreenState extends State<CifradoViewerScreen> {
         ),
 
       ),
+
+    );
+
+  }
+
+  @override
+
+  Widget build(BuildContext context) {
+
+    if (!widget.sincronizada) {
+
+      return _construirVisor(context, _semitonosLocal);
+
+    }
+
+    return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+
+      stream: FirebaseFirestore.instance
+
+          .collection('salas')
+
+          .doc(widget.codigoSala)
+
+          .collection('setlist')
+
+          .doc(widget.itemId)
+
+          .snapshots(),
+
+      builder: (context, snapshot) {
+
+        final semitonos = snapshot.data?.data()?['transposicion'] as int? ?? 0;
+
+        return _construirVisor(context, semitonos);
+
+      },
 
     );
 
