@@ -9,6 +9,15 @@
         "cd frontend && flutter run -d web-server --web-port 5000 --web-hostname 0.0.0.0"
       ],
       "port": 5000
+    },
+    {
+      "name": "appsonido-frontend-test",
+      "runtimeExecutable": "cmd",
+      "runtimeArgs": [
+        "/c",
+        "cd frontend && flutter run -d web-server --web-port %PORT% --web-hostname 0.0.0.0"
+      ],
+      "autoPort": true
     }
   ]
 }

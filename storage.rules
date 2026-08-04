@@ -1,0 +1,41 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // PDFs de la biblioteca personal de cada usuario.
+    match /usuarios/{userId}/canciones/{archivo} {
+      // Lectura abierta a propósito: la URL de descarga de Firebase Storage
+      // ya incluye un token largo e impredecible (?alt=media&token=...), que
+      // es el verdadero control de acceso aquí — igual que el PIN de sala en
+      // Firestore. Sin esto, los invitados sin cuenta no podrían abrir un PDF
+      // que un músico logueado agregó al setlist compartido.
+      allow read: if true;
+
+      // Escritura: dueño con CUENTA REAL (no anónima) + límite de tamaño +
+      // solo PDFs. Exigir cuenta real (no solo "autenticado") es lo que
+      // evita que alguien genere cuentas anónimas en cadena para subir
+      // PDFs gratis sin límite — crear una sesión anónima es instantáneo
+      // y gratis, así que "autenticado" solo no alcanza como control de
+      // costo para esta operación.
+      //
+      // IMPORTANTE: tiene que ser un único "allow write" con && — dos
+      // "allow write" separados en Storage Rules se combinan con OR, no
+      // con AND, y eso dejaría subir archivos sin dueño verificado.
+      //
+      // Hoy sin exigir esPro (feature liberada para pruebas, ver
+      // kFuncionesProGratisPorAhora en main.dart). Para volver a cobrar,
+      // agregar "&& firestore.get(/databases/(default)/documents/usuarios/$(userId)).data.esPro == true"
+      // a la condición de abajo.
+      allow write: if request.auth != null
+                   && request.auth.uid == userId
+                   && request.auth.token.firebase.sign_in_provider != 'anonymous'
+                   && request.resource.size < 25 * 1024 * 1024
+                   && request.resource.contentType == 'application/pdf';
+    }
+
+    // Bloqueo total de cualquier otra ruta.
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

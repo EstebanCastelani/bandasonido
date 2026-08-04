@@ -1,8 +1,14 @@
+import 'dart:async';
+
 import 'dart:math';
+
+import 'package:audioplayers/audioplayers.dart';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import 'package:file_picker/file_picker.dart';
+
+import 'package:firebase_app_check/firebase_app_check.dart';
 
 import 'package:firebase_auth/firebase_auth.dart';
 
@@ -18,7 +24,11 @@ import 'package:flutter/services.dart';
 
 import 'package:google_sign_in/google_sign_in.dart';
 
+import 'package:share_plus/share_plus.dart';
+
 import 'package:shared_preferences/shared_preferences.dart';
+
+import 'package:supabase_flutter/supabase_flutter.dart' hide User;
 
 import 'package:syncfusion_flutter_pdf/pdf.dart' as sf_pdf;
 
@@ -48,6 +58,116 @@ const FirebaseOptions firebaseOptions = FirebaseOptions(
 
 
 
+// --- CONFIGURACIÓN DE SUPABASE (SOLO STORAGE, MIENTRAS FIREBASE STORAGE ---
+
+// --- NO ESTÁ APROVISIONADO — VER RepertorioService) ---
+
+
+
+/// Igual que la config de Firebase de arriba: no es un secreto crítico,
+
+/// la key "anon" está pensada para ir en el cliente. La seguridad real la
+
+/// dan las políticas RLS del bucket en Supabase, no ocultar esta key.
+
+const String kSupabaseUrl = 'https://aecmjdwfttcomcumcbwh.supabase.co';
+
+const String kSupabaseAnonKey =
+
+    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFlY21qZHdmdHRjb21jdW1jYndoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU3OTk5NDcsImV4cCI6MjEwMTM3NTk0N30.ahjRL6QX8pa0Ca8BJ9hrLKC6M2LBBQV8pSPE5_3_guY';
+
+/// Nombre del bucket de Storage en Supabase donde viven los PDFs del
+
+/// repertorio personal, mientras Firebase Storage no está aprovisionado
+
+/// (requiere plan Blaze). Ver RepertorioService para el detalle.
+
+const String kSupabaseRepertorioBucket = 'repertorio-pdfs';
+
+
+
+/// Acceso corto al cliente de Supabase, mismo patrón que se usa en la
+
+/// mayoría de las apps Flutter+Supabase.
+
+SupabaseClient get supabase => Supabase.instance.client;
+
+
+
+/// Inicializa Supabase pasando el ID token de Firebase Auth como
+
+/// accessToken en cada request (Third-Party Auth: Firebase, configurado en
+
+/// el dashboard de Supabase). Así las políticas RLS del bucket pueden
+
+/// identificar al dueño real del archivo sin necesitar una sesión de
+
+/// Supabase Auth separada — Auth sigue siendo 100% Firebase.
+
+Future<void> _inicializarSupabase() async {
+
+  await Supabase.initialize(
+
+    url: kSupabaseUrl,
+
+    publishableKey: kSupabaseAnonKey,
+
+    accessToken: () async {
+
+      return FirebaseAuth.instance.currentUser?.getIdToken();
+
+    },
+
+  );
+
+}
+
+
+
+/// Site key de reCAPTCHA v3 para Firebase App Check en Web. Se genera en
+
+/// Firebase Console → App Check → registrar la app web → proveedor
+
+/// reCAPTCHA v3 (requiere asociar el dominio estebancastelani.github.io en
+
+/// https://www.google.com/recaptcha/admin primero). Mientras quede en null,
+
+/// App Check no se activa — no rompe nada, es un opt-in explícito. Además,
+
+/// activar App Check acá NO alcanza para bloquear tráfico falso: hay que
+
+/// habilitar "Enforce" por producto (Firestore/Storage) en Firebase Console
+
+/// → App Check, y eso sí puede cortar acceso real si algo está mal
+
+/// configurado, así que no se activa solo.
+
+const String? kAppCheckSiteKeyWeb = null;
+
+
+
+Future<void> _activarAppCheckSiCorresponde() async {
+
+  if (!kIsWeb || kAppCheckSiteKeyWeb == null) return;
+
+  try {
+
+    await FirebaseAppCheck.instance.activate(
+
+      webProvider: ReCaptchaV3Provider(kAppCheckSiteKeyWeb!),
+
+    );
+
+  } catch (e) {
+
+    debugPrint("Error activando Firebase App Check: $e");
+
+  }
+
+}
+
+
+
 void main() async {
 
   WidgetsFlutterBinding.ensureInitialized();
@@ -56,9 +176,21 @@ void main() async {
 
     await Firebase.initializeApp(options: firebaseOptions);
 
+    await _activarAppCheckSiCorresponde();
+
   } catch (e) {
 
     debugPrint("Error inicializando Firebase: $e");
+
+  }
+
+  try {
+
+    await _inicializarSupabase();
+
+  } catch (e) {
+
+    debugPrint("Error inicializando Supabase: $e");
 
   }
 
@@ -86,6 +218,16 @@ class AppConstants {
 
   ];
 
+}
+
+/// Genera un código de sala de 8 caracteres alfanuméricos (excluye 0/O/1/I/L
+/// para que no se confundan al leerlos en voz alta o escribirlos a mano).
+/// 32^8 ≈ 1,1 billones de combinaciones, contra las 900.000 del PIN
+/// numérico de 6 dígitos anterior.
+String generarCodigoSala() {
+  const alfabeto = '23456789ABCDEFGHJKMNPQRSTUVWXYZ';
+  final random = Random.secure();
+  return List.generate(8, (_) => alfabeto[random.nextInt(alfabeto.length)]).join();
 }
 
 // --- IDENTIDADES DE COLOR (PALETAS) ---
@@ -286,7 +428,24 @@ class AuthService {
 
   static User? get currentUser => _auth.currentUser;
 
+  /// True solo para cuentas reales (email/contraseña o Google). Los
+  /// invitados que entran a una sala quedan autenticados de forma anónima
+  /// para que las reglas de Firestore puedan exigir "estar autenticado"
+  /// sin pedirles cuenta — pero eso NO los debe habilitar para funciones
+  /// de cuenta real como frases propias, repertorio o Pro.
+  static bool get esUsuarioRegistrado =>
+      currentUser != null && !currentUser!.isAnonymous;
+
   static Stream<User?> authStateChanges() => _auth.authStateChanges();
+
+  /// Garantiza que haya alguna sesión de Firebase Auth activa (anónima si
+  /// hace falta) antes de leer/escribir datos de una sala. No pisa una
+  /// sesión real ya iniciada.
+  static Future<void> asegurarSesion() async {
+    if (_auth.currentUser == null) {
+      await _auth.signInAnonymously();
+    }
+  }
 
   /// Inicia sesión con Google. En web usa popup; en mobile usa el SDK nativo.
   static Future<UserCredential> signInWithGoogle() async {
@@ -386,6 +545,66 @@ class UsuarioService {
   }
 }
 
+/// Historial de salas de una cuenta Pro (usuarios/{uid}/mis_salas/{codigoSala}).
+/// Guarda una referencia liviana (no los pedidos/setlist en sí, esos siguen
+/// viviendo en salas/{codigoSala}) para que un músico que toca en varias
+/// bandas pueda volver a entrar sin memorizar el código. Función Pro: solo
+/// se escribe cuando kFuncionesProGratisPorAhora o esPro==true (ver llamadas
+/// en CrearSalaScreen, UnirmeSalaScreen y SonidistaPinScreen).
+class MisSalasService {
+  static CollectionReference<Map<String, dynamic>> _ref(String uid) =>
+      FirebaseFirestore.instance.collection('usuarios').doc(uid).collection('mis_salas');
+
+  static Stream<QuerySnapshot<Map<String, dynamic>>> streamMisSalas(String uid) {
+    return _ref(uid).orderBy('ultimoAcceso', descending: true).snapshots();
+  }
+
+  /// El id del documento es el propio código de sala: entrar de nuevo a la
+  /// misma sala actualiza la referencia existente en vez de duplicarla.
+  static Future<void> registrarAcceso({
+    required String uid,
+    required String codigoSala,
+    required String rolUsado,
+    String nombre = '',
+  }) async {
+    await _ref(uid).doc(codigoSala).set({
+      'rolUsado': rolUsado,
+      'nombre': nombre,
+      'ultimoAcceso': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
+  static Future<void> renombrar(String uid, String codigoSala, String nombreSala) async {
+    await _ref(uid).doc(codigoSala).update({'nombreSala': nombreSala});
+  }
+
+  static Future<void> quitar(String uid, String codigoSala) async {
+    await _ref(uid).doc(codigoSala).delete();
+  }
+}
+
+/// Registra el acceso a una sala en el historial de la cuenta (mis_salas) si
+/// el usuario tiene cuenta real y la función Pro está habilitada (o gratis
+/// por ahora vía kFuncionesProGratisPorAhora). No hace nada para invitados
+/// anónimos ni cuentas sin Pro. Se llama desde CrearSalaScreen,
+/// UnirmeSalaScreen y SonidistaPinScreen al entrar a una sala.
+Future<void> _registrarSalaSiCorresponde({
+  required String codigoSala,
+  required String rolUsado,
+  String nombre = '',
+}) async {
+  if (!AuthService.esUsuarioRegistrado) return;
+  final uid = AuthService.currentUser!.uid;
+  final esPro = kFuncionesProGratisPorAhora || await UsuarioService.streamEsPro(uid).first;
+  if (!esPro) return;
+  await MisSalasService.registrarAcceso(
+    uid: uid,
+    codigoSala: codigoSala,
+    rolUsado: rolUsado,
+    nombre: nombre,
+  );
+}
+
 /// Frases predefinidas propias de cada usuario, en usuarios/{uid}/frases.
 /// Los invitados (sin cuenta) usan AppConstants.pedidosRapidos directamente
 /// y nunca tocan Firestore para esto.
@@ -432,7 +651,14 @@ class FrasesService {
 // --- SERVICIO DE REPERTORIO PERSONAL (BIBLIOTECA DE PARTITURAS) ---
 
 /// Biblioteca de canciones/partituras propia de cada usuario.
-/// PDFs en Storage: usuarios/{uid}/canciones/{archivo}.pdf
+/// PDFs en Storage: usuarios/{uid}/canciones/{archivo}.pdf — hoy en el
+/// bucket de Supabase (kSupabaseRepertorioBucket), TEMPORALMENTE, mientras
+/// Firebase Storage no está aprovisionado (falta activar el plan Blaze; ver
+/// CONTEXTO_PARA_IA.md). El documento de metadatos guarda 'storageProvider'
+/// ('supabase' o 'firebase') para saber con qué backend borrar el archivo.
+/// Cuando se active Blaze, volver a Firebase acá adentro es cambiar
+/// subirCancion (y el branch de eliminarCancion) — no hace falta migrar
+/// los documentos viejos, conviven los dos providers por su campo.
 /// Metadatos en Firestore: usuarios/{uid}/mi_repertorio/{cancionId}
 class RepertorioService {
   static CollectionReference<Map<String, dynamic>> _ref(String uid) =>
@@ -447,7 +673,7 @@ class RepertorioService {
   static String extraerTextoPdf(Uint8List bytes) {
     try {
       final documento = sf_pdf.PdfDocument(inputBytes: bytes);
-      final texto = sf_pdf.PdfTextExtractor(documento).extractText();
+      final texto = sf_pdf.PdfTextExtractor(documento).extractText(layoutText: true);
       documento.dispose();
       return texto.trim();
     } catch (e) {
@@ -456,8 +682,9 @@ class RepertorioService {
     }
   }
 
-  /// Sube el PDF a Storage y crea el documento de metadatos en Firestore.
-  /// Devuelve el mapa con los datos guardados (incluye pdfUrl).
+  /// Sube el PDF a Supabase Storage (bucket público, ver kSupabaseRepertorioBucket
+  /// y CONTEXTO_PARA_IA.md para el porqué) y crea el documento de metadatos
+  /// en Firestore. Devuelve el mapa con los datos guardados (incluye pdfUrl).
   static Future<Map<String, dynamic>> subirCancion({
     required String uid,
     required String titulo,
@@ -468,16 +695,20 @@ class RepertorioService {
   }) async {
     final nombreUnico = '${DateTime.now().millisecondsSinceEpoch}_$nombreArchivo';
     final storagePath = 'usuarios/$uid/canciones/$nombreUnico';
-    final storageRef = FirebaseStorage.instance.ref(storagePath);
 
-    await storageRef.putData(bytes, SettableMetadata(contentType: 'application/pdf'));
-    final pdfUrl = await storageRef.getDownloadURL();
+    await supabase.storage.from(kSupabaseRepertorioBucket).uploadBinary(
+          storagePath,
+          bytes,
+          fileOptions: const FileOptions(contentType: 'application/pdf'),
+        );
+    final pdfUrl = supabase.storage.from(kSupabaseRepertorioBucket).getPublicUrl(storagePath);
 
     final data = {
       'titulo': titulo,
       'tonalidad': tonalidad,
       'pdfUrl': pdfUrl,
       'storagePath': storagePath,
+      'storageProvider': 'supabase',
       'cifradoTexto': cifradoTexto,
       'createdAt': FieldValue.serverTimestamp(),
     };
@@ -499,6 +730,10 @@ class RepertorioService {
     });
   }
 
+  /// Borra el archivo del backend de Storage que corresponda (lee
+  /// 'storageProvider' del propio documento, ya que la firma del método no
+  /// cambió para no tocar el call site en MiRepertorioScreen) y el
+  /// documento de metadatos.
   static Future<void> eliminarCancion({
     required String uid,
     required String cancionId,
@@ -506,7 +741,13 @@ class RepertorioService {
   }) async {
     if (storagePath != null && storagePath.isNotEmpty) {
       try {
-        await FirebaseStorage.instance.ref(storagePath).delete();
+        final doc = await _ref(uid).doc(cancionId).get();
+        final storageProvider = doc.data()?['storageProvider'] as String? ?? 'firebase';
+        if (storageProvider == 'supabase') {
+          await supabase.storage.from(kSupabaseRepertorioBucket).remove([storagePath]);
+        } else {
+          await FirebaseStorage.instance.ref(storagePath).delete();
+        }
       } catch (e) {
         debugPrint('No se pudo borrar el archivo de Storage: $e');
       }
@@ -565,11 +806,25 @@ class SetlistService {
     await _ref(codigoSala).doc(itemId).delete();
   }
 
-  static Future<void> marcarCompletado(String codigoSala, String itemId, bool completado) async {
+  /// Actualiza el estado de un tema: 'pendiente', 'pausado' (corte técnico)
+  /// o 'tocado'. Mantiene 'completado' (bool) en sync para no romper
+  /// documentos/lecturas viejas que solo conocían ese campo binario.
+  static Future<void> actualizarEstado(String codigoSala, String itemId, String estado) async {
     await _ref(codigoSala).doc(itemId).update({
-      'completado': completado,
-      'completadoAt': completado ? FieldValue.serverTimestamp() : FieldValue.delete(),
+      'estado': estado,
+      'completado': estado == 'tocado',
+      'completadoAt': estado == 'tocado' ? FieldValue.serverTimestamp() : FieldValue.delete(),
     });
+  }
+
+  /// Reescribe el campo 'orden' de todos los temas según su posición en
+  /// [idsEnOrden] (ej. después de un drag & drop en vivo).
+  static Future<void> reordenarSetlist(String codigoSala, List<String> idsEnOrden) async {
+    final batch = FirebaseFirestore.instance.batch();
+    for (var i = 0; i < idsEnOrden.length; i++) {
+      batch.update(_ref(codigoSala).doc(idsEnOrden[i]), {'orden': i});
+    }
+    await batch.commit();
   }
 }
 
@@ -601,6 +856,8 @@ class FirestoreService {
 
     required String pedido,
 
+    bool urgente = false,
+
   }) async {
 
     await _pedidosRef(codigo).add({
@@ -614,6 +871,8 @@ class FirestoreService {
       'pedido': pedido,
 
       'atendido': false,
+
+      'urgente': urgente,
 
       'respuesta': '', // Campo nuevo inicializado vacío
 
@@ -831,6 +1090,10 @@ class _SplashScreenState extends State<SplashScreen> {
 
       if (salaId != null && tipoLogin != null && salaId.isNotEmpty) {
 
+        await AuthService.asegurarSesion();
+
+        if (!mounted) return;
+
         if (tipoLogin == 'sonidista') {
 
           Navigator.pushReplacement(
@@ -887,9 +1150,9 @@ class _SplashScreenState extends State<SplashScreen> {
 
 
 
-    final destino = AuthService.currentUser == null
-        ? const AuthScreen()
-        : const IngressMenuScreen();
+    final destino = AuthService.esUsuarioRegistrado
+        ? const IngressMenuScreen()
+        : const AuthScreen();
 
     Navigator.pushReplacement(
 
@@ -1481,6 +1744,8 @@ class IngressMenuScreen extends StatelessWidget {
 
     final user = AuthService.currentUser;
 
+    final registrado = AuthService.esUsuarioRegistrado;
+
 
 
     return Scaffold(
@@ -1509,7 +1774,7 @@ class IngressMenuScreen extends StatelessWidget {
 
           ),
 
-          if (user != null)
+          if (registrado)
 
             IconButton(
 
@@ -1563,13 +1828,13 @@ class IngressMenuScreen extends StatelessWidget {
 
             ),
 
-            if (user != null) ...[
+            if (registrado) ...[
 
               const SizedBox(height: 8),
 
               Text(
 
-                'Sesión: ${user.email ?? user.displayName ?? user.uid}',
+                'Sesión: ${user!.email ?? user.displayName ?? user.uid}',
 
                 textAlign: TextAlign.center,
 
@@ -1609,7 +1874,21 @@ class IngressMenuScreen extends StatelessWidget {
 
             const SizedBox(height: 12),
 
-            if (user != null) ...[
+            if (registrado) ...[
+
+              OutlinedButton.icon(
+
+                icon: const Icon(Icons.history),
+
+                label: const Text('MIS SALAS'),
+
+                onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MisSalasScreen())),
+
+                style: OutlinedButton.styleFrom(padding: const EdgeInsets.all(16)),
+
+              ),
+
+              const SizedBox(height: 12),
 
               OutlinedButton.icon(
 
@@ -1863,7 +2142,7 @@ class _CrearSalaScreenState extends State<CrearSalaScreen> {
 
   final _nameController = TextEditingController();
 
-  final String _pin = (100000 + Random().nextInt(900000)).toString();
+  final String _pin = generarCodigoSala();
 
   UserRole? _role = UserRole.musico;
 
@@ -1883,6 +2162,8 @@ class _CrearSalaScreenState extends State<CrearSalaScreen> {
 
     try {
 
+      await AuthService.asegurarSesion();
+
       final prefs = await SharedPreferences.getInstance();
 
       await prefs.setString('tipo_login', 'usuario');
@@ -1892,6 +2173,16 @@ class _CrearSalaScreenState extends State<CrearSalaScreen> {
       await prefs.setString('nombre', nombre);
 
       await prefs.setString('rol', _role == UserRole.cantante ? 'Cantante' : 'Músico');
+
+      await _registrarSalaSiCorresponde(
+
+        codigoSala: _pin,
+
+        rolUsado: _role == UserRole.cantante ? 'Cantante' : 'Músico',
+
+        nombre: nombre,
+
+      );
 
 
 
@@ -2025,7 +2316,9 @@ class _CrearSalaScreenState extends State<CrearSalaScreen> {
 
 class UnirmeSalaScreen extends StatefulWidget {
 
-  const UnirmeSalaScreen({super.key});
+  final String? codigoInicial;
+
+  const UnirmeSalaScreen({super.key, this.codigoInicial});
 
   @override
 
@@ -2039,7 +2332,7 @@ class _UnirmeSalaScreenState extends State<UnirmeSalaScreen> {
 
   final _nameController = TextEditingController();
 
-  final _pinController = TextEditingController();
+  late final _pinController = TextEditingController(text: widget.codigoInicial ?? '');
 
   UserRole? _role = UserRole.musico;
 
@@ -2049,19 +2342,21 @@ class _UnirmeSalaScreenState extends State<UnirmeSalaScreen> {
 
   Future<void> _unirmeASala() async {
 
-    final pin = _pinController.text.trim();
+    final pin = _pinController.text.trim().toUpperCase();
 
     final nombre = _nameController.text.trim();
 
 
 
-    if (nombre.isEmpty || pin.length != 6 || _procesando) return;
+    if (nombre.isEmpty || pin.length != 8 || _procesando) return;
 
 
 
     setState(() => _procesando = true);
 
     try {
+
+      await AuthService.asegurarSesion();
 
       final prefs = await SharedPreferences.getInstance();
 
@@ -2072,6 +2367,16 @@ class _UnirmeSalaScreenState extends State<UnirmeSalaScreen> {
       await prefs.setString('nombre', nombre);
 
       await prefs.setString('rol', _role == UserRole.cantante ? 'Cantante' : 'Músico');
+
+      await _registrarSalaSiCorresponde(
+
+        codigoSala: pin,
+
+        rolUsado: _role == UserRole.cantante ? 'Cantante' : 'Músico',
+
+        nombre: nombre,
+
+      );
 
 
 
@@ -2143,7 +2448,15 @@ class _UnirmeSalaScreenState extends State<UnirmeSalaScreen> {
 
           children: [
 
-            TextField(controller: _pinController, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'PIN de 6 dígitos', border: OutlineInputBorder())),
+            TextField(
+
+              controller: _pinController,
+
+              textCapitalization: TextCapitalization.characters,
+
+              decoration: const InputDecoration(labelText: 'Código de sala (8 caracteres)', border: OutlineInputBorder()),
+
+            ),
 
             const SizedBox(height: 16),
 
@@ -2185,6 +2498,145 @@ class _UnirmeSalaScreenState extends State<UnirmeSalaScreen> {
 
 
 
+// --- MIS SALAS (HISTORIAL MULTI-BANDA / MULTI-SALA, CUENTAS PRO) ---
+
+class MisSalasScreen extends StatelessWidget {
+  const MisSalasScreen({super.key});
+
+  Future<void> _entrar(BuildContext context, String uid, String codigoSala, String rol, String nombre) async {
+    await AuthService.asegurarSesion();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('sala_id', codigoSala);
+    if (rol == 'Sonidista') {
+      await prefs.setString('tipo_login', 'sonidista');
+    } else {
+      await prefs.setString('tipo_login', 'usuario');
+      await prefs.setString('nombre', nombre);
+      await prefs.setString('rol', rol);
+    }
+    await MisSalasService.registrarAcceso(uid: uid, codigoSala: codigoSala, rolUsado: rol, nombre: nombre);
+    if (!context.mounted) return;
+    if (rol == 'Sonidista') {
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (_) => SonidistaPage(codigoSala: codigoSala)),
+        (route) => false,
+      );
+    } else {
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(
+          builder: (_) => RequestScreen(
+            userName: nombre,
+            role: rol == 'Cantante' ? UserRole.cantante : UserRole.musico,
+            codigoSala: codigoSala,
+          ),
+        ),
+        (route) => false,
+      );
+    }
+  }
+
+  Future<void> _renombrar(BuildContext context, String uid, String codigoSala, String nombreActual) async {
+    final controller = TextEditingController(text: nombreActual);
+    final nuevo = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Nombre para esta sala'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(hintText: 'Ej: Banda X - Ensayo jueves', border: OutlineInputBorder()),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
+          TextButton(onPressed: () => Navigator.pop(context, controller.text.trim()), child: const Text('Guardar')),
+        ],
+      ),
+    );
+    if (nuevo == null || nuevo.isEmpty) return;
+    await MisSalasService.renombrar(uid, codigoSala, nuevo);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final user = AuthService.currentUser;
+    return Scaffold(
+      appBar: AppBar(title: const Text('Mis salas')),
+      body: (user == null || user.isAnonymous)
+          ? const Center(child: Text('Necesitás iniciar sesión para tener un historial de salas.'))
+          : StreamBuilder<bool>(
+              stream: UsuarioService.streamEsPro(user.uid),
+              builder: (context, proSnapshot) {
+                final esPro = kFuncionesProGratisPorAhora || proSnapshot.data == true;
+                if (!esPro) {
+                  return Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.workspace_premium, color: context.acento, size: 48),
+                          const SizedBox(height: 12),
+                          const Text(
+                            'Guardar un historial de varias salas/bandas para volver a entrar con un toque es una función Pro.',
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }
+                return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+                  stream: MisSalasService.streamMisSalas(user.uid),
+                  builder: (context, snapshot) {
+                    if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+                    final docs = snapshot.data!.docs;
+                    if (docs.isEmpty) {
+                      return const Center(child: Text('Todavía no entraste a ninguna sala con esta cuenta.'));
+                    }
+                    return ListView.separated(
+                      itemCount: docs.length,
+                      separatorBuilder: (_, __) => const Divider(height: 1),
+                      itemBuilder: (context, i) {
+                        final doc = docs[i];
+                        final data = doc.data();
+                        final codigoSala = doc.id;
+                        final rol = data['rolUsado'] as String? ?? 'Músico';
+                        final nombre = data['nombre'] as String? ?? '';
+                        final nombreSala = data['nombreSala'] as String?;
+                        final tieneNombre = nombreSala != null && nombreSala.isNotEmpty;
+                        return ListTile(
+                          leading: Icon(rol == 'Sonidista' ? Icons.tune : Icons.mic_external_on, color: context.acento),
+                          title: Text(tieneNombre ? nombreSala : codigoSala),
+                          subtitle: Text(tieneNombre ? '$codigoSala · $rol' : rol),
+                          onTap: () => _entrar(context, user.uid, codigoSala, rol, nombre),
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                icon: const Icon(Icons.edit, size: 18),
+                                tooltip: 'Renombrar',
+                                onPressed: () => _renombrar(context, user.uid, codigoSala, nombreSala ?? ''),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.delete_outline, size: 18, color: Colors.red),
+                                tooltip: 'Quitar del historial',
+                                onPressed: () => MisSalasService.quitar(user.uid, codigoSala),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    );
+                  },
+                );
+              },
+            ),
+    );
+  }
+}
+
 // --- PANTALLA DE PEDIDOS INDIVIDUAL (MÚSICO/CANTANTE) ---
 
 class RequestScreen extends StatefulWidget {
@@ -2212,6 +2664,8 @@ class _RequestScreenState extends State<RequestScreen> {
   final _customPedidoController = TextEditingController();
 
   bool _pantallaEncendida = true;
+
+  bool _esUrgente = false;
 
   @override
 
@@ -2279,6 +2733,8 @@ class _RequestScreenState extends State<RequestScreen> {
 
     final rolStr = widget.role == UserRole.musico ? 'Músico' : 'Cantante';
 
+    final urgente = _esUrgente;
+
     FirestoreService.enviarPedido(
 
         codigo: widget.codigoSala,
@@ -2287,15 +2743,27 @@ class _RequestScreenState extends State<RequestScreen> {
 
         rol: rolStr,
 
-        pedido: texto.trim()
+        pedido: texto.trim(),
+
+        urgente: urgente,
 
     );
 
     ScaffoldMessenger.of(context).showSnackBar(
 
-      SnackBar(content: Text('Enviado: ${texto.trim()}'), duration: const Duration(milliseconds: 400)),
+      SnackBar(
+
+        content: Text(urgente ? '¡Urgente enviado!: ${texto.trim()}' : 'Enviado: ${texto.trim()}'),
+
+        duration: const Duration(milliseconds: 400),
+
+        backgroundColor: urgente ? Colors.redAccent : null,
+
+      ),
 
     );
+
+    if (_esUrgente) setState(() => _esUrgente = false);
 
   }
 
@@ -2461,7 +2929,7 @@ class _RequestScreenState extends State<RequestScreen> {
 
               final user = AuthService.currentUser;
 
-              if (user == null) {
+              if (user == null || user.isAnonymous) {
 
                 return _construirGridFrases(AppConstants.pedidosRapidos);
 
@@ -2525,11 +2993,25 @@ class _RequestScreenState extends State<RequestScreen> {
 
                 ),
 
-                const SizedBox(width: 8),
+                const SizedBox(width: 4),
+
+                IconButton(
+
+                  icon: Icon(Icons.priority_high, color: _esUrgente ? Colors.redAccent : Colors.grey),
+
+                  tooltip: _esUrgente ? 'Pedido urgente: activado' : 'Marcar el próximo pedido como urgente',
+
+                  onPressed: () => setState(() => _esUrgente = !_esUrgente),
+
+                ),
+
+                const SizedBox(width: 4),
 
                 IconButton.filled(
 
                   icon: const Icon(Icons.send, size: 18),
+
+                  style: _esUrgente ? IconButton.styleFrom(backgroundColor: Colors.redAccent) : null,
 
                   onPressed: () {
 
@@ -2609,6 +3091,8 @@ class _RequestScreenState extends State<RequestScreen> {
 
                     final isAtendido = data['atendido'] ?? false;
 
+                    final esUrgente = data['urgente'] ?? false;
+
                     final respuestaTecnico = data['respuesta'] ?? '';
 
 
@@ -2643,9 +3127,13 @@ class _RequestScreenState extends State<RequestScreen> {
 
                         leading: Icon(
 
-                          isAtendido ? Icons.check_circle : Icons.access_time_filled,
+                          isAtendido
 
-                          color: isAtendido ? Colors.green : Colors.orange,
+                              ? Icons.check_circle
+
+                              : (esUrgente ? Icons.priority_high : Icons.access_time_filled),
+
+                          color: isAtendido ? Colors.green : (esUrgente ? Colors.redAccent : Colors.orange),
 
                           size: 16,
 
@@ -2658,6 +3146,8 @@ class _RequestScreenState extends State<RequestScreen> {
                           style: TextStyle(
 
                             fontSize: 12,
+
+                            fontWeight: esUrgente && !isAtendido ? FontWeight.bold : null,
 
                             decoration: isAtendido ? TextDecoration.lineThrough : null,
 
@@ -2781,7 +3271,7 @@ class SetlistTab extends StatelessWidget {
 
     final user = AuthService.currentUser;
 
-    if (user == null) {
+    if (user == null || user.isAnonymous) {
 
       ScaffoldMessenger.of(context).showSnackBar(
 
@@ -3041,6 +3531,104 @@ class SetlistTab extends StatelessWidget {
 
   }
 
+  /// Arma un resumen en texto plano del setlist (orden, título, estado) y
+
+  /// deja elegir entre copiarlo al portapapeles o compartirlo con el share
+
+  /// sheet del sistema/navegador. No depende de Firebase Storage.
+
+  Future<void> _exportarSetlist(BuildContext context) async {
+
+    final snapshot = await SetlistService.streamSetlist(codigoSala).first;
+
+    if (!context.mounted) return;
+
+    final docs = snapshot.docs;
+
+    if (docs.isEmpty) {
+
+      ScaffoldMessenger.of(context).showSnackBar(
+
+        const SnackBar(content: Text('El setlist está vacío, no hay nada para exportar.')),
+
+      );
+
+      return;
+
+    }
+
+    final buffer = StringBuffer('Setlist — Sala $codigoSala\n\n');
+
+    for (var i = 0; i < docs.length; i++) {
+
+      final data = docs[i].data();
+
+      final titulo = data['titulo'] as String? ?? '';
+
+      final estado = (data['estado'] as String?) ?? ((data['completado'] as bool? ?? false) ? 'tocado' : 'pendiente');
+
+      final marca = estado == 'tocado' ? '[X]' : (estado == 'pausado' ? '[~]' : '[ ]');
+
+      buffer.writeln('${i + 1}. $marca $titulo');
+
+    }
+
+    final texto = buffer.toString();
+
+    if (!context.mounted) return;
+
+    await showDialog<void>(
+
+      context: context,
+
+      builder: (dialogContext) => AlertDialog(
+
+        title: const Text('Exportar setlist'),
+
+        content: SingleChildScrollView(child: SelectableText(texto)),
+
+        actions: [
+
+          TextButton(
+
+            onPressed: () async {
+
+              await Clipboard.setData(ClipboardData(text: texto));
+
+              if (dialogContext.mounted) {
+
+                ScaffoldMessenger.of(dialogContext).showSnackBar(
+
+                  const SnackBar(content: Text('Copiado al portapapeles'), duration: Duration(seconds: 1)),
+
+                );
+
+              }
+
+            },
+
+            child: const Text('Copiar'),
+
+          ),
+
+          TextButton(
+
+            onPressed: () => Share.share(texto, subject: 'Setlist - Sala $codigoSala'),
+
+            child: const Text('Compartir'),
+
+          ),
+
+          TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Cerrar')),
+
+        ],
+
+      ),
+
+    );
+
+  }
+
   Future<void> _confirmarAgregar(BuildContext context, String titulo, String pdfUrl, {String cifradoTexto = ''}) async {
 
     if (titulo.isEmpty || pdfUrl.isEmpty) return;
@@ -3107,17 +3695,33 @@ class SetlistTab extends StatelessWidget {
 
           }
 
-          final primerPendienteIndex = docs.indexWhere(
+          String estadoDe(Map<String, dynamic> data) {
 
-            (d) => (d.data()['completado'] as bool? ?? false) == false,
+            return (data['estado'] as String?) ??
 
-          );
+                ((data['completado'] as bool? ?? false) ? 'tocado' : 'pendiente');
 
-          return ListView.separated(
+          }
+
+          final primerPendienteIndex = docs.indexWhere((d) => estadoDe(d.data()) == 'pendiente');
+
+          return ReorderableListView.builder(
 
             itemCount: docs.length,
 
-            separatorBuilder: (_, __) => const Divider(height: 1),
+            onReorder: (oldIndex, newIndex) {
+
+              final idsEnOrden = docs.map((d) => d.id).toList();
+
+              final ajustado = newIndex > oldIndex ? newIndex - 1 : newIndex;
+
+              final id = idsEnOrden.removeAt(oldIndex);
+
+              idsEnOrden.insert(ajustado, id);
+
+              SetlistService.reordenarSetlist(codigoSala, idsEnOrden);
+
+            },
 
             itemBuilder: (context, i) {
 
@@ -3133,27 +3737,61 @@ class SetlistTab extends StatelessWidget {
 
               final cifradoTexto = data['cifradoTexto'] as String? ?? '';
 
-              final completado = data['completado'] as bool? ?? false;
+              final estado = estadoDe(data);
 
-              final esProximo = !completado && i == primerPendienteIndex;
+              final completado = estado == 'tocado';
+
+              final pausado = estado == 'pausado';
+
+              final esProximo = estado == 'pendiente' && i == primerPendienteIndex;
+
+              const coloresEstado = {
+
+                'pendiente': null,
+
+                'pausado': Colors.orange,
+
+                'tocado': Colors.green,
+
+              };
+
+              const iconosEstado = {
+
+                'pendiente': Icons.check_circle_outline,
+
+                'pausado': Icons.pause_circle_filled,
+
+                'tocado': Icons.check_circle,
+
+              };
 
               return ListTile(
 
-                tileColor: esProximo ? context.acento.withOpacity(0.06) : null,
+                key: ValueKey(doc.id),
 
-                leading: IconButton(
+                tileColor: esProximo
 
-                  icon: Icon(
+                    ? context.acento.withOpacity(0.06)
 
-                    completado ? Icons.check_circle : Icons.check_circle_outline,
+                    : (pausado ? Colors.orange.withOpacity(0.08) : null),
 
-                    color: completado ? Colors.green : context.acento.withOpacity(0.5),
+                leading: PopupMenuButton<String>(
 
-                  ),
+                  tooltip: 'Cambiar estado del tema',
 
-                  tooltip: completado ? 'Marcar como pendiente' : 'Marcar como tocado',
+                  icon: Icon(iconosEstado[estado], color: coloresEstado[estado] ?? context.acento.withOpacity(0.5)),
 
-                  onPressed: () => SetlistService.marcarCompletado(codigoSala, doc.id, !completado),
+                  onSelected: (nuevoEstado) => SetlistService.actualizarEstado(codigoSala, doc.id, nuevoEstado),
+
+                  itemBuilder: (context) => const [
+
+                    PopupMenuItem(value: 'pendiente', child: Text('Pendiente')),
+
+                    PopupMenuItem(value: 'pausado', child: Text('Pausado (corte técnico)')),
+
+                    PopupMenuItem(value: 'tocado', child: Text('Tocado')),
+
+                  ],
 
                 ),
 
@@ -3171,7 +3809,9 @@ class SetlistTab extends StatelessWidget {
 
                           decoration: completado ? TextDecoration.lineThrough : null,
 
-                          color: completado ? Colors.grey : null,
+                          fontStyle: pausado ? FontStyle.italic : null,
+
+                          color: completado ? Colors.grey : (pausado ? Colors.orange.shade800 : null),
 
                         ),
 
@@ -3179,7 +3819,7 @@ class SetlistTab extends StatelessWidget {
 
                     ),
 
-                    if (esProximo) ...[
+                    if (esProximo || pausado) ...[
 
                       const SizedBox(width: 8),
 
@@ -3189,17 +3829,17 @@ class SetlistTab extends StatelessWidget {
 
                         decoration: BoxDecoration(
 
-                          color: context.acento,
+                          color: pausado ? Colors.orange : context.acento,
 
                           borderRadius: BorderRadius.circular(10),
 
                         ),
 
-                        child: const Text(
+                        child: Text(
 
-                          'PRÓXIMO',
+                          pausado ? 'PAUSADO' : 'PRÓXIMO',
 
-                          style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.white),
+                          style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.white),
 
                         ),
 
@@ -3277,13 +3917,39 @@ class SetlistTab extends StatelessWidget {
 
       ),
 
-      floatingActionButton: FloatingActionButton(
+      floatingActionButton: Column(
 
-        onPressed: () => _agregarCancion(context),
+        mainAxisSize: MainAxisSize.min,
 
-        tooltip: 'Agregar canción',
+        children: [
 
-        child: const Icon(Icons.add),
+          FloatingActionButton.small(
+
+            heroTag: 'exportar_setlist_$codigoSala',
+
+            onPressed: () => _exportarSetlist(context),
+
+            tooltip: 'Exportar / compartir setlist',
+
+            child: const Icon(Icons.ios_share),
+
+          ),
+
+          const SizedBox(height: 12),
+
+          FloatingActionButton(
+
+            heroTag: 'agregar_cancion_$codigoSala',
+
+            onPressed: () => _agregarCancion(context),
+
+            tooltip: 'Agregar canción',
+
+            child: const Icon(Icons.add),
+
+          ),
+
+        ],
 
       ),
 
@@ -3391,7 +4057,7 @@ class FrasesAdminScreen extends StatelessWidget {
 
       appBar: AppBar(title: const Text('Mis frases')),
 
-      body: user == null
+      body: (user == null || user.isAnonymous)
 
           ? const Center(child: Text('Necesitás iniciar sesión para editar tus frases.'))
 
@@ -3497,7 +4163,7 @@ class FrasesAdminScreen extends StatelessWidget {
 
             ),
 
-      floatingActionButton: user == null
+      floatingActionButton: (user == null || user.isAnonymous)
 
           ? null
 
@@ -3544,6 +4210,20 @@ class MiRepertorioScreen extends StatefulWidget {
 class _MiRepertorioScreenState extends State<MiRepertorioScreen> {
 
   bool _subiendo = false;
+
+  final _busquedaController = TextEditingController();
+
+  String _busqueda = '';
+
+  @override
+
+  void dispose() {
+
+    _busquedaController.dispose();
+
+    super.dispose();
+
+  }
 
   Future<void> _mostrarUpsellPro(BuildContext context) async {
 
@@ -3833,7 +4513,7 @@ class _MiRepertorioScreenState extends State<MiRepertorioScreen> {
 
       appBar: AppBar(title: const Text('Mi repertorio')),
 
-      body: user == null
+      body: (user == null || user.isAnonymous)
 
           ? const Center(child: Text('Necesitás iniciar sesión para tener tu biblioteca.'))
 
@@ -3895,6 +4575,52 @@ class _MiRepertorioScreenState extends State<MiRepertorioScreen> {
 
                 ),
 
+                Padding(
+
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+
+                  child: TextField(
+
+                    controller: _busquedaController,
+
+                    onChanged: (v) => setState(() => _busqueda = v.trim().toLowerCase()),
+
+                    decoration: InputDecoration(
+
+                      hintText: 'Buscar por título o tonalidad...',
+
+                      isDense: true,
+
+                      prefixIcon: const Icon(Icons.search, size: 20),
+
+                      suffixIcon: _busqueda.isEmpty
+
+                          ? null
+
+                          : IconButton(
+
+                              icon: const Icon(Icons.clear, size: 18),
+
+                              onPressed: () {
+
+                                _busquedaController.clear();
+
+                                setState(() => _busqueda = '');
+
+                              },
+
+                            ),
+
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+
+                    ),
+
+                  ),
+
+                ),
+
                 Expanded(
 
                   child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
@@ -3915,11 +4641,31 @@ class _MiRepertorioScreenState extends State<MiRepertorioScreen> {
 
                 }
 
-                final docs = snapshot.data!.docs;
+                final docs = snapshot.data!.docs.where((d) {
+
+                  if (_busqueda.isEmpty) return true;
+
+                  final data = d.data();
+
+                  final titulo = (data['titulo'] as String? ?? '').toLowerCase();
+
+                  final tonalidad = (data['tonalidad'] as String? ?? '').toLowerCase();
+
+                  return titulo.contains(_busqueda) || tonalidad.contains(_busqueda);
+
+                }).toList();
 
                 if (docs.isEmpty) {
 
-                  return const Center(child: Text('Todavía no subiste ninguna canción.'));
+                  return Center(
+
+                    child: Text(
+
+                      _busqueda.isEmpty ? 'Todavía no subiste ninguna canción.' : 'Sin resultados para "$_busqueda".',
+
+                    ),
+
+                  );
 
                 }
 
@@ -4019,7 +4765,7 @@ class _MiRepertorioScreenState extends State<MiRepertorioScreen> {
 
             ),
 
-      floatingActionButton: user == null || _subiendo
+      floatingActionButton: (user == null || user.isAnonymous || _subiendo)
 
           ? (_subiendo ? const FloatingActionButton(onPressed: null, child: CircularProgressIndicator(color: Colors.white)) : null)
 
@@ -4251,7 +4997,7 @@ class _SonidistaPinScreenState extends State<SonidistaPinScreen> {
 
   Future<void> _ingresarComoSonidista() async {
 
-    final pin = _pinController.text.trim();
+    final pin = _pinController.text.trim().toUpperCase();
 
     if (pin.isEmpty || _procesando) return;
 
@@ -4261,11 +5007,15 @@ class _SonidistaPinScreenState extends State<SonidistaPinScreen> {
 
     try {
 
+      await AuthService.asegurarSesion();
+
       final prefs = await SharedPreferences.getInstance();
 
       await prefs.setString('tipo_login', 'sonidista');
 
       await prefs.setString('sala_id', pin);
+
+      await _registrarSalaSiCorresponde(codigoSala: pin, rolUsado: 'Sonidista');
 
 
 
@@ -4357,6 +5107,69 @@ class _SonidistaPinScreenState extends State<SonidistaPinScreen> {
 
 // --- PANEL DE CONTROL DEL SONIDISTA ---
 
+/// Envuelve un pedido urgente sin atender con un fondo rojo que
+/// parpadea, para que se note aunque el sonidista no esté mirando
+/// la pantalla en el momento exacto en que llegó.
+class _UrgentBlink extends StatefulWidget {
+
+  final Widget child;
+
+  const _UrgentBlink({required this.child});
+
+  @override
+
+  State<_UrgentBlink> createState() => _UrgentBlinkState();
+
+}
+
+class _UrgentBlinkState extends State<_UrgentBlink> with SingleTickerProviderStateMixin {
+
+  late final AnimationController _controller;
+
+  @override
+
+  void initState() {
+
+    super.initState();
+
+    _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 700))..repeat(reverse: true);
+
+  }
+
+  @override
+
+  void dispose() {
+
+    _controller.dispose();
+
+    super.dispose();
+
+  }
+
+  @override
+
+  Widget build(BuildContext context) {
+
+    return AnimatedBuilder(
+
+      animation: _controller,
+
+      child: widget.child,
+
+      builder: (context, child) => Container(
+
+        color: Colors.redAccent.withOpacity(0.08 + _controller.value * 0.22),
+
+        child: child,
+
+      ),
+
+    );
+
+  }
+
+}
+
 class SonidistaPage extends StatefulWidget {
 
   final String codigoSala;
@@ -4373,6 +5186,14 @@ class _SonidistaPageState extends State<SonidistaPage> {
 
   bool _pantallaEncendida = true;
 
+  bool _agruparPorRol = false;
+
+  final AudioPlayer _alertaPlayer = AudioPlayer();
+
+  StreamSubscription<QuerySnapshot>? _pedidosSub;
+
+  bool _primerSnapshotPedidos = true;
+
   @override
 
   void initState() {
@@ -4380,6 +5201,8 @@ class _SonidistaPageState extends State<SonidistaPage> {
     super.initState();
 
     WakelockPlus.enable();
+
+    _escucharPedidosNuevos();
 
   }
 
@@ -4389,7 +5212,57 @@ class _SonidistaPageState extends State<SonidistaPage> {
 
     WakelockPlus.disable();
 
+    _pedidosSub?.cancel();
+
+    _alertaPlayer.dispose();
+
     super.dispose();
+
+  }
+
+  /// Escucha la misma colección que el StreamBuilder de abajo, pero solo
+
+  /// para detectar altas (DocumentChangeType.added) y disparar la alerta.
+
+  /// El primer snapshot (carga inicial de la sala) no cuenta como "nuevo".
+
+  void _escucharPedidosNuevos() {
+
+    _pedidosSub = FirebaseFirestore.instance
+
+        .collection('salas')
+
+        .doc(widget.codigoSala)
+
+        .collection('pedidos')
+
+        .orderBy('createdAt', descending: true)
+
+        .snapshots()
+
+        .listen((snapshot) {
+
+      if (_primerSnapshotPedidos) {
+
+        _primerSnapshotPedidos = false;
+
+        return;
+
+      }
+
+      final hayPedidoNuevo = snapshot.docChanges.any((c) => c.type == DocumentChangeType.added);
+
+      if (hayPedidoNuevo) _notificarPedidoNuevo();
+
+    });
+
+  }
+
+  void _notificarPedidoNuevo() {
+
+    HapticFeedback.vibrate(); // No-op en la mayoría de navegadores web; útil cuando haya app Android/iOS.
+
+    _alertaPlayer.play(AssetSource('sounds/pedido_nuevo.wav'));
 
   }
 
@@ -4430,6 +5303,140 @@ class _SonidistaPageState extends State<SonidistaPage> {
   }
 
 
+
+  static const List<Color> _paletaRemitentes = [
+
+    Colors.blue, Colors.teal, Colors.deepOrange, Colors.purple,
+
+    Colors.brown, Colors.indigo, Colors.pink, Colors.green,
+
+  ];
+
+  /// Color determinístico por remitente (nombre + rol), así cada persona
+
+  /// se ve siempre con el mismo color mientras dura la sala.
+
+  Color _colorPorRemitente(String nombre, String rol) {
+
+    final clave = '$nombre|$rol';
+
+    final hash = clave.codeUnits.fold<int>(0, (acc, c) => acc + c);
+
+    return _paletaRemitentes[hash % _paletaRemitentes.length];
+
+  }
+
+  Widget _buildPedidoTile(QueryDocumentSnapshot d) {
+
+    final data = d.data() as Map<String, dynamic>;
+
+    final isAtendido = data['atendido'] ?? false;
+
+    final pedidoTexto = data['pedido'] ?? '';
+
+    final respuestaActual = data['respuesta'] ?? '';
+
+    final esUrgente = data['urgente'] ?? false;
+
+    final nombre = (data['nombre'] ?? '').toString();
+
+    final rol = (data['rol'] ?? '').toString();
+
+    final tile = ListTile(
+
+      tileColor: isAtendido
+
+          ? Colors.transparent
+
+          : (esUrgente ? Colors.redAccent.withOpacity(0.12) : context.acento.withOpacity(0.05)),
+
+      leading: esUrgente && !isAtendido
+
+          ? const Icon(Icons.warning_amber_rounded, color: Colors.redAccent)
+
+          : CircleAvatar(
+
+              radius: 15,
+
+              backgroundColor: _colorPorRemitente(nombre, rol),
+
+              child: Text(
+
+                nombre.isNotEmpty ? nombre[0].toUpperCase() : '?',
+
+                style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
+
+              ),
+
+            ),
+
+      title: Text(
+
+        pedidoTexto,
+
+        style: TextStyle(
+
+          fontWeight: isAtendido ? FontWeight.normal : FontWeight.bold,
+
+          fontSize: 16,
+
+          color: esUrgente && !isAtendido ? Colors.redAccent.shade700 : null,
+
+        ),
+
+      ),
+
+      subtitle: Column(
+
+        crossAxisAlignment: CrossAxisAlignment.start,
+
+        children: [
+
+          Text('$nombre ($rol)'),
+
+          if (respuestaActual.isNotEmpty)
+
+            Text('Tu respuesta: $respuestaActual', style: TextStyle(color: context.acento, fontSize: 12, fontWeight: FontWeight.w500)),
+
+        ],
+
+      ),
+
+      trailing: Row(
+
+        mainAxisSize: MainAxisSize.min,
+
+        children: [
+
+          IconButton(
+
+            icon: Icon(respuestaActual.isNotEmpty ? Icons.chat : Icons.chat_bubble_outline, color: Colors.blue),
+
+            tooltip: 'Responder privado',
+
+            onPressed: () => _mostrarDialogoRespuesta(context, d.id, pedidoTexto, nombre.isEmpty ? 'Músico' : nombre),
+
+          ),
+
+          IconButton(
+
+            icon: Icon(isAtendido ? Icons.check_circle : Icons.radio_button_unchecked, color: isAtendido ? Colors.green : Colors.grey),
+
+            onPressed: () => d.reference.update({'atendido': !isAtendido}),
+
+          ),
+
+          IconButton(icon: const Icon(Icons.delete_outline, color: Colors.red), onPressed: () => d.reference.delete()),
+
+        ],
+
+      ),
+
+    );
+
+    return esUrgente && !isAtendido ? _UrgentBlink(child: tile) : tile;
+
+  }
 
   void _mostrarDialogoRespuesta(BuildContext context, String pedidoId, String pedidoTexto, String musico) {
 
@@ -4511,7 +5518,7 @@ class _SonidistaPageState extends State<SonidistaPage> {
 
     return DefaultTabController(
 
-      length: 2,
+      length: 3,
 
       child: Scaffold(
 
@@ -4565,6 +5572,16 @@ class _SonidistaPageState extends State<SonidistaPage> {
 
           IconButton(
 
+            icon: Icon(_agruparPorRol ? Icons.groups : Icons.format_list_bulleted),
+
+            tooltip: _agruparPorRol ? 'Agrupado por rol: activado' : 'Ver agrupado por rol',
+
+            onPressed: () => setState(() => _agruparPorRol = !_agruparPorRol),
+
+          ),
+
+          IconButton(
+
             icon: Icon(_pantallaEncendida ? Icons.lightbulb : Icons.lightbulb_outline),
 
             tooltip: _pantallaEncendida ? 'Pantalla siempre encendida: activado' : 'Pantalla siempre encendida: desactivado',
@@ -4580,6 +5597,8 @@ class _SonidistaPageState extends State<SonidistaPage> {
           tabs: [
 
             Tab(text: 'PEDIDOS'),
+
+            Tab(text: 'HISTORIAL'),
 
             Tab(text: 'SETLIST'),
 
@@ -4619,87 +5638,157 @@ class _SonidistaPageState extends State<SonidistaPage> {
 
 
 
-          return ListView.separated(
+          if (!_agruparPorRol) {
 
-            itemCount: docs.length,
+            return ListView.separated(
 
-            separatorBuilder: (_, __) => const Divider(height: 1),
+              itemCount: docs.length,
 
-            itemBuilder: (context, i) {
+              separatorBuilder: (_, __) => const Divider(height: 1),
 
-              final d = docs[i];
+              itemBuilder: (context, i) => _buildPedidoTile(docs[i]),
 
-              final data = d.data() as Map<String, dynamic>;
+            );
 
-              final isAtendido = data['atendido'] ?? false;
-
-              final pedidoTexto = data['pedido'] ?? '';
-
-              final respuestaActual = data['respuesta'] ?? '';
+          }
 
 
 
-              return ListTile(
+          final grupos = <String, List<QueryDocumentSnapshot>>{};
 
-                tileColor: isAtendido ? Colors.transparent : context.acento.withOpacity(0.05),
+          for (final d in docs) {
 
-                title: Text(pedidoTexto, style: TextStyle(fontWeight: isAtendido ? FontWeight.normal : FontWeight.bold, fontSize: 16)),
+            final rol = ((d.data() as Map<String, dynamic>)['rol'] ?? 'Otro').toString();
 
-                subtitle: Column(
+            grupos.putIfAbsent(rol, () => []).add(d);
 
-                  crossAxisAlignment: CrossAxisAlignment.start,
+          }
 
-                  children: [
+          final rolesOrdenados = grupos.keys.toList()..sort();
 
-                    Text('${data['nombre']} (${data['rol']})'),
 
-                    if (respuestaActual.isNotEmpty)
 
-                      Text('Tu respuesta: $respuestaActual', style: TextStyle(color: context.acento, fontSize: 12, fontWeight: FontWeight.w500)),
+          return ListView(
 
-                  ],
+            children: [
 
-                ),
+              for (final rol in rolesOrdenados) ...[
 
-                trailing: Row(
+                Container(
 
-                  mainAxisSize: MainAxisSize.min,
+                  width: double.infinity,
 
-                  children: [
+                  color: _colorPorRemitente(rol, rol).withOpacity(0.15),
 
-                    IconButton(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
 
-                      icon: Icon(respuestaActual.isNotEmpty ? Icons.chat : Icons.chat_bubble_outline, color: Colors.blue),
+                  child: Text(
 
-                      tooltip: 'Responder privado',
+                    '$rol (${grupos[rol]!.length})',
 
-                      onPressed: () => _mostrarDialogoRespuesta(context, d.id, pedidoTexto, data['nombre'] ?? 'Músico'),
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, letterSpacing: 1),
 
-                    ),
-
-                    IconButton(
-
-                      icon: Icon(isAtendido ? Icons.check_circle : Icons.radio_button_unchecked, color: isAtendido ? Colors.green : Colors.grey),
-
-                      onPressed: () => d.reference.update({'atendido': !isAtendido}),
-
-                    ),
-
-                    IconButton(icon: const Icon(Icons.delete_outline, color: Colors.red), onPressed: () => d.reference.delete()),
-
-                  ],
+                  ),
 
                 ),
 
-              );
+                for (final d in grupos[rol]!) _buildPedidoTile(d),
 
-            },
+              ],
+
+            ],
 
           );
 
         },
 
       ),
+
+          StreamBuilder<QuerySnapshot>(
+
+            stream: FirebaseFirestore.instance
+
+                .collection('salas')
+
+                .doc(widget.codigoSala)
+
+                .collection('pedidos')
+
+                .where('atendido', isEqualTo: true)
+
+                .snapshots(),
+
+            builder: (context, snapshot) {
+
+              if (snapshot.hasError) return Center(child: Text('Error de conexión: ${snapshot.error}'));
+
+              if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+
+              // Se ordena en el cliente (en vez de .orderBy en la query) para
+
+              // no depender de un índice compuesto de Firestore que no está
+
+              // provisionado (where + orderBy en campos distintos lo exigiría).
+
+              final docs = snapshot.data!.docs.toList()
+
+                ..sort((a, b) {
+
+                  final ta = (a.data() as Map<String, dynamic>)['createdAt'] as Timestamp?;
+
+                  final tb = (b.data() as Map<String, dynamic>)['createdAt'] as Timestamp?;
+
+                  if (ta == null || tb == null) return 0;
+
+                  return tb.compareTo(ta);
+
+                });
+
+              if (docs.isEmpty) return const Center(child: Text('Todavía no atendiste ningún pedido', style: TextStyle(color: Colors.grey)));
+
+              return ListView.separated(
+
+                itemCount: docs.length,
+
+                separatorBuilder: (_, __) => const Divider(height: 1),
+
+                itemBuilder: (context, i) {
+
+                  final data = docs[i].data() as Map<String, dynamic>;
+
+                  final respuestaActual = data['respuesta'] ?? '';
+
+                  return ListTile(
+
+                    leading: const Icon(Icons.check_circle, color: Colors.green),
+
+                    title: Text('${data['pedido']}', style: const TextStyle(decoration: TextDecoration.lineThrough)),
+
+                    subtitle: Column(
+
+                      crossAxisAlignment: CrossAxisAlignment.start,
+
+                      children: [
+
+                        Text('${data['nombre']} (${data['rol']})'),
+
+                        if (respuestaActual.isNotEmpty)
+
+                          Text('Tu respuesta: $respuestaActual', style: TextStyle(color: context.acento, fontSize: 12, fontWeight: FontWeight.w500)),
+
+                      ],
+
+                    ),
+
+                  );
+
+                },
+
+              );
+
+            },
+
+          ),
 
           SetlistTab(codigoSala: widget.codigoSala, nombreUsuario: 'Sonidista'),
 

@@ -43,3 +43,17 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Firma y credenciales (Android/iOS/Firebase) — nunca deben llegar a git.
+# Se agregan de antemano: android/ e ios/ todavía no existen en este repo,
+# así que esto evita que un futuro `flutter create` los suba por accidente.
+**/android/key.properties
+**/android/**/*.jks
+**/android/**/*.keystore
+**/android/app/google-services.json
+**/ios/Runner/GoogleService-Info.plist
+**/ios/**/*.p12
+**/ios/**/*.mobileprovision
+*.pem
+.env
+.env.*

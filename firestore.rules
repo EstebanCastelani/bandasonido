@@ -1,0 +1,85 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Pedidos de una sala: hay que estar autenticado (Firebase Auth anónimo
+    // sirve, se activa solo al entrar a una sala) y conocer el código de
+    // 8 caracteres alfanuméricos. No es un modelo "por membresía real" —
+    // sigue siendo "el código es la llave" — pero ya no es accesible sin
+    // pasar por el SDK de Firebase Auth, lo que corta el scripting trivial
+    // y habilita Firebase App Check a futuro si hace falta más.
+    match /salas/{salaId}/pedidos/{pedidoId} {
+      allow read, write: if request.auth != null && salaId != null && salaId.size() > 0;
+    }
+
+    // Setlist de una sala: mismo modelo de acceso que los pedidos.
+    match /salas/{salaId}/setlist/{itemId} {
+      allow read, write: if request.auth != null && salaId != null && salaId.size() > 0;
+    }
+
+    match /usuarios/{uid} {
+      // Cada usuario solo puede leer su propio perfil.
+      allow read: if request.auth != null && request.auth.uid == uid;
+
+      // Solo cuentas reales (no anónimas) pueden tener un perfil de
+      // usuario. Al crear la cuenta, esPro tiene que nacer en false: nadie
+      // se puede auto-otorgar la versión paga.
+      allow create: if request.auth != null
+                    && request.auth.uid == uid
+                    && request.auth.token.firebase.sign_in_provider != 'anonymous'
+                    && request.resource.data.esPro == false;
+
+      // Al actualizar su perfil (nombre, rol), esPro no puede cambiar
+      // desde el cliente. Solo se activa a mano desde la consola (o,
+      // cuando exista, desde un backend con Admin SDK tras un pago real).
+      allow update: if request.auth != null
+                    && request.auth.uid == uid
+                    && request.auth.token.firebase.sign_in_provider != 'anonymous'
+                    && request.resource.data.esPro == resource.data.esPro;
+
+      allow delete: if false;
+
+      // Frases predefinidas propias: solo el dueño, con cuenta real, lee y
+      // escribe. Los invitados anónimos de una sala usan la lista por
+      // defecto embebida en la app (AppConstants.pedidosRapidos), nunca
+      // llegan a esta colección.
+      match /frases/{fraseId} {
+        allow read, write: if request.auth != null
+                           && request.auth.uid == uid
+                           && request.auth.token.firebase.sign_in_provider != 'anonymous';
+      }
+
+      // Biblioteca personal de PDFs. Lectura abierta a cualquier cuenta
+      // autenticada (incluye anónimos: hace falta para que un invitado
+      // pueda usar "buscar en todas las bibliotecas" al armar el setlist
+      // de la sala). Escritura solo para el dueño con cuenta real — esto
+      // evita que se puedan crear cuentas anónimas en cadena para subir
+      // PDFs gratis sin límite.
+      //
+      // Hoy sin exigir esPro (kFuncionesProGratisPorAhora = true en el
+      // cliente, feature liberada para pruebas). Para volver a cobrar,
+      // agregar "&& get(/databases/$(database)/documents/usuarios/$(uid)).data.esPro == true"
+      // a la condición de abajo.
+      match /mi_repertorio/{cancionId} {
+        allow read: if request.auth != null;
+        allow write: if request.auth != null
+                     && request.auth.uid == uid
+                     && request.auth.token.firebase.sign_in_provider != 'anonymous';
+      }
+
+      // Historial de salas (multi-banda/multi-sala, función Pro): solo el
+      // dueño, con cuenta real, lee y escribe su propio historial. No hay
+      // datos de la sala en sí acá, solo una referencia liviana al código.
+      match /mis_salas/{codigoSala} {
+        allow read, write: if request.auth != null
+                           && request.auth.uid == uid
+                           && request.auth.token.firebase.sign_in_provider != 'anonymous';
+      }
+    }
+
+    // Bloqueo total de cualquier otra colección no listada explícitamente.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
