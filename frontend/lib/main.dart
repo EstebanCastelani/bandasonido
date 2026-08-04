@@ -776,7 +776,10 @@ class RepertorioService {
     final queryLower = query.trim().toLowerCase();
     return snap.docs
         .map((d) => {...d.data(), 'id': d.id})
-        .where((c) => queryLower.isEmpty || (c['titulo'] as String? ?? '').toLowerCase().contains(queryLower))
+        .where((c) =>
+            queryLower.isEmpty ||
+            (c['titulo'] as String? ?? '').toLowerCase().contains(queryLower) ||
+            (c['tonalidad'] as String? ?? '').toLowerCase().contains(queryLower))
         .toList();
   }
 }
@@ -2674,13 +2677,23 @@ class RequestScreen extends StatefulWidget {
 
 
 
-class _RequestScreenState extends State<RequestScreen> {
+class _RequestScreenState extends State<RequestScreen> with SingleTickerProviderStateMixin {
 
   final _customPedidoController = TextEditingController();
 
   bool _pantallaEncendida = true;
 
   bool _esUrgente = false;
+
+  late final TabController _tabController;
+
+  /// Último visor de PDF/cifrado abierto desde el setlist, para poder
+
+  /// volver a él con un swipe hacia abajo desde la pestaña de Pedidos.
+
+  Widget? _ultimoVisor;
+
+  Offset? _inicioArrastrePedidos;
 
   @override
 
@@ -2689,6 +2702,8 @@ class _RequestScreenState extends State<RequestScreen> {
     super.initState();
 
     WakelockPlus.enable();
+
+    _tabController = TabController(length: 2, vsync: this);
 
   }
 
@@ -2700,7 +2715,41 @@ class _RequestScreenState extends State<RequestScreen> {
 
     _customPedidoController.dispose();
 
+    _tabController.dispose();
+
     super.dispose();
+
+  }
+
+  void _irAPedidos(Widget visorActual) {
+
+    _ultimoVisor = visorActual;
+
+    Navigator.pop(context);
+
+    _tabController.animateTo(0);
+
+  }
+
+  /// Swipe hacia abajo sobre la pestaña de Pedidos vuelve al último
+
+  /// PDF/cifrado que se estaba viendo. Se usa Listener (no GestureDetector)
+
+  /// para no competir por el gesto con el scroll de las listas internas.
+
+  void _manejarSwipeAbajoEnPedidos(PointerUpEvent evento) {
+
+    if (_inicioArrastrePedidos == null || _ultimoVisor == null) return;
+
+    final delta = evento.position - _inicioArrastrePedidos!;
+
+    _inicioArrastrePedidos = null;
+
+    if (delta.dy > 80 && delta.dy.abs() > delta.dx.abs()) {
+
+      Navigator.push(context, MaterialPageRoute(builder: (_) => _ultimoVisor!));
+
+    }
 
   }
 
@@ -2854,11 +2903,7 @@ class _RequestScreenState extends State<RequestScreen> {
 
 
 
-    return DefaultTabController(
-
-      length: 2,
-
-      child: Scaffold(
+    return Scaffold(
 
       appBar: AppBar(
 
@@ -2914,9 +2959,11 @@ class _RequestScreenState extends State<RequestScreen> {
 
         ],
 
-        bottom: const TabBar(
+        bottom: TabBar(
 
-          tabs: [
+          controller: _tabController,
+
+          tabs: const [
 
             Tab(text: 'PEDIDOS'),
 
@@ -2930,9 +2977,17 @@ class _RequestScreenState extends State<RequestScreen> {
 
       body: TabBarView(
 
+        controller: _tabController,
+
         children: [
 
-          Column(
+          Listener(
+
+            onPointerDown: (e) => _inicioArrastrePedidos = e.position,
+
+            onPointerUp: _manejarSwipeAbajoEnPedidos,
+
+            child: Column(
 
         children: [
 
@@ -3200,11 +3255,19 @@ class _RequestScreenState extends State<RequestScreen> {
 
       ),
 
-          SetlistTab(codigoSala: widget.codigoSala, nombreUsuario: widget.userName),
+          ),
+
+          SetlistTab(
+
+            codigoSala: widget.codigoSala,
+
+            nombreUsuario: widget.userName,
+
+            onIrAPedidos: _irAPedidos,
+
+          ),
 
         ],
-
-      ),
 
       ),
 
@@ -3224,7 +3287,27 @@ class SetlistTab extends StatelessWidget {
 
   final String nombreUsuario;
 
-  const SetlistTab({super.key, required this.codigoSala, required this.nombreUsuario});
+  /// Swipe hacia arriba en el visor de PDF/cifrado llama esto para volver
+
+  /// a la pestaña de Pedidos de la pantalla que contiene este SetlistTab
+
+  /// (RequestScreen o SonidistaPage). Recibe el widget del visor actual
+
+  /// para poder reabrirlo con un swipe hacia abajo desde Pedidos.
+
+  final void Function(Widget visorActual)? onIrAPedidos;
+
+  const SetlistTab({
+
+    super.key,
+
+    required this.codigoSala,
+
+    required this.nombreUsuario,
+
+    this.onIrAPedidos,
+
+  });
 
   Future<void> _agregarCancion(BuildContext context) async {
 
@@ -3304,53 +3387,127 @@ class SetlistTab extends StatelessWidget {
 
       isScrollControlled: true,
 
-      builder: (context) => DraggableScrollableSheet(
+      builder: (context) {
 
-        expand: false,
+        final busquedaController = TextEditingController();
 
-        builder: (context, scrollController) => StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+        String busqueda = '';
 
-          stream: RepertorioService.streamRepertorio(user.uid),
+        return StatefulBuilder(
 
-          builder: (context, snapshot) {
+          builder: (context, setModalState) => DraggableScrollableSheet(
 
-            if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+            expand: false,
 
-            final docs = snapshot.data!.docs;
+            builder: (context, scrollController) => StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
 
-            if (docs.isEmpty) return const Center(child: Text('Tu biblioteca está vacía.'));
+              stream: RepertorioService.streamRepertorio(user.uid),
 
-            return ListView.builder(
+              builder: (context, snapshot) {
 
-              controller: scrollController,
+                if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
 
-              itemCount: docs.length,
+                final docs = snapshot.data!.docs;
 
-              itemBuilder: (context, i) {
+                if (docs.isEmpty) return const Center(child: Text('Tu biblioteca está vacía.'));
 
-                final data = docs[i].data();
+                final docsFiltrados = busqueda.isEmpty
 
-                return ListTile(
+                    ? docs
 
-                  leading: Icon(Icons.picture_as_pdf, color: context.acento),
+                    : docs.where((d) {
 
-                  title: Text(data['titulo'] as String? ?? ''),
+                        final data = d.data();
 
-                  subtitle: Text(data['tonalidad'] as String? ?? ''),
+                        final t = (data['titulo'] as String? ?? '').toLowerCase();
 
-                  onTap: () => Navigator.pop(context, data),
+                        final k = (data['tonalidad'] as String? ?? '').toLowerCase();
+
+                        return t.contains(busqueda) || k.contains(busqueda);
+
+                      }).toList();
+
+                return Column(
+
+                  children: [
+
+                    Padding(
+
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+
+                      child: TextField(
+
+                        controller: busquedaController,
+
+                        autofocus: true,
+
+                        onChanged: (v) => setModalState(() => busqueda = v.trim().toLowerCase()),
+
+                        decoration: InputDecoration(
+
+                          hintText: 'Buscar por título o tonalidad...',
+
+                          isDense: true,
+
+                          prefixIcon: const Icon(Icons.search, size: 20),
+
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+
+                        ),
+
+                      ),
+
+                    ),
+
+                    Expanded(
+
+                      child: docsFiltrados.isEmpty
+
+                          ? Center(child: Text('Sin resultados para "$busqueda".'))
+
+                          : ListView.builder(
+
+                              controller: scrollController,
+
+                              itemCount: docsFiltrados.length,
+
+                              itemBuilder: (context, i) {
+
+                                final data = docsFiltrados[i].data();
+
+                                return ListTile(
+
+                                  leading: Icon(Icons.picture_as_pdf, color: context.acento),
+
+                                  title: Text(data['titulo'] as String? ?? ''),
+
+                                  subtitle: Text(data['tonalidad'] as String? ?? ''),
+
+                                  onTap: () => Navigator.pop(context, data),
+
+                                );
+
+                              },
+
+                            ),
+
+                    ),
+
+                  ],
 
                 );
 
               },
 
-            );
+            ),
 
-          },
+          ),
 
-        ),
+        );
 
-      ),
+      },
 
     );
 
@@ -3446,7 +3603,7 @@ class SetlistTab extends StatelessWidget {
 
                             decoration: const InputDecoration(
 
-                              hintText: 'Buscar canción por título...',
+                              hintText: 'Buscar por título o tonalidad...',
 
                               border: OutlineInputBorder(),
 
@@ -3710,6 +3867,24 @@ class SetlistTab extends StatelessWidget {
 
           }
 
+          final setlistItems = docs.map((d) {
+
+            final m = d.data();
+
+            return {
+
+              'id': d.id,
+
+              'titulo': m['titulo'] as String? ?? '',
+
+              'pdfUrl': m['pdfUrl'] as String? ?? '',
+
+              'cifradoTexto': m['cifradoTexto'] as String? ?? '',
+
+            };
+
+          }).toList();
+
           String estadoDe(Map<String, dynamic> data) {
 
             return (data['estado'] as String?) ??
@@ -3882,7 +4057,25 @@ class SetlistTab extends StatelessWidget {
 
                         context,
 
-                        MaterialPageRoute(builder: (_) => PdfViewerScreen(titulo: titulo, pdfUrl: pdfUrl)),
+                        MaterialPageRoute(
+
+                          builder: (_) => PdfViewerScreen(
+
+                            titulo: titulo,
+
+                            pdfUrl: pdfUrl,
+
+                            setlistItems: setlistItems,
+
+                            indiceEnSetlist: i,
+
+                            codigoSala: codigoSala,
+
+                            onIrAPedidos: onIrAPedidos,
+
+                          ),
+
+                        ),
 
                       ),
 
@@ -3915,6 +4108,12 @@ class SetlistTab extends StatelessWidget {
                               codigoSala: codigoSala,
 
                               itemId: doc.id,
+
+                              setlistItems: setlistItems,
+
+                              indiceEnSetlist: i,
+
+                              onIrAPedidos: onIrAPedidos,
 
                             ),
 
@@ -4834,6 +5033,20 @@ class CifradoViewerScreen extends StatefulWidget {
 
   final String? itemId;
 
+  /// Lista ordenada de temas del setlist actual e índice de este tema en
+
+  /// esa lista, para pasar al siguiente/anterior con un swipe horizontal.
+
+  /// Igual que en PdfViewerScreen, quedan null fuera de un setlist de sala.
+
+  final List<Map<String, dynamic>>? setlistItems;
+
+  final int? indiceEnSetlist;
+
+  /// Swipe hacia arriba: volver a la pestaña de Pedidos de la sala.
+
+  final void Function(Widget visorActual)? onIrAPedidos;
+
   const CifradoViewerScreen({
 
     super.key,
@@ -4845,6 +5058,12 @@ class CifradoViewerScreen extends StatefulWidget {
     this.codigoSala,
 
     this.itemId,
+
+    this.setlistItems,
+
+    this.indiceEnSetlist,
+
+    this.onIrAPedidos,
 
   });
 
@@ -4860,15 +5079,103 @@ class _CifradoViewerScreenState extends State<CifradoViewerScreen> {
 
   int _semitonosLocal = 0;
 
-  void _cambiarSemitonos(int actual, int nuevo) {
+  /// Solo tiene sentido cuando widget.sincronizada es true: permite que
 
-    if (widget.sincronizada) {
+  /// esta pantalla puntual deje de seguir/escribir la transposición
+
+  /// compartida de la sala sin afectar a los demás (ej. para mirar la
+
+  /// canción en otro tono un momento sin descuadrar al resto de la banda).
+
+  bool _sincronizado = true;
+
+  void _toggleSincronizado(int semitonosActuales) {
+
+    setState(() {
+
+      _sincronizado = !_sincronizado;
+
+      if (!_sincronizado) _semitonosLocal = semitonosActuales;
+
+    });
+
+  }
+
+  void _cambiarSemitonos(int nuevo) {
+
+    if (widget.sincronizada && _sincronizado) {
 
       SetlistService.actualizarTransposicion(widget.codigoSala!, widget.itemId!, nuevo);
 
     } else {
 
       setState(() => _semitonosLocal = nuevo);
+
+    }
+
+  }
+
+  Offset? _inicioArrastre;
+
+  void _navegarAIndice(int indice) {
+
+    final item = widget.setlistItems![indice];
+
+    Navigator.pushReplacement(
+
+      context,
+
+      MaterialPageRoute(
+
+        builder: (_) => CifradoViewerScreen(
+
+          titulo: item['titulo'] as String,
+
+          cifradoOriginal: item['cifradoTexto'] as String? ?? '',
+
+          codigoSala: widget.codigoSala,
+
+          itemId: item['id'] as String?,
+
+          setlistItems: widget.setlistItems,
+
+          indiceEnSetlist: indice,
+
+          onIrAPedidos: widget.onIrAPedidos,
+
+        ),
+
+      ),
+
+    );
+
+  }
+
+  void _manejarSwipe(PointerUpEvent evento) {
+
+    if (_inicioArrastre == null) return;
+
+    final delta = evento.position - _inicioArrastre!;
+
+    _inicioArrastre = null;
+
+    const umbral = 80.0;
+
+    if (delta.dx.abs() > delta.dy.abs()) {
+
+      if (delta.dx.abs() < umbral || widget.setlistItems == null || widget.indiceEnSetlist == null) return;
+
+      final nuevoIndice = widget.indiceEnSetlist! + (delta.dx < 0 ? 1 : -1);
+
+      if (nuevoIndice < 0 || nuevoIndice >= widget.setlistItems!.length) return;
+
+      _navegarAIndice(nuevoIndice);
+
+    } else {
+
+      if (delta.dy >= 0 || delta.dy.abs() < umbral) return;
+
+      widget.onIrAPedidos?.call(widget);
 
     }
 
@@ -4894,7 +5201,7 @@ class _CifradoViewerScreenState extends State<CifradoViewerScreen> {
 
             tooltip: 'Bajar un semitono',
 
-            onPressed: () => _cambiarSemitonos(semitonos, semitonos - 1),
+            onPressed: () => _cambiarSemitonos(semitonos - 1),
 
           ),
 
@@ -4916,7 +5223,7 @@ class _CifradoViewerScreenState extends State<CifradoViewerScreen> {
 
             tooltip: 'Subir un semitono',
 
-            onPressed: () => _cambiarSemitonos(semitonos, semitonos + 1),
+            onPressed: () => _cambiarSemitonos(semitonos + 1),
 
           ),
 
@@ -4926,43 +5233,49 @@ class _CifradoViewerScreenState extends State<CifradoViewerScreen> {
 
             tooltip: 'Restablecer tono original',
 
-            onPressed: semitonos == 0 ? null : () => _cambiarSemitonos(semitonos, 0),
+            onPressed: semitonos == 0 ? null : () => _cambiarSemitonos(0),
 
           ),
 
-          if (widget.sincronizada) ...[
+          if (widget.sincronizada)
 
-            const SizedBox(width: 4),
+            IconButton(
 
-            const Padding(
+              icon: Icon(_sincronizado ? Icons.sync : Icons.sync_disabled),
 
-              padding: EdgeInsets.only(right: 12),
+              color: _sincronizado ? Colors.green : Colors.red,
 
-              child: Tooltip(
+              tooltip: _sincronizado
 
-                message: 'Sincronizado con toda la sala',
+                  ? 'Sincronizado con toda la sala (tocá para desincronizar)'
 
-                child: Icon(Icons.sync, size: 18),
+                  : 'Desincronizado — cambios solo locales (tocá para volver a sincronizar)',
 
-              ),
+              onPressed: () => _toggleSincronizado(semitonos),
 
             ),
-
-          ],
 
         ],
 
       ),
 
-      body: SingleChildScrollView(
+      body: Listener(
 
-        padding: const EdgeInsets.all(16),
+        onPointerDown: (e) => _inicioArrastre = e.position,
 
-        child: SelectableText(
+        onPointerUp: _manejarSwipe,
 
-          texto,
+        child: SingleChildScrollView(
 
-          style: const TextStyle(fontFamily: 'monospace', fontSize: 14, height: 1.6),
+          padding: const EdgeInsets.all(16),
+
+          child: SelectableText(
+
+            texto,
+
+            style: const TextStyle(fontFamily: 'monospace', fontSize: 14, height: 1.6),
+
+          ),
 
         ),
 
@@ -4976,7 +5289,7 @@ class _CifradoViewerScreenState extends State<CifradoViewerScreen> {
 
   Widget build(BuildContext context) {
 
-    if (!widget.sincronizada) {
+    if (!widget.sincronizada || !_sincronizado) {
 
       return _construirVisor(context, _semitonosLocal);
 
@@ -5018,7 +5331,41 @@ class PdfViewerScreen extends StatefulWidget {
 
   final String pdfUrl;
 
-  const PdfViewerScreen({super.key, required this.titulo, required this.pdfUrl});
+  /// Lista ordenada de temas del setlist actual ([{id, titulo, pdfUrl,
+
+  /// cifradoTexto}]) e índice de este tema en esa lista, para poder pasar
+
+  /// al siguiente/anterior con un swipe horizontal. Quedan null si se
+
+  /// abrió fuera de un setlist de sala (ej. desde Mi Repertorio).
+
+  final List<Map<String, dynamic>>? setlistItems;
+
+  final int? indiceEnSetlist;
+
+  final String? codigoSala;
+
+  /// Swipe hacia arriba: volver a la pestaña de Pedidos de la sala.
+
+  final void Function(Widget visorActual)? onIrAPedidos;
+
+  const PdfViewerScreen({
+
+    super.key,
+
+    required this.titulo,
+
+    required this.pdfUrl,
+
+    this.setlistItems,
+
+    this.indiceEnSetlist,
+
+    this.codigoSala,
+
+    this.onIrAPedidos,
+
+  });
 
   @override
 
@@ -5029,6 +5376,74 @@ class PdfViewerScreen extends StatefulWidget {
 class _PdfViewerScreenState extends State<PdfViewerScreen> {
 
   String? _error;
+
+  Offset? _inicioArrastre;
+
+  void _navegarAIndice(int indice) {
+
+    final item = widget.setlistItems![indice];
+
+    Navigator.pushReplacement(
+
+      context,
+
+      MaterialPageRoute(
+
+        builder: (_) => PdfViewerScreen(
+
+          titulo: item['titulo'] as String,
+
+          pdfUrl: item['pdfUrl'] as String,
+
+          setlistItems: widget.setlistItems,
+
+          indiceEnSetlist: indice,
+
+          codigoSala: widget.codigoSala,
+
+          onIrAPedidos: widget.onIrAPedidos,
+
+        ),
+
+      ),
+
+    );
+
+  }
+
+  /// Detecta el swipe con Listener (no GestureDetector) para que no
+
+  /// compita por el gesto con el pan/zoom interno de SfPdfViewer.
+
+  void _manejarSwipe(PointerUpEvent evento) {
+
+    if (_inicioArrastre == null) return;
+
+    final delta = evento.position - _inicioArrastre!;
+
+    _inicioArrastre = null;
+
+    const umbral = 80.0;
+
+    if (delta.dx.abs() > delta.dy.abs()) {
+
+      if (delta.dx.abs() < umbral || widget.setlistItems == null || widget.indiceEnSetlist == null) return;
+
+      final nuevoIndice = widget.indiceEnSetlist! + (delta.dx < 0 ? 1 : -1);
+
+      if (nuevoIndice < 0 || nuevoIndice >= widget.setlistItems!.length) return;
+
+      _navegarAIndice(nuevoIndice);
+
+    } else {
+
+      if (delta.dy >= 0 || delta.dy.abs() < umbral) return;
+
+      widget.onIrAPedidos?.call(widget);
+
+    }
+
+  }
 
   @override
 
@@ -5044,53 +5459,61 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
 
       ),
 
-      body: _error != null
+      body: Listener(
 
-          ? Center(
+        onPointerDown: (e) => _inicioArrastre = e.position,
 
-              child: Padding(
+        onPointerUp: _manejarSwipe,
 
-                padding: const EdgeInsets.all(24),
+        child: _error != null
 
-                child: Column(
+            ? Center(
 
-                  mainAxisSize: MainAxisSize.min,
+                child: Padding(
 
-                  children: [
+                  padding: const EdgeInsets.all(24),
 
-                    const Icon(Icons.error_outline, color: Colors.redAccent, size: 48),
+                  child: Column(
 
-                    const SizedBox(height: 12),
+                    mainAxisSize: MainAxisSize.min,
 
-                    Text(
+                    children: [
 
-                      'No se pudo cargar el PDF.\n$_error',
+                      const Icon(Icons.error_outline, color: Colors.redAccent, size: 48),
 
-                      textAlign: TextAlign.center,
+                      const SizedBox(height: 12),
 
-                      style: const TextStyle(color: Colors.white),
+                      Text(
 
-                    ),
+                        'No se pudo cargar el PDF.\n$_error',
 
-                  ],
+                        textAlign: TextAlign.center,
+
+                        style: const TextStyle(color: Colors.white),
+
+                      ),
+
+                    ],
+
+                  ),
 
                 ),
 
+              )
+
+            : SfPdfViewer.network(
+
+                widget.pdfUrl,
+
+                onDocumentLoadFailed: (details) {
+
+                  setState(() => _error = details.description);
+
+                },
+
               ),
 
-            )
-
-          : SfPdfViewer.network(
-
-              widget.pdfUrl,
-
-              onDocumentLoadFailed: (details) {
-
-                setState(() => _error = details.description);
-
-              },
-
-            ),
+      ),
 
     );
 
@@ -5307,7 +5730,7 @@ class SonidistaPage extends StatefulWidget {
 
 }
 
-class _SonidistaPageState extends State<SonidistaPage> {
+class _SonidistaPageState extends State<SonidistaPage> with SingleTickerProviderStateMixin {
 
   bool _pantallaEncendida = true;
 
@@ -5319,6 +5742,16 @@ class _SonidistaPageState extends State<SonidistaPage> {
 
   bool _primerSnapshotPedidos = true;
 
+  late final TabController _tabController;
+
+  /// Último visor de PDF/cifrado abierto desde el setlist, para poder
+
+  /// volver a él con un swipe hacia abajo desde la pestaña de Pedidos.
+
+  Widget? _ultimoVisor;
+
+  Offset? _inicioArrastrePedidos;
+
   @override
 
   void initState() {
@@ -5328,6 +5761,8 @@ class _SonidistaPageState extends State<SonidistaPage> {
     WakelockPlus.enable();
 
     _escucharPedidosNuevos();
+
+    _tabController = TabController(length: 3, vsync: this);
 
   }
 
@@ -5341,7 +5776,35 @@ class _SonidistaPageState extends State<SonidistaPage> {
 
     _alertaPlayer.dispose();
 
+    _tabController.dispose();
+
     super.dispose();
+
+  }
+
+  void _irAPedidos(Widget visorActual) {
+
+    _ultimoVisor = visorActual;
+
+    Navigator.pop(context);
+
+    _tabController.animateTo(0);
+
+  }
+
+  void _manejarSwipeAbajoEnPedidos(PointerUpEvent evento) {
+
+    if (_inicioArrastrePedidos == null || _ultimoVisor == null) return;
+
+    final delta = evento.position - _inicioArrastrePedidos!;
+
+    _inicioArrastrePedidos = null;
+
+    if (delta.dy > 80 && delta.dy.abs() > delta.dx.abs()) {
+
+      Navigator.push(context, MaterialPageRoute(builder: (_) => _ultimoVisor!));
+
+    }
 
   }
 
@@ -5641,11 +6104,7 @@ class _SonidistaPageState extends State<SonidistaPage> {
 
   Widget build(BuildContext context) {
 
-    return DefaultTabController(
-
-      length: 3,
-
-      child: Scaffold(
+    return Scaffold(
 
       appBar: AppBar(
 
@@ -5717,9 +6176,11 @@ class _SonidistaPageState extends State<SonidistaPage> {
 
         ],
 
-        bottom: const TabBar(
+        bottom: TabBar(
 
-          tabs: [
+          controller: _tabController,
+
+          tabs: const [
 
             Tab(text: 'PEDIDOS'),
 
@@ -5735,9 +6196,17 @@ class _SonidistaPageState extends State<SonidistaPage> {
 
       body: TabBarView(
 
+        controller: _tabController,
+
         children: [
 
-          StreamBuilder<QuerySnapshot>(
+          Listener(
+
+            onPointerDown: (e) => _inicioArrastrePedidos = e.position,
+
+            onPointerUp: _manejarSwipeAbajoEnPedidos,
+
+            child: StreamBuilder<QuerySnapshot>(
 
         stream: FirebaseFirestore.instance
 
@@ -5829,6 +6298,8 @@ class _SonidistaPageState extends State<SonidistaPage> {
 
       ),
 
+          ),
+
           StreamBuilder<QuerySnapshot>(
 
             stream: FirebaseFirestore.instance
@@ -5915,11 +6386,17 @@ class _SonidistaPageState extends State<SonidistaPage> {
 
           ),
 
-          SetlistTab(codigoSala: widget.codigoSala, nombreUsuario: 'Sonidista'),
+          SetlistTab(
+
+            codigoSala: widget.codigoSala,
+
+            nombreUsuario: 'Sonidista',
+
+            onIrAPedidos: _irAPedidos,
+
+          ),
 
         ],
-
-      ),
 
       ),
 
