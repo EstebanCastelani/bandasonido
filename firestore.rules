@@ -17,6 +17,20 @@ service cloud.firestore {
       allow read, write: if request.auth != null && salaId != null && salaId.size() > 0;
     }
 
+    // Presencia de compañeros con cuenta real en la sala (para que el
+    // buscador de "bibliotecas de la sala" sepa en qué usuarios/{uid}
+    // mirar — ver MiembrosSalaService en main.dart). Lectura: cualquiera
+    // que conozca el código, igual que pedidos/setlist. Escritura: solo el
+    // propio usuario, con cuenta real, registrando su propia presencia —
+    // nunca en nombre de otro.
+    match /salas/{salaId}/miembros/{uid} {
+      allow read: if request.auth != null && salaId != null && salaId.size() > 0;
+      allow write: if request.auth != null
+                   && request.auth.uid == uid
+                   && request.auth.token.firebase.sign_in_provider != 'anonymous'
+                   && salaId != null && salaId.size() > 0;
+    }
+
     match /usuarios/{uid} {
       // Cada usuario solo puede leer su propio perfil.
       allow read: if request.auth != null && request.auth.uid == uid;

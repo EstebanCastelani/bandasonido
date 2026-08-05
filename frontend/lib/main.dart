@@ -648,6 +648,50 @@ class FrasesService {
   }
 }
 
+// --- SERVICIO DE COMPAÑEROS DE SALA (PRESENCIA PARA BUSCAR BIBLIOTECAS) ---
+
+/// salas/{codigoSala} no tiene documento propio ni noción de membresía (ver
+/// CONTEXTO_PARA_IA.md §6) — es solo un código compartido. Esta colección es
+/// la única forma de saber "quién más anduvo por esta sala con una cuenta
+/// real", para que el buscador de RepertorioService sepa en qué
+/// usuarios/{uid}/mi_repertorio mirar al armar el setlist. Los invitados
+/// anónimos no se registran acá: no tienen biblioteca, no aportan nada al
+/// buscador.
+class MiembrosSalaService {
+  static CollectionReference<Map<String, dynamic>> _ref(String codigoSala) =>
+      FirebaseFirestore.instance.collection('salas').doc(codigoSala).collection('miembros');
+
+  /// Se llama al entrar a RequestScreen/SonidistaPage. No hace nada para
+  /// invitados anónimos ni si falla (falta de red, etc.) — es best-effort,
+  /// no debe romper el ingreso a la sala.
+  static Future<void> registrarPresencia(String codigoSala) async {
+    if (!AuthService.esUsuarioRegistrado) return;
+    final user = AuthService.currentUser!;
+    final perfil = await UsuarioService.obtenerPerfil(user.uid);
+    final nombrePerfil = (perfil?['nombre'] as String?)?.trim();
+    final nombre = (nombrePerfil != null && nombrePerfil.isNotEmpty)
+        ? nombrePerfil
+        : (user.email ?? 'Sin nombre');
+    await _ref(codigoSala).doc(user.uid).set({
+      'nombre': nombre,
+      'ultimaConexion': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
+  /// Compañeros con cuenta real que pasaron por esta sala, sin contar al
+  /// propio usuario.
+  static Future<List<Map<String, dynamic>>> obtenerCompaneros(
+    String codigoSala, {
+    required String excluirUid,
+  }) async {
+    final snap = await _ref(codigoSala).get();
+    return snap.docs
+        .where((d) => d.id != excluirUid)
+        .map((d) => {...d.data(), 'uid': d.id})
+        .toList();
+  }
+}
+
 // --- SERVICIO DE REPERTORIO PERSONAL (BIBLIOTECA DE PARTITURAS) ---
 
 /// Biblioteca de canciones/partituras propia de cada usuario.
@@ -763,24 +807,30 @@ class RepertorioService {
     await _ref(uid).doc(cancionId).delete();
   }
 
-  /// Busca canciones por título en TODAS las bibliotecas (collectionGroup).
-  /// Firestore no soporta full-text search: se trae un lote reciente y se
-  /// filtra por substring del lado del cliente.
-  static Future<List<Map<String, dynamic>>> buscarEnTodasLasBibliotecas(String query) async {
-    final snap = await FirebaseFirestore.instance
-        .collectionGroup('mi_repertorio')
-        .orderBy('createdAt', descending: true)
-        .limit(200)
-        .get();
-
+  /// Busca canciones por título/tonalidad entre las bibliotecas de los
+  /// compañeros de sala (ver MiembrosSalaService) — no en toda la app.
+  /// Firestore no soporta "uid in [...]" combinado con full-text search, así
+  /// que se hace una consulta por compañero (colección normal, sin falta de
+  /// índice de collection group) y se combina del lado del cliente.
+  static Future<List<Map<String, dynamic>>> buscarEntreCompaneros({
+    required List<Map<String, dynamic>> companeros,
+    required String query,
+  }) async {
     final queryLower = query.trim().toLowerCase();
-    return snap.docs
-        .map((d) => {...d.data(), 'id': d.id})
-        .where((c) =>
-            queryLower.isEmpty ||
-            (c['titulo'] as String? ?? '').toLowerCase().contains(queryLower) ||
-            (c['tonalidad'] as String? ?? '').toLowerCase().contains(queryLower))
-        .toList();
+    final resultados = <Map<String, dynamic>>[];
+
+    for (final companero in companeros) {
+      final uid = companero['uid'] as String;
+      final nombreCompanero = companero['nombre'] as String? ?? '';
+      final snap = await _ref(uid).orderBy('createdAt', descending: true).limit(50).get();
+      resultados.addAll(snap.docs
+          .map((d) => {...d.data(), 'id': d.id, 'propietarioNombre': nombreCompanero})
+          .where((c) =>
+              queryLower.isEmpty ||
+              (c['titulo'] as String? ?? '').toLowerCase().contains(queryLower) ||
+              (c['tonalidad'] as String? ?? '').toLowerCase().contains(queryLower)));
+    }
+    return resultados;
   }
 }
 
@@ -2703,6 +2753,9 @@ class _RequestScreenState extends State<RequestScreen> with SingleTickerProvider
 
     WakelockPlus.enable();
 
+    MiembrosSalaService.registrarPresencia(widget.codigoSala)
+        .catchError((e) => debugPrint('No se pudo registrar presencia en la sala: $e'));
+
     _tabController = TabController(length: 2, vsync: this);
 
   }
@@ -3337,7 +3390,7 @@ class SetlistTab extends StatelessWidget {
 
               leading: Icon(Icons.search, color: context.acento),
 
-              title: const Text('Buscar en todas las bibliotecas'),
+              title: const Text('Buscar en bibliotecas de la sala'),
 
               onTap: () => Navigator.pop(context, 'buscar'),
 
@@ -3359,7 +3412,7 @@ class SetlistTab extends StatelessWidget {
 
     } else {
 
-      await _buscarGlobal(context);
+      await _buscarEntreCompaneros(context);
 
     }
 
@@ -3527,9 +3580,10 @@ class SetlistTab extends StatelessWidget {
 
   }
 
-  Future<void> _buscarGlobal(BuildContext context) async {
+  Future<void> _buscarEntreCompaneros(BuildContext context) async {
 
     final controller = TextEditingController();
+    final uidPropio = AuthService.currentUser?.uid ?? '';
 
     final seleccion = await showModalBottomSheet<Map<String, dynamic>>(
 
@@ -3545,25 +3599,54 @@ class SetlistTab extends StatelessWidget {
 
         bool buscoAlMenosUnaVez = false;
 
+        String? errorBusqueda;
+
+        bool sinCompaneros = false;
+
         return StatefulBuilder(
 
           builder: (context, setModalState) {
 
             Future<void> ejecutarBusqueda() async {
 
-              setModalState(() => buscando = true);
-
-              final r = await RepertorioService.buscarEnTodasLasBibliotecas(controller.text);
-
               setModalState(() {
-
-                resultados = r;
-
-                buscando = false;
-
-                buscoAlMenosUnaVez = true;
-
+                buscando = true;
+                errorBusqueda = null;
+                sinCompaneros = false;
               });
+
+              try {
+                final companeros = await MiembrosSalaService.obtenerCompaneros(
+                  codigoSala,
+                  excluirUid: uidPropio,
+                );
+                if (companeros.isEmpty) {
+                  setModalState(() {
+                    resultados = [];
+                    buscando = false;
+                    buscoAlMenosUnaVez = true;
+                    sinCompaneros = true;
+                  });
+                  return;
+                }
+                final r = await RepertorioService.buscarEntreCompaneros(
+                  companeros: companeros,
+                  query: controller.text,
+                );
+                setModalState(() {
+                  resultados = r;
+                  buscando = false;
+                  buscoAlMenosUnaVez = true;
+                });
+              } catch (e) {
+                debugPrint('Error buscando en bibliotecas de la sala: $e');
+                setModalState(() {
+                  resultados = [];
+                  buscando = false;
+                  buscoAlMenosUnaVez = true;
+                  errorBusqueda = 'No se pudo buscar. Intentá de nuevo en un momento.';
+                });
+              }
 
             }
 
@@ -3633,7 +3716,21 @@ class SetlistTab extends StatelessWidget {
 
                     if (buscando) const Padding(padding: EdgeInsets.all(16), child: CircularProgressIndicator()),
 
-                    if (!buscando && buscoAlMenosUnaVez && resultados.isEmpty)
+                    if (!buscando && errorBusqueda != null)
+
+                      Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Text(errorBusqueda!, style: const TextStyle(color: Colors.red)),
+                      ),
+
+                    if (!buscando && errorBusqueda == null && sinCompaneros)
+
+                      const Padding(
+                        padding: EdgeInsets.all(16),
+                        child: Text('Todavía no hay compañeros con cuenta y biblioteca en esta sala.'),
+                      ),
+
+                    if (!buscando && errorBusqueda == null && !sinCompaneros && buscoAlMenosUnaVez && resultados.isEmpty)
 
                       const Padding(padding: EdgeInsets.all(16), child: Text('Sin resultados.')),
 
@@ -3651,13 +3748,21 @@ class SetlistTab extends StatelessWidget {
 
                             final data = resultados[i];
 
+                            final tonalidad = data['tonalidad'] as String? ?? '';
+
+                            final propietario = data['propietarioNombre'] as String? ?? '';
+
                             return ListTile(
 
                               leading: Icon(Icons.picture_as_pdf, color: context.acento),
 
                               title: Text(data['titulo'] as String? ?? ''),
 
-                              subtitle: Text(data['tonalidad'] as String? ?? ''),
+                              subtitle: Text(
+                                [tonalidad, if (propietario.isNotEmpty) 'de $propietario']
+                                    .where((s) => s.isNotEmpty)
+                                    .join(' · '),
+                              ),
 
                               onTap: () => Navigator.pop(context, data),
 
@@ -5759,6 +5864,9 @@ class _SonidistaPageState extends State<SonidistaPage> with SingleTickerProvider
     super.initState();
 
     WakelockPlus.enable();
+
+    MiembrosSalaService.registrarPresencia(widget.codigoSala)
+        .catchError((e) => debugPrint('No se pudo registrar presencia en la sala: $e'));
 
     _escucharPedidosNuevos();
 

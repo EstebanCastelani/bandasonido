@@ -32,7 +32,9 @@ Firestore/Auth. No reintroducir un backend salvo que haya una razón de peso
 y se documente acá por qué.
 
 **Todo el código Dart vive en un solo archivo:** `frontend/lib/main.dart`
-(~4.760 líneas a esta fecha). Es una convención explícita del dueño del
+(~6.400 líneas a esta fecha — y va a seguir creciendo; no confíes en este
+número, correlo de nuevo con `wc -l` si te importa la cifra exacta). Es una
+convención explícita del dueño del
 proyecto, no un descuido — no dividir en múltiples archivos sin que te lo
 pidan. El archivo está organizado en secciones marcadas con comentarios
 `// --- NOMBRE DE SECCIÓN ---`. Mapa actual (los números de línea van a
@@ -56,6 +58,7 @@ MENÚ DE INGRESO                    — IngressMenuScreen (home post-login)
 SELECTOR DE IDENTIDAD DE COLOR     — PaletaPickerScreen
 PANTALLA DE CREACIÓN DE SALA       — CrearSalaScreen
 PANTALLA PARA UNIRSE A SALA        — UnirmeSalaScreen
+MIS SALAS                          — MisSalasScreen (historial multi-sala, función Pro)
 PANTALLA DE PEDIDOS INDIVIDUAL     — RequestScreen (músico/cantante, tabs Pedidos/Setlist)
 LISTA DE TEMAS COMPARTIDA          — SetlistTab (widget reusado en RequestScreen y SonidistaPage)
 ADMINISTRACIÓN DE FRASES           — FrasesAdminScreen ("Mis frases")
@@ -84,10 +87,32 @@ usuarios/{uid}/mi_repertorio/{id}     — biblioteca personal de partituras
   como 'firebase'). Ver §7.1 — migración temporal a Supabase Storage.
 
 salas/{codigoSala}/pedidos/{id}       — pedidos en vivo de una sala
-  pedido, nombre, rol, atendido, respuesta, createdAt
+  pedido, nombre, rol, atendido, urgente, respuesta, createdAt
+  urgente (bool): activa parpadeo + vibración/sonido en SonidistaPage.
 
 salas/{codigoSala}/setlist/{id}       — lista de temas del show
-  titulo, pdfUrl, cifradoTexto, subidoPor, orden, completado, completadoAt, createdAt
+  titulo, pdfUrl, cifradoTexto, subidoPor, orden, completado, completadoAt,
+  estado, transposicion, createdAt
+  estado (String): 'pendiente' | 'pausado' | 'tocado'. Reemplaza al binario
+  completado/no-completado, pero completado (bool) se sigue escribiendo en
+  paralelo (completado = estado=='tocado') para no romper documentos viejos
+  que solo conocían ese campo — ver SetlistService.actualizarEstado.
+  transposicion (int, semitonos): sincroniza en vivo la transposición del
+  cifrado entre todos los que estén viendo el mismo tema en la sala — ver
+  CifradoViewerScreen.
+
+usuarios/{uid}/mis_salas/{codigoSala}  — historial de salas (función Pro)
+  rolUsado, nombre, ultimoAcceso, nombreSala (opcional, editable)
+  Doc id = el propio código de sala. Ver MisSalasScreen/MisSalasService y
+  §5 (ítem "Multi-banda/multi-sala").
+
+salas/{codigoSala}/miembros/{uid}     — presencia de cuentas reales en la sala
+  nombre, ultimaConexion
+  Doc id = uid del usuario. NO es función Pro y no depende de
+  kFuncionesProGratisPorAhora — se registra sola (best-effort) al entrar a
+  RequestScreen/SonidistaPage con cuenta registrada. Único propósito: que
+  "Buscar en bibliotecas de la sala" sepa en qué usuarios/{uid}/mi_repertorio
+  mirar. Ver MiembrosSalaService y §5 ítem 19.
 ```
 
 `salas/{codigoSala}` en sí **no tiene un documento propio** — el código de
@@ -149,6 +174,87 @@ registrada sin chequear `esPro` — ver §8 para cómo revertir esto.
    8 caracteres alfanuméricos, Firebase Auth anónimo obligatorio para tocar
    una sala, reglas de Firestore/Storage versionadas en el repo
    (`firestore.rules`, `storage.rules`).
+9. **Pedidos urgentes**: campo `urgente` (bool), toggle en `RequestScreen`
+   al enviar (se resetea solo después de cada envío). En `SonidistaPage` se
+   ven con ícono de alerta, texto en rojo y fondo parpadeante
+   (`_UrgentBlink`, `AnimationController`).
+10. **Notificación al sonidista**: `StreamSubscription` separado del
+    `StreamBuilder` de la UI, escucha `DocumentChangeType.added` (ignorando
+    el snapshot inicial) y dispara `HapticFeedback.vibrate()` (no-op en la
+    mayoría de navegadores web) + un beep corto (`audioplayers`, asset
+    `assets/sounds/pedido_nuevo.wav`, generado sintéticamente).
+11. **Historial de pedidos atendidos** y **vista agrupada por rol** (con
+    color determinístico por remitente) en `SonidistaPage`.
+12. **Setlist**: reordenar por drag & drop (`ReorderableListView`, campo
+    `orden`), estado intermedio `pausado` (corte técnico) además de
+    tocado/pendiente, y exportar/compartir el setlist como texto plano
+    (portapapeles o share sheet del sistema, sin depender de Storage).
+13. **Multi-banda/multi-sala (función Pro)**: pantalla "Mis salas"
+    (`MisSalasScreen`) — historial de salas con acceso directo, renombrar y
+    eliminar del historial. Se registra automáticamente al crear/unirse a
+    una sala o entrar como sonidista, solo si `AuthService.esUsuarioRegistrado`
+    y (`kFuncionesProGratisPorAhora || esPro`) — ver `_registrarSalaSiCorresponde`.
+14. **Firebase App Check**: scaffolding para reCAPTCHA v3 en Web
+    (`kAppCheckSiteKeyWeb`, `_activarAppCheckSiCorresponde`), **desactivado
+    por default** (constante en `null`) hasta generar el site key real — ver
+    §7.2.
+15. **Migración temporal de Storage a Supabase** (mientras no hay Blaze) —
+    ver §7.1, es la sección más larga de este documento.
+16. **Fixes del visor de PDF/cifrado en Web** (necesarios recién ahora,
+    porque hasta la migración a Supabase nunca hubo un PDF real para
+    probar el visor):
+    - `web/index.html` necesitaba el script de `pdf.js` que
+      `syncfusion_flutter_pdfviewer` requiere para renderizar en Web — sin
+      esto, **tanto `SfPdfViewer.network` como `.memory` fallan siempre**
+      con el mismo error genérico ("There was an error opening this
+      document"), sin importar si el PDF es válido o de dónde viene. Ver
+      §9 para el detalle completo de cómo se diagnosticó.
+    - `RepertorioService.extraerTextoPdf` necesitaba `layoutText: true` en
+      `PdfTextExtractor.extractText()` — sin eso, cada fragmento de texto
+      quedaba en su propia línea en vez de reconstruir los renglones
+      reales del PDF (afecta solo a **subidas nuevas**; canciones subidas
+      antes de este fix mantienen el cifrado mal formateado, hay que
+      volver a subirlas si se quiere corregir).
+    - Nombres de archivo con espacios/tildes/paréntesis rompían la subida a
+      Supabase Storage (`400 InvalidKey`) — `RepertorioService` ahora
+      sanitiza el nombre (`_sanitizarNombreArchivo`, solo
+      `[A-Za-z0-9._-]`) antes de armar el `storagePath`. Esto es específico
+      de Supabase Storage, no aplicaba con Firebase Storage.
+17. **Swipe entre canciones y hacia/desde Pedidos**: en `PdfViewerScreen` y
+    `CifradoViewerScreen`, swipe izquierda/derecha pasa a la
+    canción siguiente/anterior del setlist actual; swipe hacia arriba
+    vuelve a la pestaña Pedidos de la sala; swipe hacia abajo estando en
+    Pedidos reabre el último visor. `RequestScreen`/`SonidistaPage` pasaron
+    de `DefaultTabController` a un `TabController` explícito para poder
+    cambiar de pestaña programáticamente. El gesto se detecta con
+    `Listener` (eventos de puntero crudos), no `GestureDetector` — así no
+    compite por el gesto con el pan/zoom interno de `SfPdfViewer` ni con el
+    scroll de las listas de pedidos.
+18. **Buscador al agregar canción al setlist**: tanto "Desde mi biblioteca"
+    como "Buscar en bibliotecas de la sala" (en el bottom sheet del botón
+    "+" de `SetlistTab`) filtran por título o tonalidad. Nota: hubo un
+    intento de agregar además un buscador sobre el setlist *ya armado* de
+    la sala (filtrar los temas ya agregados), que se implementó y
+    después se revirtió a pedido explícito — no volver a agregarlo salvo
+    que se pida de nuevo.
+19. **"Buscar en bibliotecas de la sala" acotado a compañeros de sala, no a
+    toda la app.** La primera versión de este buscador (`RepertorioService.
+    buscarEnTodasLasBibliotecas`) usaba un `collectionGroup('mi_repertorio')`
+    que traía canciones de **cualquier cuenta registrada de toda la app**,
+    no solo de la sala actual — y además nunca funcionó en la práctica,
+    porque ese tipo de consulta necesita un índice de "collection group" en
+    Firestore que no se crea automáticamente y nunca se creó (no hay
+    `firestore.indexes.json` en el repo). Se reemplazó por
+    `MiembrosSalaService` (`salas/{codigoSala}/miembros/{uid}`): cada cuenta
+    registrada (no anónima) registra su propia presencia al entrar a
+    `RequestScreen`/`SonidistaPage` (`registrarPresencia`, best-effort, no
+    rompe el ingreso si falla). `RepertorioService.buscarEntreCompaneros`
+    ahora hace una consulta normal (sin índice especial) por cada compañero
+    presente en esa sala y combina los resultados del lado del cliente, con
+    el nombre del dueño (`propietarioNombre`) mostrado en cada resultado. Si
+    todavía no hay compañeros con cuenta+biblioteca en la sala, se muestra
+    un mensaje en vez de buscar. Ver reglas nuevas para `miembros` en
+    `firestore.rules`.
 
 ## 6. Modelo de seguridad de las salas — trade-off consciente, no bug
 
@@ -278,6 +384,27 @@ Storage. Es un parche deliberadamente acotado: **Firestore y Auth siguen
   Supabase no se apaga solo), o se migran aparte si en algún momento se
   quiere consolidar todo en un solo backend.
 
+### 7.2 GitHub Pages: dos deploys compitiendo por el mismo sitio
+
+Encontrado en producción: cada push a `main` dispara **dos workflows en
+paralelo** — el custom `.github/workflows/deploy.yml` ("Deploy to GitHub
+Pages", el que compila Flutter) y uno automático de GitHub llamado
+**"pages build and deployment"** (Jekyll, arma el sitio a partir del
+contenido crudo del repo). Ambos terminan casi al mismo segundo y publican
+al mismo sitio — el que termina último gana. Cuando gana el de Jekyll, la
+URL pública muestra el `README.md` renderizado en vez de la app.
+
+Causa: el repo tiene la fuente de GitHub Pages configurada como **"Deploy
+from a branch"** en vez de **"GitHub Actions"**. Mientras esté así, GitHub
+sigue corriendo su propio build automático sin que el workflow custom
+pueda evitarlo.
+
+**Fix (pendiente, acción manual en GitHub, no es código):**
+`github.com/EstebanCastelani/bandasonido/settings/pages` → "Build and
+deployment" → "Source" → cambiar de "Deploy from a branch" a **"GitHub
+Actions"**. Si al entrar a la URL pública aparece el README en vez de la
+app, esto es lo primero para revisar.
+
 ## 8. Deudas técnicas y pendientes explícitos
 
 **Bloqueantes para "app paga" real:**
@@ -304,7 +431,16 @@ Storage. Es un parche deliberadamente acotado: **Firestore y Auth siguen
 - El modelo de acceso a salas por PIN sigue siendo fuerza-bruteable en
   teoría, solo que ahora mucho más caro.
 - Falta restringir la Web API Key por dominio en Google Cloud Console.
-- No hay Firebase App Check.
+- Firebase App Check tiene el scaffolding listo pero **desactivado**
+  (`kAppCheckSiteKeyWeb = null` en `main.dart`) — falta generar el site key
+  de reCAPTCHA v3 y pegarlo ahí. Play Integrity (Android) directamente no
+  aplica todavía porque no existe `android/`.
+
+**Deuda de infraestructura de deploy (ver §7.2):**
+- GitHub Pages está configurado como "Deploy from a branch" en vez de
+  "GitHub Actions", lo que hace que compita con el workflow custom de
+  Flutter y a veces gane, publicando el README en vez de la app. Pendiente
+  que el dueño del proyecto cambie ese setting en GitHub.
 
 **Deuda de infraestructura temporal (ver §7.1):**
 - El repertorio personal sube PDFs a Supabase Storage en vez de Firebase
@@ -316,7 +452,7 @@ Storage. Es un parche deliberadamente acotado: **Firestore y Auth siguen
   es una decisión pendiente.
 
 **Deuda de código:**
-- `main.dart` es un archivo único de ~4.760 líneas. Es una decisión
+- `main.dart` es un archivo único de ~6.400 líneas y creciendo. Es una decisión
   consciente del dueño del proyecto (ver §2), no lo dividas sin que te lo
   pidan explícitamente.
 - Sin tests automatizados. `frontend/test/widget_test.dart` es el
@@ -362,6 +498,27 @@ commiteado y qué no.
   `.github/workflows/deploy.yml`, que compila con
   `--base-href /bandasonido/` (tiene que coincidir con el nombre del repo
   en GitHub Pages) y publica en `https://estebancastelani.github.io/bandasonido/`.
+  Ver §7.2 si la URL pública muestra el README en vez de la app.
+- **`web/index.html` necesita el script de `pdf.js` sí o sí.**
+  `syncfusion_flutter_pdfviewer` no renderiza nada en Web sin
+  `<script src="//cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.min.js">`
+  + configurar `pdfjsLib.GlobalWorkerOptions.workerSrc` (ver el `<body>` de
+  `web/index.html`). Sin esto, `SfPdfViewer.network` y `.memory` fallan
+  siempre con el mismo error genérico, sin importar si el PDF es válido —
+  costó una sesión entera de debug descubrir que no era un problema de
+  Supabase/CORS sino este script faltante. No lo borres.
+- **`PdfTextExtractor.extractText()` necesita `layoutText: true`.** Sin ese
+  parámetro (default `false`), el texto extraído queda con cada fragmento
+  en su propia línea en vez de reconstruir los renglones visuales reales
+  del PDF — se nota mucho en el cifrado (una palabra por línea). Ver
+  `RepertorioService.extraerTextoPdf`.
+- **Los gestos de swipe (PdfViewerScreen/CifradoViewerScreen) usan
+  `Listener`, no `GestureDetector`.** Es deliberado: `GestureDetector`
+  compite por el gesto con el pan/zoom interno de `SfPdfViewer` y con el
+  scroll de las listas de la app, y en la práctica no recibe los eventos.
+  `Listener` opera por debajo de esa capa de arbitraje y sí funciona. Si
+  agregás gestos nuevos sobre contenido con scroll/zoom propio, replicá
+  este patrón en vez de `GestureDetector`.
 
 ## 10. Cómo levantar el proyecto
 
