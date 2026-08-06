@@ -712,6 +712,19 @@ class RepertorioService {
     return _ref(uid).orderBy('createdAt', descending: true).snapshots();
   }
 
+  /// Ordena alfabéticamente por título, ignorando mayúsculas/minúsculas.
+  /// Firestore no puede hacer esto solo (ordena por código de carácter, así
+  /// que un título en minúscula quedaría después de todos los que empiezan
+  /// con mayúscula) — se ordena acá, del lado del cliente.
+  static List<QueryDocumentSnapshot<Map<String, dynamic>>> ordenarPorTitulo(
+    List<QueryDocumentSnapshot<Map<String, dynamic>>> docs,
+  ) {
+    final ordenados = [...docs];
+    ordenados.sort((a, b) =>
+        (a.data()['titulo'] as String? ?? '').toLowerCase().compareTo((b.data()['titulo'] as String? ?? '').toLowerCase()));
+    return ordenados;
+  }
+
   /// Supabase Storage rechaza keys con espacios, tildes, paréntesis, etc.
   /// (statusCode 400, error InvalidKey). Se sanitiza el nombre de archivo
   /// original antes de armar el storagePath — no afecta el 'titulo' que
@@ -3479,7 +3492,7 @@ class SetlistTab extends StatelessWidget {
 
                 if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
 
-                final docs = snapshot.data!.docs;
+                final docs = RepertorioService.ordenarPorTitulo(snapshot.data!.docs);
 
                 if (docs.isEmpty) return const Center(child: Text('Tu biblioteca está vacía.'));
 
@@ -4946,7 +4959,7 @@ class _MiRepertorioScreenState extends State<MiRepertorioScreen> {
 
                 }
 
-                final docs = snapshot.data!.docs.where((d) {
+                final docs = RepertorioService.ordenarPorTitulo(snapshot.data!.docs).where((d) {
 
                   if (_busqueda.isEmpty) return true;
 
