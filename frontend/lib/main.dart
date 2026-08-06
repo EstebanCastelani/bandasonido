@@ -807,30 +807,49 @@ class RepertorioService {
     await _ref(uid).doc(cancionId).delete();
   }
 
-  /// Busca canciones por título/tonalidad entre las bibliotecas de los
-  /// compañeros de sala (ver MiembrosSalaService) — no en toda la app.
+  /// Trae TODAS las canciones de las bibliotecas de los compañeros de sala
+  /// (ver MiembrosSalaService) de una sola vez — no en toda la app.
   /// Firestore no soporta "uid in [...]" combinado con full-text search, así
   /// que se hace una consulta por compañero (colección normal, sin falta de
-  /// índice de collection group) y se combina del lado del cliente.
-  static Future<List<Map<String, dynamic>>> buscarEntreCompaneros({
-    required List<Map<String, dynamic>> companeros,
-    required String query,
-  }) async {
-    final queryLower = query.trim().toLowerCase();
+  /// índice de collection group) y se combina del lado del cliente. El
+  /// filtro por texto se hace aparte, en memoria, para poder sugerir en vivo
+  /// mientras el usuario escribe sin volver a golpear Firestore por letra.
+  static Future<List<Map<String, dynamic>>> cancionesDeCompaneros(
+    List<Map<String, dynamic>> companeros,
+  ) async {
     final resultados = <Map<String, dynamic>>[];
-
     for (final companero in companeros) {
       final uid = companero['uid'] as String;
       final nombreCompanero = companero['nombre'] as String? ?? '';
       final snap = await _ref(uid).orderBy('createdAt', descending: true).limit(50).get();
-      resultados.addAll(snap.docs
-          .map((d) => {...d.data(), 'id': d.id, 'propietarioNombre': nombreCompanero})
-          .where((c) =>
-              queryLower.isEmpty ||
-              (c['titulo'] as String? ?? '').toLowerCase().contains(queryLower) ||
-              (c['tonalidad'] as String? ?? '').toLowerCase().contains(queryLower)));
+      resultados.addAll(snap.docs.map((d) => {...d.data(), 'id': d.id, 'propietarioNombre': nombreCompanero}));
     }
     return resultados;
+  }
+
+  /// Quita tildes/diéresis y pasa a minúsculas, para que buscar "glorioso
+  /// dia" encuentre "Glorioso día" sin que el usuario tenga que tipear la
+  /// tilde. Alcanza con los caracteres acentuados del español.
+  static String _normalizar(String texto) {
+    const conTilde = 'áéíóúüñ';
+    const sinTilde = 'aeiouun';
+    var resultado = texto.toLowerCase();
+    for (var i = 0; i < conTilde.length; i++) {
+      resultado = resultado.replaceAll(conTilde[i], sinTilde[i]);
+    }
+    return resultado;
+  }
+
+  /// Filtro en memoria por título/tonalidad, usado para sugerencias en vivo.
+  /// Ignora mayúsculas/minúsculas y tildes (ver _normalizar).
+  static List<Map<String, dynamic>> filtrarPorTexto(List<Map<String, dynamic>> canciones, String query) {
+    final queryLower = _normalizar(query.trim());
+    if (queryLower.isEmpty) return canciones;
+    return canciones
+        .where((c) =>
+            _normalizar(c['titulo'] as String? ?? '').contains(queryLower) ||
+            _normalizar(c['tonalidad'] as String? ?? '').contains(queryLower))
+        .toList();
   }
 }
 
@@ -3580,10 +3599,19 @@ class SetlistTab extends StatelessWidget {
 
   }
 
+  /// Trae de una sola vez todas las canciones de los compañeros de sala (o
+  /// null si todavía no hay compañeros con biblioteca) para poder filtrarlas
+  /// en memoria mientras el usuario escribe, sin golpear Firestore por letra.
+  Future<List<Map<String, dynamic>>?> _cargarCancionesDeCompaneros() async {
+    final uidPropio = AuthService.currentUser?.uid ?? '';
+    final companeros = await MiembrosSalaService.obtenerCompaneros(codigoSala, excluirUid: uidPropio);
+    if (companeros.isEmpty) return null;
+    return RepertorioService.cancionesDeCompaneros(companeros);
+  }
+
   Future<void> _buscarEntreCompaneros(BuildContext context) async {
 
     final controller = TextEditingController();
-    final uidPropio = AuthService.currentUser?.uid ?? '';
 
     final seleccion = await showModalBottomSheet<Map<String, dynamic>>(
 
@@ -3593,62 +3621,11 @@ class SetlistTab extends StatelessWidget {
 
       builder: (context) {
 
-        List<Map<String, dynamic>> resultados = [];
+        return FutureBuilder<List<Map<String, dynamic>>?>(
 
-        bool buscando = false;
+          future: _cargarCancionesDeCompaneros(),
 
-        bool buscoAlMenosUnaVez = false;
-
-        String? errorBusqueda;
-
-        bool sinCompaneros = false;
-
-        return StatefulBuilder(
-
-          builder: (context, setModalState) {
-
-            Future<void> ejecutarBusqueda() async {
-
-              setModalState(() {
-                buscando = true;
-                errorBusqueda = null;
-                sinCompaneros = false;
-              });
-
-              try {
-                final companeros = await MiembrosSalaService.obtenerCompaneros(
-                  codigoSala,
-                  excluirUid: uidPropio,
-                );
-                if (companeros.isEmpty) {
-                  setModalState(() {
-                    resultados = [];
-                    buscando = false;
-                    buscoAlMenosUnaVez = true;
-                    sinCompaneros = true;
-                  });
-                  return;
-                }
-                final r = await RepertorioService.buscarEntreCompaneros(
-                  companeros: companeros,
-                  query: controller.text,
-                );
-                setModalState(() {
-                  resultados = r;
-                  buscando = false;
-                  buscoAlMenosUnaVez = true;
-                });
-              } catch (e) {
-                debugPrint('Error buscando en bibliotecas de la sala: $e');
-                setModalState(() {
-                  resultados = [];
-                  buscando = false;
-                  buscoAlMenosUnaVez = true;
-                  errorBusqueda = 'No se pudo buscar. Intentá de nuevo en un momento.';
-                });
-              }
-
-            }
+          builder: (context, snapshot) {
 
             return Padding(
 
@@ -3672,105 +3649,100 @@ class SetlistTab extends StatelessWidget {
 
                   children: [
 
-                    Row(
+                    TextField(
 
-                      children: [
+                      controller: controller,
 
-                        Expanded(
+                      autofocus: true,
 
-                          child: TextField(
+                      decoration: const InputDecoration(
 
-                            controller: controller,
+                        hintText: 'Buscar por título o tonalidad...',
 
-                            autofocus: true,
+                        prefixIcon: Icon(Icons.search),
 
-                            decoration: const InputDecoration(
+                        border: OutlineInputBorder(),
 
-                              hintText: 'Buscar por título o tonalidad...',
-
-                              border: OutlineInputBorder(),
-
-                            ),
-
-                            onSubmitted: (_) => ejecutarBusqueda(),
-
-                          ),
-
-                        ),
-
-                        const SizedBox(width: 8),
-
-                        IconButton.filled(
-
-                          icon: const Icon(Icons.search),
-
-                          onPressed: ejecutarBusqueda,
-
-                        ),
-
-                      ],
+                      ),
 
                     ),
 
                     const SizedBox(height: 12),
 
-                    if (buscando) const Padding(padding: EdgeInsets.all(16), child: CircularProgressIndicator()),
+                    if (snapshot.connectionState == ConnectionState.waiting)
 
-                    if (!buscando && errorBusqueda != null)
+                      const Padding(padding: EdgeInsets.all(16), child: CircularProgressIndicator()),
 
-                      Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Text(errorBusqueda!, style: const TextStyle(color: Colors.red)),
+                    if (snapshot.connectionState != ConnectionState.waiting && snapshot.hasError)
+
+                      const Padding(
+                        padding: EdgeInsets.all(16),
+                        child: Text(
+                          'No se pudo buscar. Intentá de nuevo en un momento.',
+                          style: TextStyle(color: Colors.red),
+                        ),
                       ),
 
-                    if (!buscando && errorBusqueda == null && sinCompaneros)
+                    if (snapshot.connectionState != ConnectionState.waiting && !snapshot.hasError && snapshot.data == null)
 
                       const Padding(
                         padding: EdgeInsets.all(16),
                         child: Text('Todavía no hay compañeros con cuenta y biblioteca en esta sala.'),
                       ),
 
-                    if (!buscando && errorBusqueda == null && !sinCompaneros && buscoAlMenosUnaVez && resultados.isEmpty)
+                    if (snapshot.connectionState != ConnectionState.waiting && !snapshot.hasError && snapshot.data != null)
 
-                      const Padding(padding: EdgeInsets.all(16), child: Text('Sin resultados.')),
+                      ListenableBuilder(
 
-                    if (!buscando && resultados.isNotEmpty)
+                        listenable: controller,
 
-                      Flexible(
+                        builder: (context, _) {
 
-                        child: ListView.builder(
+                          final sugerencias = RepertorioService.filtrarPorTexto(snapshot.data!, controller.text);
 
-                          shrinkWrap: true,
+                          if (sugerencias.isEmpty) {
+                            return const Padding(padding: EdgeInsets.all(16), child: Text('Sin resultados.'));
+                          }
 
-                          itemCount: resultados.length,
+                          return Flexible(
 
-                          itemBuilder: (context, i) {
+                            child: ListView.builder(
 
-                            final data = resultados[i];
+                              shrinkWrap: true,
 
-                            final tonalidad = data['tonalidad'] as String? ?? '';
+                              itemCount: sugerencias.length,
 
-                            final propietario = data['propietarioNombre'] as String? ?? '';
+                              itemBuilder: (context, i) {
 
-                            return ListTile(
+                                final data = sugerencias[i];
 
-                              leading: Icon(Icons.picture_as_pdf, color: context.acento),
+                                final tonalidad = data['tonalidad'] as String? ?? '';
 
-                              title: Text(data['titulo'] as String? ?? ''),
+                                final propietario = data['propietarioNombre'] as String? ?? '';
 
-                              subtitle: Text(
-                                [tonalidad, if (propietario.isNotEmpty) 'de $propietario']
-                                    .where((s) => s.isNotEmpty)
-                                    .join(' · '),
-                              ),
+                                return ListTile(
 
-                              onTap: () => Navigator.pop(context, data),
+                                  leading: Icon(Icons.picture_as_pdf, color: context.acento),
 
-                            );
+                                  title: Text(data['titulo'] as String? ?? ''),
 
-                          },
+                                  subtitle: Text(
+                                    [tonalidad, if (propietario.isNotEmpty) 'de $propietario']
+                                        .where((s) => s.isNotEmpty)
+                                        .join(' · '),
+                                  ),
 
-                        ),
+                                  onTap: () => Navigator.pop(context, data),
+
+                                );
+
+                              },
+
+                            ),
+
+                          );
+
+                        },
 
                       ),
 
