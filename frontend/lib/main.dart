@@ -1921,11 +1921,19 @@ class IngressMenuScreen extends StatelessWidget {
 
       ),
 
-      body: Container(
+      body: SafeArea(
 
-        padding: const EdgeInsets.all(24),
+        child: LayoutBuilder(
 
-        child: Column(
+          builder: (context, constraints) => SingleChildScrollView(
+
+            padding: const EdgeInsets.all(24),
+
+            child: ConstrainedBox(
+
+              constraints: BoxConstraints(minHeight: constraints.maxHeight - 48),
+
+              child: Column(
 
           mainAxisAlignment: MainAxisAlignment.center,
 
@@ -2037,17 +2045,27 @@ class IngressMenuScreen extends StatelessWidget {
 
             ],
 
-            const SizedBox(height: 32),
+            const SizedBox(height: 12),
 
-            TextButton(
+            OutlinedButton.icon(
+
+              icon: const Icon(Icons.tune),
+
+              label: const Text('ACCESO SONIDISTA'),
 
               onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SonidistaPinScreen())),
 
-              child: const Text('Acceso Sonidista', style: TextStyle(color: Colors.grey)),
+              style: OutlinedButton.styleFrom(padding: const EdgeInsets.all(16)),
 
             ),
 
           ],
+
+              ),
+
+            ),
+
+          ),
 
         ),
 
