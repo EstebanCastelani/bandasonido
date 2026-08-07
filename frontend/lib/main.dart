@@ -3511,9 +3511,9 @@ class SetlistTab extends StatelessWidget {
 
       builder: (context) {
 
-        final busquedaController = TextEditingController();
+        final controllerTitulo = TextEditingController();
 
-        String busqueda = '';
+        final controllerTonalidad = TextEditingController();
 
         return StatefulBuilder(
 
@@ -3533,21 +3533,13 @@ class SetlistTab extends StatelessWidget {
 
                 if (docs.isEmpty) return const Center(child: Text('Tu biblioteca está vacía.'));
 
-                final docsFiltrados = busqueda.isEmpty
+                final canciones = docs.map((d) => {...d.data(), 'id': d.id}).toList();
 
-                    ? docs
-
-                    : docs.where((d) {
-
-                        final data = d.data();
-
-                        final t = (data['titulo'] as String? ?? '').toLowerCase();
-
-                        final k = (data['tonalidad'] as String? ?? '').toLowerCase();
-
-                        return t.contains(busqueda) || k.contains(busqueda);
-
-                      }).toList();
+                final docsFiltrados = RepertorioService.filtrarPorTituloYTonalidad(
+                  canciones,
+                  titulo: controllerTitulo.text,
+                  tonalidad: controllerTonalidad.text,
+                );
 
                 return Column(
 
@@ -3557,27 +3549,67 @@ class SetlistTab extends StatelessWidget {
 
                       padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
 
-                      child: TextField(
+                      child: Row(
 
-                        controller: busquedaController,
+                        children: [
 
-                        autofocus: true,
+                          Expanded(
 
-                        onChanged: (v) => setModalState(() => busqueda = v.trim().toLowerCase()),
+                            child: TextField(
 
-                        decoration: InputDecoration(
+                              controller: controllerTitulo,
 
-                          hintText: 'Buscar por título o tonalidad...',
+                              autofocus: true,
 
-                          isDense: true,
+                              onChanged: (_) => setModalState(() {}),
 
-                          prefixIcon: const Icon(Icons.search, size: 20),
+                              decoration: InputDecoration(
 
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                hintText: 'Título...',
 
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                                isDense: true,
 
-                        ),
+                                prefixIcon: const Icon(Icons.search, size: 20),
+
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+
+                              ),
+
+                            ),
+
+                          ),
+
+                          const SizedBox(width: 8),
+
+                          Expanded(
+
+                            child: TextField(
+
+                              controller: controllerTonalidad,
+
+                              onChanged: (_) => setModalState(() {}),
+
+                              decoration: InputDecoration(
+
+                                hintText: 'Tonalidad...',
+
+                                isDense: true,
+
+                                prefixIcon: const Icon(Icons.music_note, size: 20),
+
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+
+                              ),
+
+                            ),
+
+                          ),
+
+                        ],
 
                       ),
 
@@ -3587,7 +3619,7 @@ class SetlistTab extends StatelessWidget {
 
                       child: docsFiltrados.isEmpty
 
-                          ? Center(child: Text('Sin resultados para "$busqueda".'))
+                          ? const Center(child: Text('Sin resultados.'))
 
                           : ListView.builder(
 
@@ -3597,7 +3629,7 @@ class SetlistTab extends StatelessWidget {
 
                               itemBuilder: (context, i) {
 
-                                final data = docsFiltrados[i].data();
+                                final data = docsFiltrados[i];
 
                                 return ListTile(
 
@@ -4605,15 +4637,17 @@ class _MiRepertorioScreenState extends State<MiRepertorioScreen> {
 
   bool _subiendo = false;
 
-  final _busquedaController = TextEditingController();
+  final _busquedaTituloController = TextEditingController();
 
-  String _busqueda = '';
+  final _busquedaTonalidadController = TextEditingController();
 
   @override
 
   void dispose() {
 
-    _busquedaController.dispose();
+    _busquedaTituloController.dispose();
+
+    _busquedaTonalidadController.dispose();
 
     super.dispose();
 
@@ -4973,43 +5007,89 @@ class _MiRepertorioScreenState extends State<MiRepertorioScreen> {
 
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
 
-                  child: TextField(
+                  child: Row(
 
-                    controller: _busquedaController,
+                    children: [
 
-                    onChanged: (v) => setState(() => _busqueda = v.trim().toLowerCase()),
+                      Expanded(
 
-                    decoration: InputDecoration(
+                        child: TextField(
 
-                      hintText: 'Buscar por título o tonalidad...',
+                          controller: _busquedaTituloController,
 
-                      isDense: true,
+                          onChanged: (_) => setState(() {}),
 
-                      prefixIcon: const Icon(Icons.search, size: 20),
+                          decoration: InputDecoration(
 
-                      suffixIcon: _busqueda.isEmpty
+                            hintText: 'Título...',
 
-                          ? null
+                            isDense: true,
 
-                          : IconButton(
+                            prefixIcon: const Icon(Icons.search, size: 20),
 
-                              icon: const Icon(Icons.clear, size: 18),
+                            suffixIcon: _busquedaTituloController.text.isEmpty
 
-                              onPressed: () {
+                                ? null
 
-                                _busquedaController.clear();
+                                : IconButton(
 
-                                setState(() => _busqueda = '');
+                                    icon: const Icon(Icons.clear, size: 18),
 
-                              },
+                                    onPressed: () => setState(() => _busquedaTituloController.clear()),
 
-                            ),
+                                  ),
 
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
 
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
 
-                    ),
+                          ),
+
+                        ),
+
+                      ),
+
+                      const SizedBox(width: 8),
+
+                      Expanded(
+
+                        child: TextField(
+
+                          controller: _busquedaTonalidadController,
+
+                          onChanged: (_) => setState(() {}),
+
+                          decoration: InputDecoration(
+
+                            hintText: 'Tonalidad...',
+
+                            isDense: true,
+
+                            prefixIcon: const Icon(Icons.music_note, size: 20),
+
+                            suffixIcon: _busquedaTonalidadController.text.isEmpty
+
+                                ? null
+
+                                : IconButton(
+
+                                    icon: const Icon(Icons.clear, size: 18),
+
+                                    onPressed: () => setState(() => _busquedaTonalidadController.clear()),
+
+                                  ),
+
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+
+                          ),
+
+                        ),
+
+                      ),
+
+                    ],
 
                   ),
 
@@ -5035,19 +5115,15 @@ class _MiRepertorioScreenState extends State<MiRepertorioScreen> {
 
                 }
 
-                final docs = RepertorioService.ordenarPorTitulo(snapshot.data!.docs).where((d) {
+                final todasLasCanciones = RepertorioService.ordenarPorTitulo(snapshot.data!.docs)
+                    .map((d) => {...d.data(), 'id': d.id})
+                    .toList();
 
-                  if (_busqueda.isEmpty) return true;
-
-                  final data = d.data();
-
-                  final titulo = (data['titulo'] as String? ?? '').toLowerCase();
-
-                  final tonalidad = (data['tonalidad'] as String? ?? '').toLowerCase();
-
-                  return titulo.contains(_busqueda) || tonalidad.contains(_busqueda);
-
-                }).toList();
+                final docs = RepertorioService.filtrarPorTituloYTonalidad(
+                  todasLasCanciones,
+                  titulo: _busquedaTituloController.text,
+                  tonalidad: _busquedaTonalidadController.text,
+                );
 
                 if (docs.isEmpty) {
 
@@ -5055,7 +5131,7 @@ class _MiRepertorioScreenState extends State<MiRepertorioScreen> {
 
                     child: Text(
 
-                      _busqueda.isEmpty ? 'Todavía no subiste ninguna canción.' : 'Sin resultados para "$_busqueda".',
+                      todasLasCanciones.isEmpty ? 'Todavía no subiste ninguna canción.' : 'Sin resultados.',
 
                     ),
 
@@ -5071,9 +5147,9 @@ class _MiRepertorioScreenState extends State<MiRepertorioScreen> {
 
                   itemBuilder: (context, i) {
 
-                    final doc = docs[i];
+                    final data = docs[i];
 
-                    final data = doc.data();
+                    final id = data['id'] as String;
 
                     final titulo = data['titulo'] as String? ?? '';
 
@@ -5127,7 +5203,7 @@ class _MiRepertorioScreenState extends State<MiRepertorioScreen> {
 
                             icon: const Icon(Icons.edit, color: Colors.blue),
 
-                            onPressed: () => _editarCancion(user.uid, doc.id, titulo, tonalidad, cifradoTexto),
+                            onPressed: () => _editarCancion(user.uid, id, titulo, tonalidad, cifradoTexto),
 
                           ),
 
@@ -5135,7 +5211,7 @@ class _MiRepertorioScreenState extends State<MiRepertorioScreen> {
 
                             icon: const Icon(Icons.delete, color: Colors.red),
 
-                            onPressed: () => _confirmarEliminar(user.uid, doc.id, data['storagePath'] as String?),
+                            onPressed: () => _confirmarEliminar(user.uid, id, data['storagePath'] as String?),
 
                           ),
 
