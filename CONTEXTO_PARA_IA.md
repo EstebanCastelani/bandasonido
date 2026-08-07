@@ -238,23 +238,33 @@ registrada sin chequear `esPro` — ver §8 para cómo revertir esto.
     la sala (filtrar los temas ya agregados), que se implementó y
     después se revirtió a pedido explícito — no volver a agregarlo salvo
     que se pida de nuevo.
-19. **"Buscar en bibliotecas de la sala" acotado a compañeros de sala, no a
-    toda la app.** La primera versión de este buscador (`RepertorioService.
-    buscarEnTodasLasBibliotecas`) usaba un `collectionGroup('mi_repertorio')`
-    que traía canciones de **cualquier cuenta registrada de toda la app**,
-    no solo de la sala actual — y además nunca funcionó en la práctica,
-    porque ese tipo de consulta necesita un índice de "collection group" en
-    Firestore que no se crea automáticamente y nunca se creó (no hay
-    `firestore.indexes.json` en el repo). Se reemplazó por
-    `MiembrosSalaService` (`salas/{codigoSala}/miembros/{uid}`): cada cuenta
-    registrada (no anónima) registra su propia presencia al entrar a
-    `RequestScreen`/`SonidistaPage` (`registrarPresencia`, best-effort, no
-    rompe el ingreso si falla). `RepertorioService.buscarEntreCompaneros`
-    ahora hace una consulta normal (sin índice especial) por cada compañero
-    presente en esa sala y combina los resultados del lado del cliente, con
-    el nombre del dueño (`propietarioNombre`) mostrado en cada resultado. Si
-    todavía no hay compañeros con cuenta+biblioteca en la sala, se muestra
-    un mensaje en vez de buscar. Ver reglas nuevas para `miembros` en
+19. **"Buscar en bibliotecas de la sala" acotado a la sala, no a toda la
+    app — pero incluye la propia biblioteca.** La primera versión de este
+    buscador (`RepertorioService.buscarEnTodasLasBibliotecas`) usaba un
+    `collectionGroup('mi_repertorio')` que traía canciones de **cualquier
+    cuenta registrada de toda la app**, no solo de la sala actual — y además
+    nunca funcionó en la práctica, porque ese tipo de consulta necesita un
+    índice de "collection group" en Firestore que no se crea automáticamente
+    y nunca se creó (no hay `firestore.indexes.json` en el repo). Se
+    reemplazó por `MiembrosSalaService` (`salas/{codigoSala}/miembros/{uid}`):
+    cada cuenta registrada (no anónima) registra su propia presencia al
+    entrar a `RequestScreen`/`SonidistaPage` (`registrarPresencia`,
+    best-effort, no rompe el ingreso si falla) — **incluida la del propio
+    usuario**, no solo la de sus compañeros. `MiembrosSalaService.
+    obtenerPresentes` trae a todos los que pasaron por la sala (uno mismo
+    incluido) y `RepertorioService.cancionesDeCompaneros` hace una consulta
+    normal (sin índice especial) por cada uno, combinando los resultados del
+    lado del cliente con el nombre del dueño (`propietarioNombre`, la propia
+    cuenta incluida) mostrado en cada resultado. El filtro por texto se hace
+    aparte, en memoria, vía `RepertorioService.filtrarPorTituloYTonalidad` —
+    dos campos independientes (título y tonalidad, ambos deben coincidir),
+    insensible a mayúsculas/tildes, actualizado en vivo con cada tecla sin
+    volver a golpear Firestore. Ese mismo filtro se reutiliza en "Mi
+    repertorio" y en "Desde mi biblioteca" (elegir canción propia para el
+    setlist), así los tres buscadores de bibliotecas de la app comparten la
+    misma lógica y el mismo look de dos campos lado a lado. Si nadie (ni el
+    propio usuario) tiene biblioteca todavía en la sala, se muestra un
+    mensaje en vez de buscar. Ver reglas para `miembros` en
     `firestore.rules`.
 
 ## 6. Modelo de seguridad de las salas — trade-off consciente, no bug

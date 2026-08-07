@@ -690,17 +690,13 @@ class MiembrosSalaService {
     }, SetOptions(merge: true));
   }
 
-  /// Compañeros con cuenta real que pasaron por esta sala, sin contar al
-  /// propio usuario.
-  static Future<List<Map<String, dynamic>>> obtenerCompaneros(
-    String codigoSala, {
-    required String excluirUid,
-  }) async {
+  /// Todas las cuentas reales que pasaron por esta sala, incluido el propio
+  /// usuario (su presencia también queda registrada acá por
+  /// registrarPresencia) — así el buscador de bibliotecas de la sala incluye
+  /// la propia biblioteca junto a la de los compañeros.
+  static Future<List<Map<String, dynamic>>> obtenerPresentes(String codigoSala) async {
     final snap = await _ref(codigoSala).get();
-    return snap.docs
-        .where((d) => d.id != excluirUid)
-        .map((d) => {...d.data(), 'uid': d.id})
-        .toList();
+    return snap.docs.map((d) => {...d.data(), 'uid': d.id}).toList();
   }
 }
 
@@ -3681,14 +3677,14 @@ class SetlistTab extends StatelessWidget {
 
   }
 
-  /// Trae de una sola vez todas las canciones de los compañeros de sala (o
-  /// null si todavía no hay compañeros con biblioteca) para poder filtrarlas
-  /// en memoria mientras el usuario escribe, sin golpear Firestore por letra.
+  /// Trae de una sola vez todas las canciones de todos los que pasaron por
+  /// esta sala (compañeros + la propia biblioteca, o null si nadie tiene
+  /// biblioteca todavía) para poder filtrarlas en memoria mientras el
+  /// usuario escribe, sin golpear Firestore por letra.
   Future<List<Map<String, dynamic>>?> _cargarCancionesDeCompaneros() async {
-    final uidPropio = AuthService.currentUser?.uid ?? '';
-    final companeros = await MiembrosSalaService.obtenerCompaneros(codigoSala, excluirUid: uidPropio);
-    if (companeros.isEmpty) return null;
-    return RepertorioService.cancionesDeCompaneros(companeros);
+    final presentes = await MiembrosSalaService.obtenerPresentes(codigoSala);
+    if (presentes.isEmpty) return null;
+    return RepertorioService.cancionesDeCompaneros(presentes);
   }
 
   Future<void> _buscarEntreCompaneros(BuildContext context) async {
@@ -3804,7 +3800,7 @@ class SetlistTab extends StatelessWidget {
 
                       const Padding(
                         padding: EdgeInsets.all(16),
-                        child: Text('Todavía no hay compañeros con cuenta y biblioteca en esta sala.'),
+                        child: Text('Todavía no hay bibliotecas para buscar en esta sala.'),
                       ),
 
                     if (snapshot.connectionState != ConnectionState.waiting && !snapshot.hasError && snapshot.data != null)
