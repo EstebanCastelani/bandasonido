@@ -865,16 +865,23 @@ class RepertorioService {
     return resultado;
   }
 
-  /// Filtro en memoria por título/tonalidad, usado para sugerencias en vivo.
-  /// Ignora mayúsculas/minúsculas y tildes (ver _normalizar).
-  static List<Map<String, dynamic>> filtrarPorTexto(List<Map<String, dynamic>> canciones, String query) {
-    final queryLower = _normalizar(query.trim());
-    if (queryLower.isEmpty) return canciones;
-    return canciones
-        .where((c) =>
-            _normalizar(c['titulo'] as String? ?? '').contains(queryLower) ||
-            _normalizar(c['tonalidad'] as String? ?? '').contains(queryLower))
-        .toList();
+  /// Filtro en memoria por título Y tonalidad (campos independientes, ambos
+  /// deben coincidir), usado para sugerencias en vivo. Ignora mayúsculas/
+  /// minúsculas y tildes (ver _normalizar).
+  static List<Map<String, dynamic>> filtrarPorTituloYTonalidad(
+    List<Map<String, dynamic>> canciones, {
+    required String titulo,
+    required String tonalidad,
+  }) {
+    final tituloQuery = _normalizar(titulo.trim());
+    final tonalidadQuery = _normalizar(tonalidad.trim());
+    if (tituloQuery.isEmpty && tonalidadQuery.isEmpty) return canciones;
+    return canciones.where((c) {
+      final coincideTitulo = tituloQuery.isEmpty || _normalizar(c['titulo'] as String? ?? '').contains(tituloQuery);
+      final coincideTonalidad =
+          tonalidadQuery.isEmpty || _normalizar(c['tonalidad'] as String? ?? '').contains(tonalidadQuery);
+      return coincideTitulo && coincideTonalidad;
+    }).toList();
   }
 }
 
@@ -3636,7 +3643,8 @@ class SetlistTab extends StatelessWidget {
 
   Future<void> _buscarEntreCompaneros(BuildContext context) async {
 
-    final controller = TextEditingController();
+    final controllerTitulo = TextEditingController();
+    final controllerTonalidad = TextEditingController();
 
     final seleccion = await showModalBottomSheet<Map<String, dynamic>>(
 
@@ -3674,21 +3682,55 @@ class SetlistTab extends StatelessWidget {
 
                   children: [
 
-                    TextField(
+                    Row(
 
-                      controller: controller,
+                      children: [
 
-                      autofocus: true,
+                        Expanded(
 
-                      decoration: const InputDecoration(
+                          child: TextField(
 
-                        hintText: 'Buscar por título o tonalidad...',
+                            controller: controllerTitulo,
 
-                        prefixIcon: Icon(Icons.search),
+                            autofocus: true,
 
-                        border: OutlineInputBorder(),
+                            decoration: const InputDecoration(
 
-                      ),
+                              hintText: 'Título...',
+
+                              prefixIcon: Icon(Icons.search),
+
+                              border: OutlineInputBorder(),
+
+                            ),
+
+                          ),
+
+                        ),
+
+                        const SizedBox(width: 8),
+
+                        Expanded(
+
+                          child: TextField(
+
+                            controller: controllerTonalidad,
+
+                            decoration: const InputDecoration(
+
+                              hintText: 'Tonalidad...',
+
+                              prefixIcon: Icon(Icons.music_note),
+
+                              border: OutlineInputBorder(),
+
+                            ),
+
+                          ),
+
+                        ),
+
+                      ],
 
                     ),
 
@@ -3719,11 +3761,15 @@ class SetlistTab extends StatelessWidget {
 
                       ListenableBuilder(
 
-                        listenable: controller,
+                        listenable: Listenable.merge([controllerTitulo, controllerTonalidad]),
 
                         builder: (context, _) {
 
-                          final sugerencias = RepertorioService.filtrarPorTexto(snapshot.data!, controller.text);
+                          final sugerencias = RepertorioService.filtrarPorTituloYTonalidad(
+                            snapshot.data!,
+                            titulo: controllerTitulo.text,
+                            tonalidad: controllerTonalidad.text,
+                          );
 
                           if (sugerencias.isEmpty) {
                             return const Padding(padding: EdgeInsets.all(16), child: Text('Sin resultados.'));
