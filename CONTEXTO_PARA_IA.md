@@ -44,7 +44,7 @@ correrse con cada cambio, pero el orden de secciones se mantiene):
 CONFIGURACIÓN DE FIREBASE          — FirebaseOptions hardcodeado (ver §4)
 CONFIGURACIÓN DE SUPABASE          — Solo Storage, temporal (ver §7.1)
 MODELOS Y CONSTANTES               — AppConstants.pedidosRapidos (frases default)
-IDENTIDADES DE COLOR (PALETAS)     — AppPalette: 4 temas seleccionables
+IDENTIDADES DE COLOR (PALETAS)     — AppPalette: 5 temas seleccionables
 TRANSPOSICIÓN DE CIFRADOS          — ChordTransposer (lógica pura, sin Flutter)
 SERVICIO DE AUTENTICACIÓN          — AuthService (Google/email/anónimo)
 SERVICIO DE USUARIOS Y FRASES      — UsuarioService, FrasesService
@@ -167,9 +167,10 @@ registrada sin chequear `esPro` — ver §8 para cómo revertir esto.
 6. `wakelock_plus`: pantalla siempre encendida mientras se está en una sala
    (activado a nivel de `RequestScreen`/`SonidistaPage`, **no** en las
    pantallas hijas de PDF/cifrado — ver nota de diseño en §9).
-7. 4 identidades de color seleccionables (`AppPalette`), persistidas en
-   `SharedPreferences`, aplicadas a **todo** el acento de la app vía
-   `context.acento` (no queda ningún `Colors.deepPurple` hardcodeado).
+7. 5 identidades de color seleccionables (`AppPalette`: Consola, Placa,
+   Wash, Luz de trabajo, Camarín — esta última pastel, agregada después),
+   persistidas en `SharedPreferences`, aplicadas a **todo** el acento de la
+   app vía `context.acento` (no queda ningún `Colors.deepPurple` hardcodeado).
 8. Auditoría de seguridad + hardening: PIN de sala de 6 dígitos numéricos a
    8 caracteres alfanuméricos, Firebase Auth anónimo obligatorio para tocar
    una sala, reglas de Firestore/Storage versionadas en el repo

@@ -306,7 +306,19 @@ class AppPalette {
     surfaceLight: Color(0xFFF7F7F8),
   );
 
-  static const List<AppPalette> todas = [consola, placa, wash, worklight];
+  static const camarin = AppPalette(
+    key: 'camarin',
+    nombre: 'Camarín',
+    tag: 'Rosa pastel, suave',
+    accentDark: Color(0xFFFF9FC1),
+    accentLight: Color(0xFFD9668F),
+    bgDark: Color(0xFF1C1216),
+    bgLight: Color(0xFFFDF6F8),
+    surfaceDark: Color(0xFF261A1F),
+    surfaceLight: Color(0xFFFFFFFF),
+  );
+
+  static const List<AppPalette> todas = [consola, placa, wash, worklight, camarin];
 
   static AppPalette porClave(String? clave) {
     return todas.firstWhere((p) => p.key == clave, orElse: () => consola);
