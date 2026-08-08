@@ -5859,7 +5859,7 @@ class _SonidistaPinScreenState extends State<SonidistaPinScreen> {
 
           children: [
 
-            TextField(controller: _pinController, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'PIN de Sala o Crear Sala', border: OutlineInputBorder())),
+            TextField(controller: _pinController, textCapitalization: TextCapitalization.characters, decoration: const InputDecoration(labelText: 'PIN de Sala o Crear Sala', border: OutlineInputBorder())),
 
             const SizedBox(height: 24),
 
