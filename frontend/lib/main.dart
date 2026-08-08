@@ -3429,6 +3429,11 @@ class SetlistTab extends StatelessWidget {
 
   final void Function(Widget visorActual)? onIrAPedidos;
 
+  /// El sonidista puede ver el setlist y marcar temas como tocados/pausados,
+  /// pero no reordenar, borrar, ni cambiar el tono (transposición) — eso
+  /// queda a criterio de los músicos/cantantes que arman el repertorio.
+  final bool esSonidista;
+
   const SetlistTab({
 
     super.key,
@@ -3438,6 +3443,8 @@ class SetlistTab extends StatelessWidget {
     required this.nombreUsuario,
 
     this.onIrAPedidos,
+
+    this.esSonidista = false,
 
   });
 
@@ -4103,25 +4110,7 @@ class SetlistTab extends StatelessWidget {
 
           final primerPendienteIndex = docs.indexWhere((d) => estadoDe(d.data()) == 'pendiente');
 
-          return ReorderableListView.builder(
-
-            itemCount: docs.length,
-
-            onReorder: (oldIndex, newIndex) {
-
-              final idsEnOrden = docs.map((d) => d.id).toList();
-
-              final ajustado = newIndex > oldIndex ? newIndex - 1 : newIndex;
-
-              final id = idsEnOrden.removeAt(oldIndex);
-
-              idsEnOrden.insert(ajustado, id);
-
-              SetlistService.reordenarSetlist(codigoSala, idsEnOrden);
-
-            },
-
-            itemBuilder: (context, i) {
+          Widget construirItem(BuildContext context, int i) {
 
               final doc = docs[i];
 
@@ -4323,6 +4312,8 @@ class SetlistTab extends StatelessWidget {
 
                               onIrAPedidos: onIrAPedidos,
 
+                              puedeTransponer: !esSonidista,
+
                             ),
 
                           ),
@@ -4331,13 +4322,15 @@ class SetlistTab extends StatelessWidget {
 
                       ),
 
-                    IconButton(
+                    if (!esSonidista)
 
-                      icon: const Icon(Icons.delete_outline, color: Colors.red),
+                      IconButton(
 
-                      onPressed: () => SetlistService.eliminarDelSetlist(codigoSala, doc.id),
+                        icon: const Icon(Icons.delete_outline, color: Colors.red),
 
-                    ),
+                        onPressed: () => SetlistService.eliminarDelSetlist(codigoSala, doc.id),
+
+                      ),
 
                   ],
 
@@ -4345,9 +4338,35 @@ class SetlistTab extends StatelessWidget {
 
               );
 
-            },
+            }
 
-          );
+            if (esSonidista) {
+
+              return ListView.builder(itemCount: docs.length, itemBuilder: construirItem);
+
+            }
+
+            return ReorderableListView.builder(
+
+              itemCount: docs.length,
+
+              onReorder: (oldIndex, newIndex) {
+
+                final idsEnOrden = docs.map((d) => d.id).toList();
+
+                final ajustado = newIndex > oldIndex ? newIndex - 1 : newIndex;
+
+                final id = idsEnOrden.removeAt(oldIndex);
+
+                idsEnOrden.insert(ajustado, id);
+
+                SetlistService.reordenarSetlist(codigoSala, idsEnOrden);
+
+              },
+
+              itemBuilder: construirItem,
+
+            );
 
         },
 
@@ -5299,6 +5318,10 @@ class CifradoViewerScreen extends StatefulWidget {
 
   final void Function(Widget visorActual)? onIrAPedidos;
 
+  /// El sonidista puede ver el cifrado en el tono que esté sincronizado,
+  /// pero no cambiarlo — eso queda a criterio de los músicos/cantantes.
+  final bool puedeTransponer;
+
   const CifradoViewerScreen({
 
     super.key,
@@ -5316,6 +5339,8 @@ class CifradoViewerScreen extends StatefulWidget {
     this.indiceEnSetlist,
 
     this.onIrAPedidos,
+
+    this.puedeTransponer = true,
 
   });
 
@@ -5395,6 +5420,8 @@ class _CifradoViewerScreenState extends State<CifradoViewerScreen> {
 
           onIrAPedidos: widget.onIrAPedidos,
 
+          puedeTransponer: widget.puedeTransponer,
+
         ),
 
       ),
@@ -5447,15 +5474,17 @@ class _CifradoViewerScreenState extends State<CifradoViewerScreen> {
 
         actions: [
 
-          IconButton(
+          if (widget.puedeTransponer)
 
-            icon: const Icon(Icons.remove_circle_outline),
+            IconButton(
 
-            tooltip: 'Bajar un semitono',
+              icon: const Icon(Icons.remove_circle_outline),
 
-            onPressed: () => _cambiarSemitonos(semitonos - 1),
+              tooltip: 'Bajar un semitono',
 
-          ),
+              onPressed: () => _cambiarSemitonos(semitonos - 1),
+
+            ),
 
           Padding(
 
@@ -5469,43 +5498,47 @@ class _CifradoViewerScreenState extends State<CifradoViewerScreen> {
 
           ),
 
-          IconButton(
-
-            icon: const Icon(Icons.add_circle_outline),
-
-            tooltip: 'Subir un semitono',
-
-            onPressed: () => _cambiarSemitonos(semitonos + 1),
-
-          ),
-
-          IconButton(
-
-            icon: const Icon(Icons.refresh),
-
-            tooltip: 'Restablecer tono original',
-
-            onPressed: semitonos == 0 ? null : () => _cambiarSemitonos(0),
-
-          ),
-
-          if (widget.sincronizada)
+          if (widget.puedeTransponer) ...[
 
             IconButton(
 
-              icon: Icon(_sincronizado ? Icons.sync : Icons.sync_disabled),
+              icon: const Icon(Icons.add_circle_outline),
 
-              color: _sincronizado ? Colors.green : Colors.red,
+              tooltip: 'Subir un semitono',
 
-              tooltip: _sincronizado
-
-                  ? 'Sincronizado con toda la sala (tocá para desincronizar)'
-
-                  : 'Desincronizado — cambios solo locales (tocá para volver a sincronizar)',
-
-              onPressed: () => _toggleSincronizado(semitonos),
+              onPressed: () => _cambiarSemitonos(semitonos + 1),
 
             ),
+
+            IconButton(
+
+              icon: const Icon(Icons.refresh),
+
+              tooltip: 'Restablecer tono original',
+
+              onPressed: semitonos == 0 ? null : () => _cambiarSemitonos(0),
+
+            ),
+
+            if (widget.sincronizada)
+
+              IconButton(
+
+                icon: Icon(_sincronizado ? Icons.sync : Icons.sync_disabled),
+
+                color: _sincronizado ? Colors.green : Colors.red,
+
+                tooltip: _sincronizado
+
+                    ? 'Sincronizado con toda la sala (tocá para desincronizar)'
+
+                    : 'Desincronizado — cambios solo locales (tocá para volver a sincronizar)',
+
+                onPressed: () => _toggleSincronizado(semitonos),
+
+              ),
+
+          ],
 
         ],
 
@@ -6648,6 +6681,8 @@ class _SonidistaPageState extends State<SonidistaPage> with SingleTickerProvider
             nombreUsuario: 'Sonidista',
 
             onIrAPedidos: _irAPedidos,
+
+            esSonidista: true,
 
           ),
 
