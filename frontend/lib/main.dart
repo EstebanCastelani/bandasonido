@@ -3041,25 +3041,39 @@ class _RequestScreenState extends State<RequestScreen> with SingleTickerProvider
 
         actions: [
 
-          Container(
+          Padding(
 
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            padding: const EdgeInsets.only(right: 8),
 
-            margin: const EdgeInsets.only(right: 8),
-
-            decoration: BoxDecoration(
+            child: Material(
 
               color: context.acento,
 
               borderRadius: BorderRadius.circular(20),
 
-            ),
+              child: InkWell(
 
-            child: Center(
+                borderRadius: BorderRadius.circular(20),
 
-              child: Text('SALA: ${widget.codigoSala}',
+                onTap: () {
 
-                  style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.white)),
+                  Clipboard.setData(ClipboardData(text: widget.codigoSala));
+
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Código de sala copiado')));
+
+                },
+
+                child: Padding(
+
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+
+                  child: Text('SALA: ${widget.codigoSala}',
+
+                      style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.white)),
+
+                ),
+
+              ),
 
             ),
 
