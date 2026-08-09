@@ -427,16 +427,32 @@ app, esto es lo primero para revisar.
   que ya está dejada comentada en `firestore.rules` y `storage.rules`.
 
 **Bloqueantes para publicar en Play Store:**
-- No existe carpeta `android/` (nunca se corrió
-  `flutter create --platforms=android .`). Sin eso no hay nada para
-  compilar como `.aab`.
+- ~~No existe carpeta `android/`~~ Ya existe (`flutter create
+  --platforms=android --org com.soundcheckpro .`, corrido para generar un
+  APK de instalación directa a pedido del dueño del proyecto). Package id:
+  `com.soundcheckpro.appsonido_frontend`. Firmado con el keystore de debug
+  por default (no hay keystore de release todavía) — sirve para instalar y
+  probar en un celular real, **no** para subir a Play Store así como está.
+  - Requirió instalar el Android SDK localmente (no estaba instalado):
+    `C:\Android\sdk`, vía `flutter config --android-sdk` +
+    `flutter doctor --android-licenses`. Paquetes: platform-tools,
+    platforms;android-35, platforms;android-36, build-tools;28.0.3
+    (y build-tools;35.0.0 + NDK + CMake que Gradle pidió solo durante el
+    primer build).
+  - El JDK de esta máquina es Temurin 25, que no es compatible con el
+    Gradle 8.14 que trae `flutter create` por default — hubo que subir
+    `frontend/android/gradle/wrapper/gradle-wrapper.properties` a
+    `gradle-9.1.0-all.zip` para que compile. Si en otra máquina el build
+    falla por versión de Gradle/JDK, revisar esto primero.
 - No hay keystore de firma generado ni `key.properties`. El `.gitignore` ya
   tiene las reglas para que esos archivos nunca se suban una vez que
   existan, pero hay que crearlos.
-- Comando de build de producción, una vez que exista `android/`:
+- Comando de build de producción (ya con `android/` existente):
   `flutter build appbundle --release --obfuscate --split-debug-info=build/symbols`
   (guardar `build/symbols` fuera del repo público — hace falta para leer
-  crashes reales).
+  crashes reales). El comando usado para el APK de prueba fue
+  `flutter build apk --release` (sin `--obfuscate`, sin `.aab`) — no
+  confundir uno con otro.
 
 **Deuda de seguridad conocida (ver §6 para el detalle):**
 - El modelo de acceso a salas por PIN sigue siendo fuerza-bruteable en
@@ -444,8 +460,9 @@ app, esto es lo primero para revisar.
 - Falta restringir la Web API Key por dominio en Google Cloud Console.
 - Firebase App Check tiene el scaffolding listo pero **desactivado**
   (`kAppCheckSiteKeyWeb = null` en `main.dart`) — falta generar el site key
-  de reCAPTCHA v3 y pegarlo ahí. Play Integrity (Android) directamente no
-  aplica todavía porque no existe `android/`.
+  de reCAPTCHA v3 y pegarlo ahí. Play Integrity (Android) todavía no está
+  configurado — ya existe `android/` (ver §8, bloqueantes de Play Store),
+  pero App Check para Android no se armó, solo el de Web.
 
 **Deuda de infraestructura de deploy (ver §7.2):**
 - GitHub Pages está configurado como "Deploy from a branch" en vez de
