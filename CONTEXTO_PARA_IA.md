@@ -444,6 +444,34 @@ app, esto es lo primero para revisar.
     `frontend/android/gradle/wrapper/gradle-wrapper.properties` a
     `gradle-9.1.0-all.zip` para que compile. Si en otra máquina el build
     falla por versión de Gradle/JDK, revisar esto primero.
+- **"Continuar con Google" ya está conectado para Android nativo.** Se
+  registró una app Android en el proyecto de Firebase (`appbandasonido`)
+  con package id `com.soundcheckpro.appsonido_frontend` y el SHA-1 del
+  keystore de **debug** (`D9:9B:66:1A:02:8F:2B:A7:3F:FA:E1:0A:75:69:66:2A:
+  18:F1:72:67`) — ver huella completa corriendo `keytool -list -v
+  -keystore %USERPROFILE%\.android\debug.keystore -alias androiddebugkey
+  -storepass android -keypass android` (en esta máquina hace falta agregar
+  `-J-Duser.language=en -J-Duser.country=US` porque el `keytool` de
+  Temurin 25 tiene un bug de formato con la locale es-AR). El
+  `google-services.json` resultante vive en
+  `frontend/android/app/google-services.json` — **no está en git**
+  (gitignoreado a propósito, como los demás archivos de firma/credenciales
+  — ver el bloque correspondiente en `frontend/.gitignore`), así que en
+  otra máquina hay que volver a descargarlo desde Firebase Console o
+  pedírselo al dueño del proyecto. El plugin `com.google.gms.google-
+  services` ya está declarado en `android/settings.gradle.kts` y aplicado
+  en `android/app/build.gradle.kts`; sin el `.json` el build de Android
+  falla. El código Dart (`AuthService.signInWithGoogle` en main.dart) no
+  necesitó cambios — ya usaba `GoogleSignIn()` nativo fuera de `kIsWeb`.
+  **Importante:** este SHA-1 es el del keystore de *debug*, que Gradle
+  regenera distinto por máquina si no existe `%USERPROFILE%\.android\
+  debug.keystore` — si Google Sign-In empieza a fallar con
+  `DEVELOPER_ERROR` después de compilar en otra PC, agregar el SHA-1 de
+  esa máquina también en Firebase Console (Configuración del proyecto →
+  la app Android → Agregar huella digital). Cuando se genere un keystore
+  de release (ver punto siguiente), va a hacer falta agregar *ese* SHA-1
+  también, o Google Sign-In va a fallar en los builds firmados para Play
+  Store aunque funcione en este APK de debug.
 - No hay keystore de firma generado ni `key.properties`. El `.gitignore` ya
   tiene las reglas para que esos archivos nunca se suban una vez que
   existan, pero hay que crearlos.

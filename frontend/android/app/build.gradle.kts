@@ -3,6 +3,10 @@ plugins {
     id("kotlin-android")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
+    // Necesita android/app/google-services.json (ver CONTEXTO_PARA_IA.md) para
+    // que "Continuar con Google" funcione nativo en Android — sin ese archivo
+    // el build falla.
+    id("com.google.gms.google-services")
 }
 
 android {
