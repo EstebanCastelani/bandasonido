@@ -24,6 +24,8 @@ import 'package:flutter/services.dart';
 
 import 'package:google_sign_in/google_sign_in.dart';
 
+import 'package:http/http.dart' as http;
+
 import 'package:share_plus/share_plus.dart';
 
 import 'package:shared_preferences/shared_preferences.dart';
@@ -346,6 +348,49 @@ extension AppColorX on BuildContext {
   Color get acento => Theme.of(this).colorScheme.primary;
 }
 
+/// Detecta swipes de UN solo dedo a partir de eventos crudos de puntero (se
+/// usa con Listener, no GestureDetector — ver notas de diseño en
+/// CONTEXTO_PARA_IA.md). Si en algún momento del gesto hubo más de un dedo
+/// apoyado (ej. un pellizco para hacer zoom) el gesto entero se descarta:
+/// sin esto, al levantar un dedo el movimiento se medía contra el punto donde
+/// había apoyado el otro y se interpretaba como un swipe, cambiando de tema.
+class DetectorSwipe {
+  final Set<int> _punteros = {};
+  Offset? _inicio;
+  bool _variosDedos = false;
+
+  void alBajar(PointerDownEvent evento) {
+    _punteros.add(evento.pointer);
+    if (_punteros.length > 1) {
+      _variosDedos = true;
+      _inicio = null;
+    } else {
+      _variosDedos = false;
+      _inicio = evento.position;
+    }
+  }
+
+  /// Devuelve cuánto se movió el dedo si fue un swipe de un solo dedo, o
+  /// null si el gesto no vale (varios dedos, o no hubo un inicio).
+  Offset? alSubir(PointerUpEvent evento) {
+    _punteros.remove(evento.pointer);
+    final inicio = _inicio;
+    if (_variosDedos) {
+      if (_punteros.isEmpty) _variosDedos = false;
+      return null;
+    }
+    _inicio = null;
+    if (inicio == null) return null;
+    return evento.position - inicio;
+  }
+
+  void alCancelar(PointerCancelEvent evento) {
+    _punteros.remove(evento.pointer);
+    _inicio = null;
+    if (_punteros.isEmpty) _variosDedos = false;
+  }
+}
+
 /// Mientras no haya cobro real implementado, las funciones Pro (subir
 /// partituras a la biblioteca personal) quedan liberadas para cualquier
 /// usuario logueado, para poder probarlas. Volver a `false` cuando se
@@ -452,6 +497,13 @@ class ChordTransposer {
 }
 
 // --- EXTRACCIÓN DE CIFRADO DESDE PDF (CON LA POSICIÓN DE LOS ACORDES) ---
+
+/// Versión del formato del cifrado guardado (campo 'cifradoVersion' en
+/// mi_repertorio y en setlist). 2 = armado con la posición real de los
+/// acordes (CifradoPdfExtractor). Los documentos sin el campo vienen del
+/// extractor viejo y CifradoViewerScreen los vuelve a extraer del PDF al
+/// abrirlos. Si algún día cambia el formato otra vez, subir este número.
+const int kVersionCifrado = 2;
 
 /// Un carácter del PDF con su posición horizontal original.
 class _GlifoPdf {
@@ -1052,7 +1104,7 @@ class RepertorioService {
             if (texto.isEmpty) {
               sinTexto++;
             } else {
-              await _ref(uid).doc(doc.id).update({'cifradoTexto': texto});
+              await _ref(uid).doc(doc.id).update({'cifradoTexto': texto, 'cifradoVersion': kVersionCifrado});
               actualizadas++;
             }
           }
@@ -1096,6 +1148,7 @@ class RepertorioService {
       'storagePath': storagePath,
       'storageProvider': 'supabase',
       'cifradoTexto': cifradoTexto,
+      'cifradoVersion': kVersionCifrado,
       'createdAt': FieldValue.serverTimestamp(),
     };
     final doc = await _ref(uid).add(data);
@@ -1109,11 +1162,19 @@ class RepertorioService {
     required String tonalidad,
     String cifradoTexto = '',
   }) async {
+    // Al guardar a mano se marca como versión actual: el texto es el que el
+    // usuario quiere y no se debe pisar re-extrayendo del PDF.
     await _ref(uid).doc(cancionId).update({
       'titulo': titulo,
       'tonalidad': tonalidad,
       'cifradoTexto': cifradoTexto,
+      'cifradoVersion': kVersionCifrado,
     });
+  }
+
+  /// Guarda el cifrado re-extraído del PDF (lo llama CifradoViewerScreen).
+  static Future<void> guardarCifradoRegenerado(String uid, String cancionId, String texto) async {
+    await _ref(uid).doc(cancionId).update({'cifradoTexto': texto, 'cifradoVersion': kVersionCifrado});
   }
 
   /// Borra el archivo del backend de Storage que corresponda (lee
@@ -1211,6 +1272,7 @@ class SetlistService {
     required String subidoPor,
     required int orden,
     String cifradoTexto = '',
+    int? cifradoVersion,
   }) async {
     await _ref(codigoSala).add({
       'titulo': titulo,
@@ -1218,9 +1280,17 @@ class SetlistService {
       'subidoPor': subidoPor,
       'orden': orden,
       'cifradoTexto': cifradoTexto,
+      // Se copia la versión de la canción de origen: si es vieja (sin
+      // campo), el visor re-extrae del PDF la primera vez que se abre.
+      if (cifradoVersion != null) 'cifradoVersion': cifradoVersion,
       'completado': false,
       'createdAt': FieldValue.serverTimestamp(),
     });
+  }
+
+  /// Guarda el cifrado re-extraído del PDF (lo llama CifradoViewerScreen).
+  static Future<void> actualizarCifrado(String codigoSala, String itemId, String texto) async {
+    await _ref(codigoSala).doc(itemId).update({'cifradoTexto': texto, 'cifradoVersion': kVersionCifrado});
   }
 
   static Future<void> eliminarDelSetlist(String codigoSala, String itemId) async {
@@ -4007,6 +4077,8 @@ class SetlistTab extends StatelessWidget {
 
       cifradoTexto: seleccion['cifradoTexto'] as String? ?? '',
 
+      cifradoVersion: seleccion['cifradoVersion'] as int?,
+
     );
 
   }
@@ -4227,6 +4299,8 @@ class SetlistTab extends StatelessWidget {
 
       cifradoTexto: seleccion['cifradoTexto'] as String? ?? '',
 
+      cifradoVersion: seleccion['cifradoVersion'] as int?,
+
     );
 
   }
@@ -4329,7 +4403,7 @@ class SetlistTab extends StatelessWidget {
 
   }
 
-  Future<void> _confirmarAgregar(BuildContext context, String titulo, String pdfUrl, {String cifradoTexto = ''}) async {
+  Future<void> _confirmarAgregar(BuildContext context, String titulo, String pdfUrl, {String cifradoTexto = '', int? cifradoVersion}) async {
 
     if (titulo.isEmpty || pdfUrl.isEmpty) return;
 
@@ -4348,6 +4422,8 @@ class SetlistTab extends StatelessWidget {
       orden: actual.docs.length,
 
       cifradoTexto: cifradoTexto,
+
+      cifradoVersion: cifradoVersion,
 
     );
 
@@ -4408,6 +4484,8 @@ class SetlistTab extends StatelessWidget {
               'pdfUrl': m['pdfUrl'] as String? ?? '',
 
               'cifradoTexto': m['cifradoTexto'] as String? ?? '',
+
+              'cifradoVersion': m['cifradoVersion'] as int?,
 
             };
 
@@ -4626,6 +4704,12 @@ class SetlistTab extends StatelessWidget {
                               onIrAPedidos: onIrAPedidos,
 
                               puedeTransponer: !esSonidista,
+
+                              pdfUrl: pdfUrl,
+
+                              versionCifrado: data['cifradoVersion'] as int?,
+
+                              alRegenerar: (texto) => SetlistService.actualizarCifrado(codigoSala, doc.id, texto),
 
                             ),
 
@@ -5602,7 +5686,15 @@ class _MiRepertorioScreenState extends State<MiRepertorioScreen> {
 
                                 context,
 
-                                MaterialPageRoute(builder: (_) => CifradoViewerScreen(titulo: titulo, cifradoOriginal: cifradoTexto)),
+                                MaterialPageRoute(
+                                  builder: (_) => CifradoViewerScreen(
+                                    titulo: titulo,
+                                    cifradoOriginal: cifradoTexto,
+                                    pdfUrl: pdfUrl,
+                                    versionCifrado: data['cifradoVersion'] as int?,
+                                    alRegenerar: (texto) => RepertorioService.guardarCifradoRegenerado(user.uid, id, texto),
+                                  ),
+                                ),
 
                               ),
 
@@ -5702,6 +5794,17 @@ class CifradoViewerScreen extends StatefulWidget {
   /// pero no cambiarlo — eso queda a criterio de los músicos/cantantes.
   final bool puedeTransponer;
 
+  /// Si el cifrado guardado viene del extractor viejo (versionCifrado nula o
+  /// menor a kVersionCifrado) se vuelve a extraer del PDF al abrir el visor,
+  /// con la posición real de los acordes, y se pide guardarlo con
+  /// [alRegenerar] para que la próxima vez ya esté bien. Sin [pdfUrl] se
+  /// muestra el texto guardado tal cual.
+  final String? pdfUrl;
+
+  final int? versionCifrado;
+
+  final Future<void> Function(String texto)? alRegenerar;
+
   const CifradoViewerScreen({
 
     super.key,
@@ -5722,6 +5825,12 @@ class CifradoViewerScreen extends StatefulWidget {
 
     this.puedeTransponer = true,
 
+    this.pdfUrl,
+
+    this.versionCifrado,
+
+    this.alRegenerar,
+
   });
 
   bool get sincronizada => codigoSala != null && itemId != null;
@@ -5733,6 +5842,51 @@ class CifradoViewerScreen extends StatefulWidget {
 }
 
 class _CifradoViewerScreenState extends State<CifradoViewerScreen> {
+
+  /// Cifrado re-extraído del PDF (ver CifradoViewerScreen.pdfUrl); mientras
+  /// es null o no llegó, se muestra el texto guardado.
+  String? _cifradoRegenerado;
+
+  @override
+
+  void initState() {
+
+    super.initState();
+
+    _regenerarSiHaceFalta();
+
+  }
+
+  Future<void> _regenerarSiHaceFalta() async {
+
+    final url = widget.pdfUrl;
+
+    if (url == null || url.isEmpty) return;
+
+    if ((widget.versionCifrado ?? 1) >= kVersionCifrado) return;
+
+    try {
+
+      final respuesta = await http.get(Uri.parse(url));
+
+      if (respuesta.statusCode != 200) return;
+
+      final texto = RepertorioService.extraerTextoPdf(respuesta.bodyBytes);
+
+      // Un PDF sin texto seleccionable (escaneo/foto) no pisa lo guardado.
+      if (texto.isEmpty) return;
+
+      if (mounted) setState(() => _cifradoRegenerado = texto);
+
+      await widget.alRegenerar?.call(texto);
+
+    } catch (e) {
+
+      debugPrint('No se pudo regenerar el cifrado desde el PDF: $e');
+
+    }
+
+  }
 
   int _semitonosLocal = 0;
 
@@ -5772,7 +5926,7 @@ class _CifradoViewerScreenState extends State<CifradoViewerScreen> {
 
   }
 
-  Offset? _inicioArrastre;
+  final _swipe = DetectorSwipe();
 
   void _navegarAIndice(int indice) {
 
@@ -5802,6 +5956,14 @@ class _CifradoViewerScreenState extends State<CifradoViewerScreen> {
 
           puedeTransponer: widget.puedeTransponer,
 
+          pdfUrl: item['pdfUrl'] as String?,
+
+          versionCifrado: item['cifradoVersion'] as int?,
+
+          alRegenerar: widget.sincronizada && item['id'] != null
+              ? (texto) => SetlistService.actualizarCifrado(widget.codigoSala!, item['id'] as String, texto)
+              : null,
+
         ),
 
       ),
@@ -5812,11 +5974,9 @@ class _CifradoViewerScreenState extends State<CifradoViewerScreen> {
 
   void _manejarSwipe(PointerUpEvent evento) {
 
-    if (_inicioArrastre == null) return;
+    final delta = _swipe.alSubir(evento);
 
-    final delta = evento.position - _inicioArrastre!;
-
-    _inicioArrastre = null;
+    if (delta == null) return;
 
     const umbral = 80.0;
 
@@ -5842,7 +6002,7 @@ class _CifradoViewerScreenState extends State<CifradoViewerScreen> {
 
   Widget _construirVisor(BuildContext context, int semitonos) {
 
-    final texto = ChordTransposer.transponerTexto(widget.cifradoOriginal, semitonos);
+    final texto = ChordTransposer.transponerTexto(_cifradoRegenerado ?? widget.cifradoOriginal, semitonos);
 
     final etiquetaSemitonos = semitonos == 0 ? '0' : (semitonos > 0 ? '+$semitonos' : '$semitonos');
 
@@ -5926,9 +6086,11 @@ class _CifradoViewerScreenState extends State<CifradoViewerScreen> {
 
       body: Listener(
 
-        onPointerDown: (e) => _inicioArrastre = e.position,
+        onPointerDown: _swipe.alBajar,
 
         onPointerUp: _manejarSwipe,
+
+        onPointerCancel: _swipe.alCancelar,
 
         // Los acordes quedan alineados con la letra solo si ninguna línea se
         // parte en dos: se achica la letra para que entre el renglón más
@@ -6066,7 +6228,11 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
 
   String? _error;
 
-  Offset? _inicioArrastre;
+  final _swipe = DetectorSwipe();
+
+  /// Nivel de zoom actual del PDF. Con zoom, un dedo que arrastra sirve para
+  /// moverse por la página, no para cambiar de tema.
+  double _zoom = 1.0;
 
   void _navegarAIndice(int indice) {
 
@@ -6106,11 +6272,9 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
 
   void _manejarSwipe(PointerUpEvent evento) {
 
-    if (_inicioArrastre == null) return;
+    final delta = _swipe.alSubir(evento);
 
-    final delta = evento.position - _inicioArrastre!;
-
-    _inicioArrastre = null;
+    if (delta == null || _zoom > 1.05) return;
 
     const umbral = 80.0;
 
@@ -6150,9 +6314,11 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
 
       body: Listener(
 
-        onPointerDown: (e) => _inicioArrastre = e.position,
+        onPointerDown: _swipe.alBajar,
 
         onPointerUp: _manejarSwipe,
+
+        onPointerCancel: _swipe.alCancelar,
 
         child: _error != null
 
@@ -6193,6 +6359,8 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
             : SfPdfViewer.network(
 
                 widget.pdfUrl,
+
+                onZoomLevelChanged: (details) => _zoom = details.newZoomLevel,
 
                 onDocumentLoadFailed: (details) {
 

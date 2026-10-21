@@ -580,14 +580,23 @@ commiteado y qué no.
   última letra suelta) y hay que juntarlos; una línea cuenta como "de
   acordes" si ≥60% de sus palabras son acordes (`ChordTransposer.
   esLineaDeAcordes`) y se empareja con la línea de letra que sigue si está a
-  ≤1,5 renglones. `extractText` queda solo como respaldo si falla. **Las
-  canciones subidas antes de este cambio siguen con el cifrado viejo**
-  guardado en Firestore (`mi_repertorio/{id}.cifradoTexto`): se rehacen con
-  el botón "Regenerar cifrados desde los PDF" en Mi repertorio
-  (`RepertorioService.regenerarCifrados`, pisa también lo editado a mano).
-  Los temas que ya estaban agregados a un setlist de sala conservan una
-  *copia* del cifrado viejo (se copia al agregar): hay que quitarlos y
-  volverlos a agregar.
+  ≤1,5 renglones. `extractText` queda solo como respaldo si falla.
+  **Versionado del cifrado guardado (`cifradoVersion`, ver
+  `kVersionCifrado`):** `mi_repertorio` y `setlist` guardan una *copia* del
+  texto, así que lo subido con el extractor viejo seguía mostrándose mal
+  (acordes pegados a la izquierda). Los documentos sin el campo o con una
+  versión menor se consideran viejos: `CifradoViewerScreen` (si recibe
+  `pdfUrl`) baja el PDF con `package:http`, lo vuelve a extraer, lo muestra
+  y lo guarda vía `alRegenerar` (`SetlistService.actualizarCifrado` /
+  `RepertorioService.guardarCifradoRegenerado`), así que la corrección es
+  automática la primera vez que se abre cada tema, sin intervención del
+  usuario. Subir un PDF, editar a mano el cifrado y el botón "Regenerar
+  cifrados desde los PDF" de Mi repertorio (`RepertorioService.
+  regenerarCifrados`, pisa también lo editado a mano) dejan el documento en
+  la versión actual. `agregarAlSetlist` copia la versión de la canción de
+  origen para que lo editado a mano no se pise al abrirlo en la sala. Un PDF
+  sin texto seleccionable nunca pisa el cifrado guardado. Si cambia el
+  formato del extractor otra vez, subir `kVersionCifrado`.
 - **Los cifrados se muestran con una fuente monoespaciada propia
   (`RobotoMono`, `assets/fonts/`), no con `fontFamily: 'monospace'`.** En web
   (CanvasKit) la fuente genérica del sistema no está disponible y cae en una
@@ -603,6 +612,16 @@ commiteado y qué no.
   `Listener` opera por debajo de esa capa de arbitraje y sí funciona. Si
   agregás gestos nuevos sobre contenido con scroll/zoom propio, replicá
   este patrón en vez de `GestureDetector`.
+  **Trampa de ese enfoque (ya corregida): un pellizco para hacer zoom
+  cambiaba de canción.** Con eventos crudos hay que contar los dedos: si se
+  guarda solo "dónde bajó el último dedo", al levantar un dedo del pellizco
+  el movimiento se mide contra el punto donde había apoyado el *otro* y
+  parece un swipe horizontal. `DetectorSwipe` (main.dart) lleva la cuenta de
+  punteros activos y descarta el gesto entero si en algún momento hubo más
+  de uno; además `PdfViewerScreen` ignora el swipe mientras el PDF tiene zoom
+  (`onZoomLevelChanged`), para poder arrastrar la página ampliada sin cambiar
+  de tema. Usá `DetectorSwipe` para cualquier swipe nuevo en vez de guardar un
+  `Offset?` suelto.
 
 ## 10. Cómo levantar el proyecto
 
