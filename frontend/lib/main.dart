@@ -38,6 +38,11 @@ import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
 
 import 'package:wakelock_plus/wakelock_plus.dart';
 
+// Conversor de MP3 del navegador: en web es conversor_mp3_web.dart; fuera de
+// la web apunta a este mismo archivo, que define conversorMp3Disponible y
+// convertirAMp3 en su versión "no disponible" (ver SERVICIO DE SECUENCIAS).
+import 'main.dart' if (dart.library.js_interop) 'conversor_mp3_web.dart' as conversor;
+
 
 
 // --- CONFIGURACIÓN DE FIREBASE ---
@@ -1402,6 +1407,11 @@ class SecuenciasService {
 
   static String formatearMb(int bytes) => '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
 
+  /// Los archivos que pasan tamanoMaximoBytes se convierten a MP3 en el
+  /// navegador antes de subirlos (web/conversor_mp3.js, solo en web). Se
+  /// apunta un poco por debajo del límite para no rozarlo.
+  static const tamanoObjetivoMp3Bytes = 48 * 1024 * 1024;
+
   static CollectionReference<Map<String, dynamic>> _refUsuario(String uid) =>
       FirebaseFirestore.instance.collection('usuarios').doc(uid).collection('mis_secuencias');
 
@@ -1508,6 +1518,19 @@ class SecuenciasService {
     await batch.commit();
   }
 }
+
+/// Versión "no disponible" del conversor a MP3, para fuera de la web: el
+/// import condicional `conversor` apunta a este archivo cuando no hay
+/// dart:js_interop (ver conversor_mp3_web.dart). Se usan siempre con el
+/// prefijo `conversor.`, nunca directo.
+const bool conversorMp3Disponible = false;
+
+Future<({Uint8List bytes, int kbps})> convertirAMp3(
+  Uint8List bytes,
+  int limiteBytes,
+  void Function(double progreso) alAvanzar,
+) =>
+    throw UnsupportedError('La conversión a MP3 solo está disponible en la versión web.');
 
 /// Reproductor compartido por la pestaña Secuencias de la sala y por "Mis
 /// secuencias": una sola pista a la vez (dar play a otra corta la anterior).
@@ -6492,54 +6515,91 @@ class _MisSecuenciasScreenState extends State<MisSecuenciasScreen> {
     );
     if (result == null || result.files.isEmpty) return;
 
-    // Supabase rechaza los archivos que pasan el límite con un error poco
-    // claro; se avisan acá, antes de subir, y se sigue con los demás.
-    final grandes = result.files.where((a) => a.size > SecuenciasService.tamanoMaximoBytes).toList();
-    final aSubir = result.files.where((a) => a.size <= SecuenciasService.tamanoMaximoBytes).toList();
-    if (grandes.isNotEmpty) {
-      if (!mounted) return;
-      await showDialog<void>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: Text(grandes.length == 1 ? 'Archivo demasiado grande' : 'Archivos demasiado grandes'),
-          content: Text(
-            '${grandes.map((a) => '• ${a.name} (${SecuenciasService.formatearMb(a.size)})').join('\n')}\n\n'
-            'El máximo por archivo es ${SecuenciasService.formatearMb(SecuenciasService.tamanoMaximoBytes)}. '
-            'Convertilo a MP3 (a 320 kbps una canción entera ocupa unos 10-15 MB) y volvé a subirlo.',
+    // Supabase gratis rechaza los archivos de más de 50 MB con un error poco
+    // claro. En web se convierten a MP3 antes de subirlos; fuera de la web
+    // (sin conversor) se avisa acá y se sigue con los demás.
+    const limite = SecuenciasService.tamanoMaximoBytes;
+    var aSubir = result.files;
+    if (!conversor.conversorMp3Disponible) {
+      final grandes = result.files.where((a) => a.size > limite).toList();
+      aSubir = result.files.where((a) => a.size <= limite).toList();
+      if (grandes.isNotEmpty) {
+        if (!mounted) return;
+        await showDialog<void>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Text(grandes.length == 1 ? 'Archivo demasiado grande' : 'Archivos demasiado grandes'),
+            content: Text(
+              '${grandes.map((a) => '• ${a.name} (${SecuenciasService.formatearMb(a.size)})').join('\n')}\n\n'
+              'El máximo por archivo es ${SecuenciasService.formatearMb(limite)}. '
+              'Convertilo a MP3 (a 320 kbps una canción entera ocupa unos 10-15 MB) y volvé a subirlo, '
+              'o subilo desde la versión web, que lo convierte sola.',
+            ),
+            actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Entendido'))],
           ),
-          actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Entendido'))],
-        ),
-      );
+        );
+      }
     }
     if (aSubir.isEmpty) return;
 
     setState(() => _subiendo = true);
     final errores = <String>[];
+    final convertidos = <String>[];
     try {
       for (var i = 0; i < aSubir.length; i++) {
         final archivo = aSubir[i];
         if (archivo.bytes == null) continue;
-        setState(() => _progresoSubida = '${i + 1}/${aSubir.length}');
+        final contador = aSubir.length > 1 ? ' (${i + 1}/${aSubir.length})' : '';
         final punto = archivo.name.lastIndexOf('.');
         final titulo = punto > 0 ? archivo.name.substring(0, punto) : archivo.name;
+        var nombreArchivo = archivo.name;
+        var bytes = archivo.bytes!;
         try {
+          if (bytes.length > limite) {
+            setState(() => _progresoSubida = 'Convirtiendo a MP3$contador');
+            final mp3 = await conversor.convertirAMp3(
+              bytes,
+              SecuenciasService.tamanoObjetivoMp3Bytes,
+              (p) {
+                if (mounted) setState(() => _progresoSubida = 'Convirtiendo a MP3 ${(p * 100).round()}%$contador');
+              },
+            );
+            bytes = mp3.bytes;
+            nombreArchivo = '$titulo.mp3';
+            convertidos.add('$titulo (${SecuenciasService.formatearMb(archivo.size)} → '
+                '${SecuenciasService.formatearMb(bytes.length)}, ${mp3.kbps} kbps)');
+          }
+          setState(() => _progresoSubida = 'Subiendo$contador');
           await SecuenciasService.subirSecuencia(
             uid: uid,
             titulo: titulo,
-            nombreArchivo: archivo.name,
-            bytes: archivo.bytes!,
+            nombreArchivo: nombreArchivo,
+            bytes: bytes,
           );
         } catch (e) {
           debugPrint('No se pudo subir ${archivo.name}: $e');
-          errores.add(archivo.name);
+          errores.add('${archivo.name}: $e');
         }
       }
     } finally {
       if (mounted) setState(() => _subiendo = false);
     }
-    if (errores.isNotEmpty && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('No se pudieron subir: ${errores.join(', ')}'), backgroundColor: Colors.redAccent),
+    if (!mounted) return;
+    if (convertidos.isNotEmpty || errores.isNotEmpty) {
+      await showDialog<void>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text(errores.isEmpty ? 'Secuencias subidas' : 'Algunas secuencias no se subieron'),
+          content: SingleChildScrollView(
+            child: Text([
+              if (convertidos.isNotEmpty)
+                'Se convirtieron a MP3 porque pasaban el máximo de '
+                    '${SecuenciasService.formatearMb(limite)}:\n${convertidos.map((c) => '• $c').join('\n')}',
+              if (errores.isNotEmpty) 'No se pudieron subir:\n${errores.map((e) => '• $e').join('\n')}',
+            ].join('\n\n')),
+          ),
+          actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Entendido'))],
+        ),
       );
     }
   }
@@ -6680,7 +6740,7 @@ class _MisSecuenciasScreenState extends State<MisSecuenciasScreen> {
               icon: _subiendo
                   ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
                   : const Icon(Icons.upload_file),
-              label: Text(_subiendo ? 'Subiendo $_progresoSubida' : 'Subir secuencias'),
+              label: Text(_subiendo ? _progresoSubida : 'Subir secuencias'),
             ),
     );
   }

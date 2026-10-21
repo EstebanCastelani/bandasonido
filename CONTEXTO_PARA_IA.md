@@ -37,7 +37,16 @@ y se documente acá por qué.
 número, correlo de nuevo con `wc -l` si te importa la cifra exacta). Es una
 convención explícita del dueño del
 proyecto, no un descuido — no dividir en múltiples archivos sin que te lo
-pidan. El archivo está organizado en secciones marcadas con comentarios
+pidan. **Única excepción (aprobada por el dueño, oct-2026):**
+`frontend/lib/conversor_mp3_web.dart`, el puente al conversor de MP3 del
+navegador. Usa `dart:js_interop`, que no compila para Android, así que no
+puede estar en `main.dart`. `main.dart` lo importa condicionalmente con
+prefijo (`import 'main.dart' if (dart.library.js_interop)
+'conversor_mp3_web.dart' as conversor;`): fuera de la web el import apunta
+a `main.dart` mismo, que define `conversorMp3Disponible = false` y un
+`convertirAMp3` que tira error. Siempre se llaman como `conversor.xxx`. El
+truco del auto-import evita un segundo archivo "stub". La parte JS vive en
+`frontend/web/` (ver §5 ítem 20). El archivo está organizado en secciones marcadas con comentarios
 `// --- NOMBRE DE SECCIÓN ---`. Mapa actual (los números de línea van a
 correrse con cada cambio, pero el orden de secciones se mantiene):
 
@@ -438,6 +447,16 @@ Storage. Es un parche deliberadamente acotado: **Firestore y Auth siguen
     and (storage.foldername(name))[1] = 'usuarios'
     and (storage.foldername(name))[2] = (auth.jwt()->>'sub')
   );
+
+  -- Agregada el 21-oct-2026: sin SELECT, remove() no borra nada y no da
+  -- error (ver bullet "Borrar no borraba el archivo" más abajo).
+  create policy "Lectura API solo del dueño"
+  on storage.objects for select
+  using (
+    bucket_id = 'repertorio-pdfs'
+    and (storage.foldername(name))[1] = 'usuarios'
+    and (storage.foldername(name))[2] = (auth.jwt()->>'sub')
+  );
   ```
 - **Secuencias (audios) en el mismo bucket**: `SecuenciasService` sube a
   `repertorio-pdfs` bajo `usuarios/{uid}/secuencias/` (las políticas RLS
@@ -453,10 +472,43 @@ Storage. Es un parche deliberadamente acotado: **Firestore y Auth siguen
   deja cambiarlo; solo Pro lo hace configurable). Un WAV estéreo de 44,1
   kHz supera ese tamaño a partir de ~5 minutos — pasó con el primer tema
   real que se intentó subir (61 MB), y Supabase lo rechazaba con un error
-  poco claro. Por eso `MisSecuenciasScreen` filtra antes de subir los
-  archivos que pasan `SecuenciasService.tamanoMaximoBytes` y avisa que hay
-  que convertirlos a MP3 (a 320 kbps ese tema quedó en 13 MB). Si se pasa
-  a Supabase Pro o a Firebase Storage (Blaze), subir esa constante.
+  poco claro. Por eso, **en web**, `MisSecuenciasScreen` convierte
+  automáticamente a MP3 en el navegador los archivos que pasan
+  `SecuenciasService.tamanoMaximoBytes` (solo esos; lo que entra se sube tal
+  cual, decisión del dueño), apuntando a `tamanoObjetivoMp3Bytes` (48 MB):
+  usa 320 kbps y baja el bitrate solo si el tema es tan largo que no entra.
+  Al terminar muestra qué se convirtió (tamaño antes/después y kbps).
+  **Fuera de la web** (Android) no hay conversor: se avisa que el archivo
+  es demasiado grande y se sugiere convertirlo o usar la web.
+  Piezas: `web/conversor_mp3.js` (`window.convertirAMp3`: decodifica con
+  `OfflineAudioContext.decodeAudioData` a 44,1 kHz y elige el bitrate),
+  `web/conversor_mp3_worker.js` (codifica en un Web Worker para no congelar
+  la UI), `web/lame.min.js` (lamejs 1.2.1 de npm, sin modificar, checksum
+  verificado contra el registro; licencia LGPL-3.0 →
+  `web/lame.LICENSE.txt`, se mantiene como archivo separado y reemplazable
+  para cumplirla) y `lib/conversor_mp3_web.dart` (ver §2). Probado con el
+  WAV real de 58 MB / 5:45: ~40 s en desktop, quedó en 13,2 MB a 320 kbps
+  y se reproduce bien. En celulares va a tardar más y usa bastante memoria
+  (el audio decodificado de un tema de 6 min ronda los 120 MB). Si se pasa
+  a Supabase Pro o a Firebase Storage (Blaze), subir `tamanoMaximoBytes`.
+- **Borrar no borraba el archivo en Supabase (resuelto el 21-oct-2026).**
+  El bucket tenía solo políticas de INSERT y DELETE; la API de Storage
+  necesita también **SELECT** sobre `storage.objects` para poder borrar, y
+  sin ella `remove()` no borra nada **y no devuelve error**
+  (`eliminarSecuencia`/`eliminarCancion` además lo tragan con un
+  `try/catch`). Al eliminar una secuencia o un PDF se borraba el documento
+  de Firestore pero el archivo quedaba en el bucket. Se agregó la política
+  "Lectura API solo del dueño" (SQL arriba): misma condición de carpeta que
+  la de borrado y sin `to authenticated`; el bucket ya era público para leer
+  por URL, así que no expone nada nuevo. Verificado: subir y borrar una
+  secuencia de prueba → el archivo pasó de responder 200 a 400.
+  **Pendiente:** los archivos que quedaron huérfanos por lo borrado antes
+  del fix (PDFs y secuencias) siguen en el bucket ocupando espacio. Uno
+  conocido: `usuarios/V9830EiBhRMtEjaclGP77pwXmv93/secuencias/1792621013477_bautizados_en_fuego_VOL.mp3`
+  (duplicado de una prueba). Para encontrar el resto: comparar los archivos
+  de cada carpeta `usuarios/{uid}/` con los `storagePath` de
+  `mi_repertorio`/`mis_secuencias`. Borrar archivos es irreversible: que lo
+  confirme el dueño.
 - **Para revertir cuando se active Blaze**: el plan fue diseñado para que
   la vuelta atrás sea acotada a `RepertorioService` — cambiar
   `subirCancion` para que vuelva a usar `FirebaseStorage.instance` (como

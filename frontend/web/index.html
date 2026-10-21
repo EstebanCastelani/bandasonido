@@ -41,6 +41,11 @@
     pdfjsLib.GlobalWorkerOptions.workerSrc = "//cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.worker.min.js";
   </script>
 
+  <!-- Conversión a MP3 de las secuencias que pasan el límite de Supabase
+       (usa lame.min.js desde conversor_mp3_worker.js — ver
+       lib/conversor_mp3_web.dart). -->
+  <script src="conversor_mp3.js"></script>
+
   <!--
     You can customize the "flutter_bootstrap.js" script.
     This is useful to provide a custom configuration to the Flutter loader
