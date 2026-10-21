@@ -204,13 +204,12 @@ void main() async {
 
 // --- MODELOS Y CONSTANTES ---
 
-enum UserRole { musico, cantante, talkback }
+enum UserRole { musico, cantante }
 
 extension UserRoleTexto on UserRole {
   String get etiqueta => switch (this) {
         UserRole.musico => 'Músico',
         UserRole.cantante => 'Cantante',
-        UserRole.talkback => 'Talkback',
       };
 }
 
@@ -229,7 +228,6 @@ Set<UserRole> rolesDesdeEtiqueta(String? texto) {
   final roles = {
     if (t.contains('musico')) UserRole.musico,
     if (t.contains('cantante')) UserRole.cantante,
-    if (t.contains('talkback')) UserRole.talkback,
   };
   return roles.isEmpty ? {UserRole.musico} : roles;
 }
