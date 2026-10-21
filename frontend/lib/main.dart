@@ -370,7 +370,7 @@ class ChordTransposer {
   ];
 
   static final RegExp _tokenAcorde = RegExp(
-    r'^([A-G])(#|b)?((?:maj|min|dim|aug|sus|add|m)?[0-9]*(?:[#b][0-9]+)?\+?)?(?:/([A-G])(#|b)?)?$',
+    r'^([A-G])(#|b)?((?:maj|min|dim|aug|sus|add|m)?[0-9⁰¹²³⁴⁵⁶⁷⁸⁹]*(?:[#b][0-9]+)?\+?)?(?:/([A-G])(#|b)?)?$',
   );
 
   static final RegExp _entreCorchetes = RegExp(r'\[([^\]]+)\]');
@@ -390,10 +390,28 @@ class ChordTransposer {
 
     if (!_esLineaDeAcordes(linea)) return linea;
 
-    return linea.replaceAllMapped(RegExp(r'\S+'), (m) {
-      return _transponerToken(m.group(0)!, semitonos) ?? m.group(0)!;
-    });
+    // Cada acorde se vuelve a escribir en la misma columna donde estaba, así
+    // que si "C" pasa a "C#" (o "Bb" a "B") no se corre lo que viene después
+    // ni se desalinea respecto de la sílaba que tiene abajo. Solo se empuja
+    // el acorde siguiente cuando no queda lugar (siempre queda 1 espacio).
+    final salida = StringBuffer();
+    for (final m in RegExp(r'\S+').allMatches(linea)) {
+      final original = m.group(0)!;
+      final nuevo = _transponerToken(original, semitonos) ?? original;
+      while (salida.length < m.start) {
+        salida.write(' ');
+      }
+      if (salida.length > 0 && salida.length >= m.start) {
+        final texto = salida.toString();
+        if (!texto.endsWith(' ')) salida.write(' ');
+      }
+      salida.write(nuevo);
+    }
+    return salida.toString();
   }
+
+  /// True si la línea es solo de acordes (ej. "C#m   A   E/G#").
+  static bool esLineaDeAcordes(String linea) => _esLineaDeAcordes(linea);
 
   static bool _esLineaDeAcordes(String linea) {
     final palabras = linea.trim().split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
@@ -430,6 +448,242 @@ class ChordTransposer {
 
     final tablaDestino = usaBemoles ? _bemoles : _sostenidos;
     return tablaDestino[nuevoIndice];
+  }
+}
+
+// --- EXTRACCIÓN DE CIFRADO DESDE PDF (CON LA POSICIÓN DE LOS ACORDES) ---
+
+/// Un carácter del PDF con su posición horizontal original.
+class _GlifoPdf {
+  final String texto;
+  final double x0;
+  final double x1;
+  const _GlifoPdf(this.texto, this.x0, this.x1);
+}
+
+/// Una línea del PDF ya reconstruida como texto, guardando para cada
+/// carácter la coordenada X que tenía en la página.
+class _LineaPdf {
+  final double top;
+  final String texto;
+  final List<double> xs;
+  final bool esAcordes;
+  const _LineaPdf(this.top, this.texto, this.xs, this.esAcordes);
+
+  double get x0 => xs.first;
+}
+
+/// Convierte el PDF en texto monoespaciado conservando el layout: cada acorde
+/// queda en la columna de la sílaba que tiene debajo en el PDF original (las
+/// letras del PDF son de ancho variable, por eso no alcanza con copiar los
+/// espacios: se mide la posición real de cada acorde contra cada letra).
+class CifradoPdfExtractor {
+  /// Devuelve el texto del cifrado, o '' si el PDF no tiene texto
+  /// seleccionable (ej. un escaneo o una foto).
+  static String extraer(sf_pdf.PdfDocument documento) {
+    final extractor = sf_pdf.PdfTextExtractor(documento);
+    final paginas = <String>[];
+    for (var i = 0; i < documento.pages.count; i++) {
+      final lineasPdf = extractor.extractTextLines(startPageIndex: i, endPageIndex: i);
+      final texto = _armarPagina(lineasPdf);
+      if (texto.trim().isNotEmpty) paginas.add(texto);
+    }
+    return paginas.join('\n\n').trim();
+  }
+
+  static String _armarPagina(List<sf_pdf.TextLine> lineasPdf) {
+    // Ancho promedio de un carácter, para convertir distancias en columnas.
+    var sumaAnchos = 0.0;
+    var cantidad = 0;
+    for (final l in lineasPdf) {
+      for (final p in l.wordCollection) {
+        for (final g in p.glyphs) {
+          final ancho = g.bounds.width;
+          if (g.text.isNotEmpty && ancho > 0) {
+            sumaAnchos += ancho;
+            cantidad++;
+          }
+        }
+      }
+    }
+    if (cantidad == 0) return '';
+    final cw = sumaAnchos / cantidad;
+
+    // El extractor a veces parte un mismo renglón en varios pedazos (misma
+    // altura, ej. la última letra suelta): se juntan antes de armar la línea.
+    final ordenadas = [...lineasPdf]..sort((a, b) => a.bounds.top.compareTo(b.bounds.top));
+    final grupos = <List<sf_pdf.TextLine>>[];
+    for (final l in ordenadas) {
+      if (grupos.isNotEmpty && (l.bounds.top - grupos.last.first.bounds.top).abs() < 2.0) {
+        grupos.last.add(l);
+      } else {
+        grupos.add([l]);
+      }
+    }
+
+    final lineas = <_LineaPdf>[];
+    for (final grupo in grupos) {
+      final linea = _armarLinea(grupo, cw);
+      if (linea != null) lineas.add(linea);
+    }
+    if (lineas.isEmpty) return '';
+    lineas.sort((a, b) => a.top.compareTo(b.top));
+
+    final margen = lineas.map((l) => l.x0).reduce(min);
+    int columna(double x) => max(0, ((x - margen) / cw).round());
+
+    // Separación normal entre renglones, para detectar renglones en blanco.
+    final saltos = <double>[];
+    for (var i = 1; i < lineas.length; i++) {
+      final d = lineas[i].top - lineas[i - 1].top;
+      if (d > 0.5) saltos.add(d);
+    }
+    saltos.sort();
+    final paso = saltos.isEmpty ? 15.0 : saltos[saltos.length ~/ 2];
+
+    final salida = <String>[];
+    var i = 0;
+    while (i < lineas.length) {
+      final actual = lineas[i];
+
+      if (i > 0) {
+        final blancos = ((actual.top - lineas[i - 1].top) / paso).round() - 1;
+        for (var b = 0; b < min(blancos, 3); b++) {
+          salida.add('');
+        }
+      }
+
+      final siguiente = i + 1 < lineas.length ? lineas[i + 1] : null;
+      final hayLetraDebajo = actual.esAcordes &&
+          siguiente != null &&
+          !siguiente.esAcordes &&
+          siguiente.texto.trim().isNotEmpty &&
+          (siguiente.top - actual.top) <= paso * 1.5;
+
+      if (hayLetraDebajo) {
+        _acordesSobreLetra(actual, siguiente, cw, columna, salida);
+        i += 2;
+        continue;
+      }
+
+      if (actual.esAcordes) {
+        salida.add(_ubicarFichas(actual, (x) => columna(x), 0).trimRight());
+      } else {
+        salida.add((' ' * columna(actual.x0)) + actual.texto);
+      }
+      i++;
+    }
+
+    return salida.join('\n').trimRight();
+  }
+
+  /// Escribe la línea de acordes y la de letra de abajo de modo que cada
+  /// acorde caiga sobre la misma sílaba que en el PDF.
+  static void _acordesSobreLetra(
+    _LineaPdf acordes,
+    _LineaPdf letra,
+    double cw,
+    int Function(double) columna,
+    List<String> salida,
+  ) {
+    final sangria = columna(letra.x0);
+    final finLetraX = letra.xs.last + cw;
+
+    int columnaSobreLetra(double x) {
+      if (x >= finLetraX) {
+        return sangria + letra.texto.length + ((x - finLetraX) / cw).round();
+      }
+      var mejor = 0;
+      var menorDistancia = double.infinity;
+      for (var j = 0; j < letra.xs.length; j++) {
+        final d = (letra.xs[j] - x).abs();
+        if (d < menorDistancia) {
+          menorDistancia = d;
+          mejor = j;
+        }
+      }
+      // Un acorde a la izquierda del primer carácter queda antes de la letra.
+      if (x < letra.xs.first - cw / 2) {
+        return sangria - ((letra.xs.first - x) / cw).round();
+      }
+      return sangria + mejor;
+    }
+
+    // Si algún acorde cae a la izquierda del margen, se corre todo a la derecha.
+    var minimo = 0;
+    for (final m in RegExp(r'\S+').allMatches(acordes.texto)) {
+      minimo = min(minimo, columnaSobreLetra(acordes.xs[m.start]));
+    }
+    final corrimiento = -minimo;
+
+    salida.add(_ubicarFichas(acordes, (x) => columnaSobreLetra(x) + corrimiento, 0).trimRight());
+    salida.add((' ' * (sangria + corrimiento)) + letra.texto);
+  }
+
+  /// Arma una línea poniendo cada "ficha" (acorde o palabra) en su columna,
+  /// siempre con al menos un espacio entre una y otra.
+  static String _ubicarFichas(_LineaPdf linea, int Function(double) columnaDe, int base) {
+    final sb = StringBuffer();
+    for (final m in RegExp(r'\S+').allMatches(linea.texto)) {
+      final col = base + columnaDe(linea.xs[m.start]);
+      while (sb.length < col) {
+        sb.write(' ');
+      }
+      if (sb.length > 0 && !sb.toString().endsWith(' ')) sb.write(' ');
+      sb.write(m.group(0));
+    }
+    return sb.toString();
+  }
+
+  static _LineaPdf? _armarLinea(List<sf_pdf.TextLine> pedazos, double cw) {
+    final glifos = <_GlifoPdf>[];
+    for (final l in pedazos) {
+      for (final p in l.wordCollection) {
+        for (final g in p.glyphs) {
+          if (g.text.isEmpty) continue;
+          glifos.add(_GlifoPdf(g.text, g.bounds.left, g.bounds.right));
+        }
+      }
+    }
+    if (glifos.isEmpty) return null;
+    glifos.sort((a, b) => a.x0.compareTo(b.x0));
+
+    final sb = StringBuffer();
+    final xs = <double>[];
+    double? finAnterior;
+    for (final g in glifos) {
+      if (finAnterior != null) {
+        // Hueco que el PDF deja sin dibujar ningún carácter (típico entre
+        // acordes): se rellena con espacios proporcionales a su ancho.
+        final hueco = g.x0 - finAnterior;
+        if (hueco > cw * 0.9) {
+          final extra = (hueco / cw).round();
+          for (var k = 0; k < extra; k++) {
+            sb.write(' ');
+            xs.add(finAnterior + k * cw);
+          }
+        }
+      }
+      for (var k = 0; k < g.texto.length; k++) {
+        sb.write(g.texto[k]);
+        xs.add(g.x0 + (g.x1 - g.x0) * k / g.texto.length);
+      }
+      finAnterior = g.x1;
+    }
+
+    // Sin espacios sobrantes al principio ni al final (el PDF suele dejar uno).
+    final completo = sb.toString();
+    final recortado = completo.trim();
+    if (recortado.isEmpty) return null;
+    final inicio = completo.length - completo.trimLeft().length;
+    final xsRecortados = xs.sublist(inicio, inicio + recortado.length);
+
+    return _LineaPdf(
+      pedazos.first.bounds.top,
+      recortado,
+      xsRecortados,
+      ChordTransposer.esLineaDeAcordes(recortado),
+    );
   }
 }
 
@@ -744,15 +998,74 @@ class RepertorioService {
   /// Intenta extraer el texto embebido del PDF (best-effort). Si el PDF es
   /// un escaneo/foto no va a tener texto seleccionable y devuelve ''.
   static String extraerTextoPdf(Uint8List bytes) {
+    sf_pdf.PdfDocument? documento;
     try {
-      final documento = sf_pdf.PdfDocument(inputBytes: bytes);
-      final texto = sf_pdf.PdfTextExtractor(documento).extractText(layoutText: true);
-      documento.dispose();
-      return texto.trim();
+      documento = sf_pdf.PdfDocument(inputBytes: bytes);
+      try {
+        // Reconstruye el layout con la posición real de cada acorde.
+        final conPosiciones = CifradoPdfExtractor.extraer(documento);
+        if (conPosiciones.isNotEmpty) return conPosiciones;
+      } catch (e) {
+        debugPrint('No se pudo reconstruir el layout del PDF, uso extracción simple: $e');
+      }
+      // Respaldo: extracción simple (los acordes pueden quedar desalineados).
+      return sf_pdf.PdfTextExtractor(documento).extractText(layoutText: true).trim();
     } catch (e) {
       debugPrint('No se pudo extraer texto del PDF: $e');
       return '';
+    } finally {
+      documento?.dispose();
     }
+  }
+
+  /// Vuelve a extraer el cifrado de cada PDF de la biblioteca con la posición
+  /// real de los acordes (ver CifradoPdfExtractor) y reemplaza el texto
+  /// guardado. Sirve para las canciones subidas antes de que existiera ese
+  /// extractor, que quedaron con los acordes pegados a la izquierda. Las
+  /// canciones cuyo PDF no tiene texto seleccionable conservan el cifrado que
+  /// ya tenían. [alAvanzar] recibe (hechas, total).
+  static Future<({int actualizadas, int sinTexto, int fallidas})> regenerarCifrados(
+    String uid, {
+    void Function(int hechas, int total)? alAvanzar,
+  }) async {
+    final snap = await _ref(uid).get();
+    var actualizadas = 0;
+    var sinTexto = 0;
+    var fallidas = 0;
+    var hechas = 0;
+
+    for (final doc in snap.docs) {
+      try {
+        final data = doc.data();
+        final storagePath = data['storagePath'] as String? ?? '';
+        final proveedor = data['storageProvider'] as String? ?? 'firebase';
+        if (storagePath.isEmpty) {
+          fallidas++;
+        } else {
+          final Uint8List? bytes = proveedor == 'supabase'
+              ? await supabase.storage.from(kSupabaseRepertorioBucket).download(storagePath)
+              : await FirebaseStorage.instance.ref(storagePath).getData();
+          if (bytes == null) {
+            fallidas++;
+          } else {
+            final texto = extraerTextoPdf(bytes);
+            if (texto.isEmpty) {
+              sinTexto++;
+            } else {
+              await _ref(uid).doc(doc.id).update({'cifradoTexto': texto});
+              actualizadas++;
+            }
+          }
+        }
+      } catch (e) {
+        debugPrint('No se pudo regenerar el cifrado de ${doc.id}: $e');
+        fallidas++;
+      }
+      hechas++;
+      alAvanzar?.call(hechas, snap.docs.length);
+    }
+
+    return (actualizadas: actualizadas, sinTexto: sinTexto, fallidas: fallidas);
   }
 
   /// Sube el PDF a Supabase Storage (bucket público, ver kSupabaseRepertorioBucket
@@ -4856,7 +5169,7 @@ class _MiRepertorioScreenState extends State<MiRepertorioScreen> {
 
                     maxLines: 8,
 
-                    style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+                    style: const TextStyle(fontFamily: 'RobotoMono', fontSize: 12),
 
                     decoration: const InputDecoration(
 
@@ -4928,6 +5241,63 @@ class _MiRepertorioScreenState extends State<MiRepertorioScreen> {
 
   }
 
+  Future<void> _regenerarCifrados(String uid) async {
+    final confirmar = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Regenerar cifrados'),
+        content: const Text(
+          'Se va a volver a leer cada PDF de tu biblioteca para rearmar el cifrado '
+          'con los acordes ubicados como en el PDF original.\n\n'
+          'Esto reemplaza el cifrado en texto que tengas guardado en cada canción '
+          '(incluido lo que hayas editado a mano). Las canciones cuyo PDF no tiene '
+          'texto seleccionable no se tocan.',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar')),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Regenerar')),
+        ],
+      ),
+    );
+    if (confirmar != true || !mounted) return;
+
+    final progreso = ValueNotifier<String>('Preparando...');
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => PopScope(
+        canPop: false,
+        child: AlertDialog(
+          content: Row(
+            children: [
+              const CircularProgressIndicator(),
+              const SizedBox(width: 20),
+              Expanded(
+                child: ValueListenableBuilder<String>(
+                  valueListenable: progreso,
+                  builder: (context, texto, _) => Text(texto),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    final resultado = await RepertorioService.regenerarCifrados(
+      uid,
+      alAvanzar: (hechas, total) => progreso.value = 'Procesando $hechas de $total...',
+    );
+    progreso.dispose();
+    if (!mounted) return;
+    Navigator.of(context, rootNavigator: true).pop();
+
+    final partes = <String>['${resultado.actualizadas} actualizadas'];
+    if (resultado.sinTexto > 0) partes.add('${resultado.sinTexto} sin texto en el PDF');
+    if (resultado.fallidas > 0) partes.add('${resultado.fallidas} con error');
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Cifrados: ${partes.join(', ')}.')));
+  }
+
   Future<void> _confirmarEliminar(String uid, String id, String? storagePath) async {
 
     final confirm = await showDialog<bool>(
@@ -4968,7 +5338,17 @@ class _MiRepertorioScreenState extends State<MiRepertorioScreen> {
 
     return Scaffold(
 
-      appBar: AppBar(title: const Text('Mi repertorio')),
+      appBar: AppBar(
+        title: const Text('Mi repertorio'),
+        actions: [
+          if (user != null && !user.isAnonymous)
+            IconButton(
+              icon: const Icon(Icons.auto_fix_high),
+              tooltip: 'Regenerar cifrados desde los PDF',
+              onPressed: () => _regenerarCifrados(user.uid),
+            ),
+        ],
+      ),
 
       body: (user == null || user.isAnonymous)
 
@@ -5550,17 +5930,41 @@ class _CifradoViewerScreenState extends State<CifradoViewerScreen> {
 
         onPointerUp: _manejarSwipe,
 
-        child: SingleChildScrollView(
+        // Los acordes quedan alineados con la letra solo si ninguna línea se
+        // parte en dos: se achica la letra para que entre el renglón más
+        // largo (Roboto Mono mide 0,6 veces su tamaño de ancho por carácter)
+        // y, si aun así no entra, se puede desplazar hacia el costado.
+        child: LayoutBuilder(
 
-          padding: const EdgeInsets.all(16),
+          builder: (context, constraints) {
 
-          child: SelectableText(
+            final columnas = texto.split('\n').fold<int>(0, (m, l) => max(m, l.length));
 
-            texto,
+            final disponible = constraints.maxWidth - 32;
 
-            style: const TextStyle(fontFamily: 'monospace', fontSize: 14, height: 1.6),
+            final tamano = columnas == 0 ? 14.0 : (disponible / (columnas * 0.6)).clamp(9.0, 14.0);
 
-          ),
+            return SingleChildScrollView(
+
+              padding: const EdgeInsets.all(16),
+
+              child: SingleChildScrollView(
+
+                scrollDirection: Axis.horizontal,
+
+                child: SelectableText(
+
+                  texto,
+
+                  style: TextStyle(fontFamily: 'RobotoMono', fontSize: tamano, height: 1.6),
+
+                ),
+
+              ),
+
+            );
+
+          },
 
         ),
 

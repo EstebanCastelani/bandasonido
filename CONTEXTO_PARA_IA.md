@@ -568,6 +568,34 @@ commiteado y qué no.
   en su propia línea en vez de reconstruir los renglones visuales reales
   del PDF — se nota mucho en el cifrado (una palabra por línea). Ver
   `RepertorioService.extraerTextoPdf`.
+- **El cifrado se reconstruye con la posición real de cada acorde, no con
+  `extractText`.** `extractText(layoutText: true)` arregla los renglones pero
+  pierde la posición horizontal: todos los acordes quedaban pegados a la
+  izquierda en vez de sobre la sílaba correspondiente. `CifradoPdfExtractor`
+  (main.dart) usa `extractTextLines` — que da la coordenada X de cada letra —
+  y ubica cada acorde en la columna de la letra que tiene debajo en el PDF
+  (las letras del PDF son de ancho variable, así que se mide contra cada
+  carácter, no se copian los espacios). Detalles que costó descubrir: el
+  extractor a veces parte un renglón en pedazos con la misma altura (ej. la
+  última letra suelta) y hay que juntarlos; una línea cuenta como "de
+  acordes" si ≥60% de sus palabras son acordes (`ChordTransposer.
+  esLineaDeAcordes`) y se empareja con la línea de letra que sigue si está a
+  ≤1,5 renglones. `extractText` queda solo como respaldo si falla. **Las
+  canciones subidas antes de este cambio siguen con el cifrado viejo**
+  guardado en Firestore (`mi_repertorio/{id}.cifradoTexto`): se rehacen con
+  el botón "Regenerar cifrados desde los PDF" en Mi repertorio
+  (`RepertorioService.regenerarCifrados`, pisa también lo editado a mano).
+  Los temas que ya estaban agregados a un setlist de sala conservan una
+  *copia* del cifrado viejo (se copia al agregar): hay que quitarlos y
+  volverlos a agregar.
+- **Los cifrados se muestran con una fuente monoespaciada propia
+  (`RobotoMono`, `assets/fonts/`), no con `fontFamily: 'monospace'`.** En web
+  (CanvasKit) la fuente genérica del sistema no está disponible y cae en una
+  proporcional, lo que desalinea los acordes. El visor además achica la letra
+  (mín. 9 pt) para que el renglón más largo entre sin partirse, y permite
+  desplazar hacia el costado si aun así no entra. La transposición reescribe
+  cada acorde en su misma columna (`ChordTransposer._transponerLinea`) para
+  que C → C# no corra lo que sigue.
 - **Los gestos de swipe (PdfViewerScreen/CifradoViewerScreen) usan
   `Listener`, no `GestureDetector`.** Es deliberado: `GestureDetector`
   compite por el gesto con el pan/zoom interno de `SfPdfViewer` y con el

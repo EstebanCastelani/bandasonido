@@ -33,3 +33,10 @@ flutter:
   uses-material-design: true
   assets:
     - assets/sounds/pedido_nuevo.wav
+  # Fuente de ancho fijo para los cifrados: la versión web (CanvasKit) no
+  # puede usar la fuente genérica "monospace" del sistema, y sin ancho fijo
+  # los acordes no quedan alineados con la letra.
+  fonts:
+    - family: RobotoMono
+      fonts:
+        - asset: assets/fonts/RobotoMono-Regular.ttf
