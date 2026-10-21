@@ -43,8 +43,11 @@
 
   <!-- Conversión a MP3 de las secuencias que pasan el límite de Supabase
        (usa lame.min.js desde conversor_mp3_worker.js — ver
-       lib/conversor_mp3_web.dart). -->
+       lib/puente_web.dart). -->
   <script src="conversor_mp3.js"></script>
+  <!-- Reproductor de secuencias con tono y tempo (SoundTouch, ver
+       lib/puente_web.dart). Es módulo porque soundtouch.js lo es. -->
+  <script type="module" src="reproductor_secuencias.js"></script>
 
   <!--
     You can customize the "flutter_bootstrap.js" script.

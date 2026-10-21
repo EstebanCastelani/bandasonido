@@ -38,15 +38,19 @@ número, correlo de nuevo con `wc -l` si te importa la cifra exacta). Es una
 convención explícita del dueño del
 proyecto, no un descuido — no dividir en múltiples archivos sin que te lo
 pidan. **Única excepción (aprobada por el dueño, oct-2026):**
-`frontend/lib/conversor_mp3_web.dart`, el puente al conversor de MP3 del
-navegador. Usa `dart:js_interop`, que no compila para Android, así que no
-puede estar en `main.dart`. `main.dart` lo importa condicionalmente con
-prefijo (`import 'main.dart' if (dart.library.js_interop)
-'conversor_mp3_web.dart' as conversor;`): fuera de la web el import apunta
-a `main.dart` mismo, que define `conversorMp3Disponible = false` y un
-`convertirAMp3` que tira error. Siempre se llaman como `conversor.xxx`. El
-truco del auto-import evita un segundo archivo "stub". La parte JS vive en
-`frontend/web/` (ver §5 ítem 20). El archivo está organizado en secciones marcadas con comentarios
+`frontend/lib/puente_web.dart`, el puente a lo que corre en JS del
+navegador (conversor de MP3 y reproductor con tono y tempo). Usa
+`dart:js_interop`, que no compila para Android, así que no puede estar en
+`main.dart`. `main.dart` lo importa condicionalmente con prefijo
+(`import 'main.dart' if (dart.library.js_interop) 'puente_web.dart' as
+puente;`): fuera de la web el import apunta a `main.dart` mismo, que define
+las mismas funciones en versión "no disponible" (`conversorMp3Disponible =
+false`, `reproductorWebDisponible = false`, el resto tira error). Siempre se
+llaman como `puente.xxx`. El truco del auto-import evita un segundo archivo
+"stub". Si agregás algo al puente, agregá también su versión "no
+disponible" en `main.dart` o el build de Android se rompe (verificalo con
+`flutter build apk --debug`). La parte JS vive en `frontend/web/` (ver §5
+ítems 20 y 21). Antes se llamaba `conversor_mp3_web.dart`. El archivo está organizado en secciones marcadas con comentarios
 `// --- NOMBRE DE SECCIÓN ---`. Mapa actual (los números de línea van a
 correrse con cada cambio, pero el orden de secciones se mantiene):
 
@@ -122,7 +126,10 @@ usuarios/{uid}/mis_secuencias/{id}   — biblioteca personal de secuencias (audi
   usuarios/{uid}/secuencias/. Solo el dueño lee/escribe.
 
 salas/{codigoSala}/secuencias/{id}    — secuencias cargadas para el show de hoy
-  titulo, audioUrl, subidoPor, orden, createdAt
+  titulo, audioUrl, subidoPor, orden, createdAt, semitonos, tempoPorcentaje
+  semitonos (int, -12..12) y tempoPorcentaje (int, 50..150): tono y tempo
+  de esa secuencia en la sala, sincronizados a todos (faltan en docs
+  viejos → 0 y 100).
   Copia liviana de las elegidas desde mis_secuencias (no se comparte la
   biblioteca entera). El play NO se sincroniza entre dispositivos.
 
@@ -313,6 +320,42 @@ registrada sin chequear `esPro` — ver §8 para cómo revertir esto.
     reordenar, quitar, vista del sonidista). **No probado todavía**: subir
     audios desde "Mis secuencias" (necesita que el dueño inicie sesión con
     su cuenta; el bucket ya acepta audio).
+21. **Tono y tempo de las secuencias (como Music Speed Changer)**: en la
+    pestaña Secuencias de la sala, el botón de ajustes (ícono de
+    controles, `_ajustarTonoYTempo` en `SecuenciasTab`) abre un panel con
+    tono ±12 semitonos (botones de a uno) y tempo 50-150% (deslizador +
+    botones de a 1%) y "Restablecer". Uno no cambia al otro. Suena en vivo
+    mientras se mueve y se guarda en el doc de la sala
+    (`semitonos`/`tempoPorcentaje`, `SecuenciasService.actualizarAjustes`;
+    el tempo del deslizador se guarda al soltarlo) → **sincronizado a toda
+    la sala** (decisión del dueño): si otro integrante lo cambia, la pista
+    que está sonando acá se ajusta sola (`ReproductorSecuencias.
+    aplicarAjustes`, llamado desde el `StreamBuilder`). La fila muestra
+    "Tono −2 · Tempo 95%". El sonidista ve el resumen pero no puede
+    cambiarlo (igual que la transposición del setlist). En "Mis
+    secuencias" no hay ajustes.
+    **Cómo suena**: el reproductor normal (audioplayers) solo cambia la
+    velocidad; separar tono de tempo requiere procesar el audio. En web,
+    `ReproductorSecuencias` usa `web/reproductor_secuencias.js`, que
+    reproduce con SoundTouch (`web/soundtouch.js` = soundtouchjs 0.3.0 de
+    npm, checksum verificado, LGPL-2.1 → `web/soundtouch.LICENSE.txt`; solo
+    se le quitó la línea final `sourceMappingURL` para no pedir un `.map`
+    inexistente). Ese reproductor baja y decodifica la pista entera antes de
+    sonar (unos segundos para un MP3 de 13 MB), es **uno solo para toda la
+    página** (`ReproductorSecuencias._duenoWeb` decide qué pantalla lo
+    controla) y Dart consulta su estado cada 200 ms. Se carga como
+    `<script type="module">` en `web/index.html`. El audio se arranca con
+    `rwDesbloquear()` antes de cualquier `await`: los navegadores de
+    celular solo permiten iniciar audio dentro del toque del usuario.
+    **Android** sigue con audioplayers: el tempo funciona
+    (`setPlaybackRate`, mantiene el tono) pero el tono no — el panel lo
+    muestra deshabilitado con un aviso (decisión del dueño; para tenerlo
+    habría que pasar Android a `just_audio`, que sí lo soporta).
+    Probado en web (oct-2026): −2 semitonos y 98% aplicados en vivo; a 75%
+    la pista avanzó 4,44 s en 6 s reales; un cambio escrito por "otro
+    integrante" (+3, 110%) llegó solo al reproductor. No se probó en un
+    celular real (rendimiento de SoundTouch, memoria del audio
+    decodificado, ~120 MB para un tema de 6 min).
 
 ## 6. Modelo de seguridad de las salas — trade-off consciente, no bug
 
@@ -486,7 +529,7 @@ Storage. Es un parche deliberadamente acotado: **Firestore y Auth siguen
   la UI), `web/lame.min.js` (lamejs 1.2.1 de npm, sin modificar, checksum
   verificado contra el registro; licencia LGPL-3.0 →
   `web/lame.LICENSE.txt`, se mantiene como archivo separado y reemplazable
-  para cumplirla) y `lib/conversor_mp3_web.dart` (ver §2). Probado con el
+  para cumplirla) y `lib/puente_web.dart` (ver §2). Probado con el
   WAV real de 58 MB / 5:45: ~40 s en desktop, quedó en 13,2 MB a 320 kbps
   y se reproduce bien. En celulares va a tardar más y usa bastante memoria
   (el audio decodificado de un tema de 6 min ronda los 120 MB). Si se pasa

@@ -38,10 +38,10 @@ import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
 
 import 'package:wakelock_plus/wakelock_plus.dart';
 
-// Conversor de MP3 del navegador: en web es conversor_mp3_web.dart; fuera de
-// la web apunta a este mismo archivo, que define conversorMp3Disponible y
-// convertirAMp3 en su versión "no disponible" (ver SERVICIO DE SECUENCIAS).
-import 'main.dart' if (dart.library.js_interop) 'conversor_mp3_web.dart' as conversor;
+// Lo que corre en JS del navegador (conversor de MP3, reproductor con tono y
+// tempo): en web es puente_web.dart; fuera de la web apunta a este mismo
+// archivo, que define las versiones "no disponible" (ver SERVICIO DE SECUENCIAS).
+import 'main.dart' if (dart.library.js_interop) 'puente_web.dart' as puente;
 
 
 
@@ -1517,12 +1517,23 @@ class SecuenciasService {
     }
     await batch.commit();
   }
+
+  /// Tono (semitonos) y tempo (porcentaje, 100 = normal) de una secuencia de
+  /// la sala. Se guardan en el documento para que a todos les suene igual.
+  static Future<void> actualizarAjustes(
+    String codigoSala,
+    String id, {
+    required int semitonos,
+    required int tempoPorcentaje,
+  }) async {
+    await _refSala(codigoSala).doc(id).update({'semitonos': semitonos, 'tempoPorcentaje': tempoPorcentaje});
+  }
 }
 
-/// Versión "no disponible" del conversor a MP3, para fuera de la web: el
-/// import condicional `conversor` apunta a este archivo cuando no hay
-/// dart:js_interop (ver conversor_mp3_web.dart). Se usan siempre con el
-/// prefijo `conversor.`, nunca directo.
+/// Versiones "no disponible" de lo que hay en puente_web.dart, para fuera
+/// de la web: el import condicional `puente` apunta a este archivo cuando no
+/// hay dart:js_interop. Se usan siempre con el prefijo `puente.`, nunca
+/// directo.
 const bool conversorMp3Disponible = false;
 
 Future<({Uint8List bytes, int kbps})> convertirAMp3(
@@ -1532,14 +1543,42 @@ Future<({Uint8List bytes, int kbps})> convertirAMp3(
 ) =>
     throw UnsupportedError('La conversión a MP3 solo está disponible en la versión web.');
 
+const bool reproductorWebDisponible = false;
+
+Never _soloWeb() => throw UnsupportedError('El reproductor con tono y tempo solo está disponible en la versión web.');
+void rwDesbloquear() => _soloWeb();
+Future<double> rwCargar(String url) => _soloWeb();
+void rwReproducir() => _soloWeb();
+void rwPausar() => _soloWeb();
+void rwDetener() => _soloWeb();
+void rwIrA(double segundos) => _soloWeb();
+void rwTempo(double valor) => _soloWeb();
+void rwSemitonos(int valor) => _soloWeb();
+void rwRepetir(bool valor) => _soloWeb();
+({double posicion, double duracion, bool sonando, bool termino}) rwEstado() => _soloWeb();
+
 /// Reproductor compartido por la pestaña Secuencias de la sala y por "Mis
 /// secuencias": una sola pista a la vez (dar play a otra corta la anterior).
 /// Cada dispositivo reproduce por su cuenta — no se sincroniza el play entre
 /// los integrantes de la sala; quien maneja las secuencias en el show es el
 /// que las dispara.
+///
+/// Tono y tempo independientes (como Music Speed Changer): en web se usa el
+/// reproductor de web/reproductor_secuencias.js (SoundTouch), que es único
+/// para toda la página; fuera de la web, audioplayers, que solo cambia el
+/// tempo (soportaTono = false).
 class ReproductorSecuencias extends ChangeNotifier {
-  final AudioPlayer _player = AudioPlayer();
+  static bool get soportaTono => puente.reproductorWebDisponible;
+
+  /// En web hay un solo reproductor JS para toda la página: el último que
+  /// cargó una pista es el "dueño"; si otro toma el control, este queda
+  /// detenido en vez de seguir creyendo que suena.
+  static ReproductorSecuencias? _duenoWeb;
+
+  final bool _web = puente.reproductorWebDisponible;
+  AudioPlayer? _player;
   final List<StreamSubscription> _subs = [];
+  Timer? _sondeo;
 
   String? idActual;
   PlayerState estado = PlayerState.stopped;
@@ -1547,18 +1586,23 @@ class ReproductorSecuencias extends ChangeNotifier {
   Duration duracion = Duration.zero;
   bool repetir = false;
   bool cargando = false;
+  double tempo = 1.0;
+  int semitonos = 0;
 
   ReproductorSecuencias() {
-    _subs.add(_player.onPlayerStateChanged.listen((s) {
+    if (_web) return;
+    final player = AudioPlayer();
+    _player = player;
+    _subs.add(player.onPlayerStateChanged.listen((s) {
       estado = s;
       if (s == PlayerState.completed) posicion = Duration.zero;
       notifyListeners();
     }));
-    _subs.add(_player.onPositionChanged.listen((p) {
+    _subs.add(player.onPositionChanged.listen((p) {
       posicion = p;
       notifyListeners();
     }));
-    _subs.add(_player.onDurationChanged.listen((d) {
+    _subs.add(player.onDurationChanged.listen((d) {
       duracion = d;
       notifyListeners();
     }));
@@ -1566,43 +1610,137 @@ class ReproductorSecuencias extends ChangeNotifier {
 
   bool estaSonando(String id) => idActual == id && estado == PlayerState.playing;
 
+  /// En web la posición se consulta al reproductor JS mientras suena.
+  void _empezarSondeo() {
+    _sondeo?.cancel();
+    _sondeo = Timer.periodic(const Duration(milliseconds: 200), (_) {
+      if (_duenoWeb != this) {
+        _sondeo?.cancel();
+        estado = PlayerState.stopped;
+        posicion = Duration.zero;
+        notifyListeners();
+        return;
+      }
+      final e = puente.rwEstado();
+      posicion = Duration(milliseconds: (e.posicion * 1000).round());
+      if (e.termino) {
+        _sondeo?.cancel();
+        estado = PlayerState.completed;
+        posicion = Duration.zero;
+      }
+      notifyListeners();
+    });
+  }
+
   /// Play/pausa sobre la pista [id]. Si es otra distinta a la actual, corta
-  /// la anterior y arranca la nueva desde el principio.
-  Future<void> alternar(String id, String url) async {
-    if (idActual == id) {
+  /// la anterior y arranca la nueva desde el principio, con [tempo] (1 =
+  /// normal) y [semitonos].
+  Future<void> alternar(String id, String url, {double tempo = 1.0, int semitonos = 0}) async {
+    // Antes de cualquier await: los navegadores de celular solo dejan
+    // arrancar audio dentro del toque del usuario.
+    if (_web) puente.rwDesbloquear();
+    if (idActual == id && (!_web || _duenoWeb == this)) {
       if (estado == PlayerState.playing) {
-        await _player.pause();
+        if (_web) {
+          puente.rwPausar();
+          _sondeo?.cancel();
+          estado = PlayerState.paused;
+          notifyListeners();
+        } else {
+          await _player!.pause();
+        }
       } else {
-        await _player.resume();
+        if (_web) {
+          puente.rwReproducir();
+          estado = PlayerState.playing;
+          _empezarSondeo();
+          notifyListeners();
+        } else {
+          await _player!.resume();
+        }
       }
       return;
     }
     idActual = id;
     posicion = Duration.zero;
     duracion = Duration.zero;
+    this.tempo = tempo;
+    this.semitonos = semitonos;
     cargando = true;
     notifyListeners();
     try {
-      await _player.stop();
-      await _player.setReleaseMode(repetir ? ReleaseMode.loop : ReleaseMode.stop);
-      await _player.play(UrlSource(url));
+      if (_web) {
+        _duenoWeb = this;
+        _sondeo?.cancel();
+        final segundos = await puente.rwCargar(url);
+        // Se pidió otra pista (o la tomó otra pantalla) mientras cargaba.
+        if (segundos < 0 || idActual != id || _duenoWeb != this) return;
+        duracion = Duration(milliseconds: (segundos * 1000).round());
+        puente.rwTempo(this.tempo);
+        puente.rwSemitonos(this.semitonos);
+        puente.rwRepetir(repetir);
+        puente.rwReproducir();
+        estado = PlayerState.playing;
+        _empezarSondeo();
+      } else {
+        await _player!.stop();
+        await _player!.setReleaseMode(repetir ? ReleaseMode.loop : ReleaseMode.stop);
+        await _player!.play(UrlSource(url));
+        await _player!.setPlaybackRate(this.tempo);
+      }
     } finally {
       cargando = false;
       notifyListeners();
     }
   }
 
+  /// Aplica tono y tempo a la pista [id] si es la que está cargada (si no,
+  /// se toman la próxima vez que se le dé play). Se llama al mover los
+  /// controles y cuando llega el cambio de otro integrante de la sala.
+  Future<void> aplicarAjustes(String id, {required double tempo, required int semitonos}) async {
+    if (idActual != id || (this.tempo == tempo && this.semitonos == semitonos)) return;
+    this.tempo = tempo;
+    this.semitonos = semitonos;
+    if (_web) {
+      if (_duenoWeb == this) {
+        puente.rwTempo(tempo);
+        puente.rwSemitonos(semitonos);
+      }
+    } else {
+      await _player!.setPlaybackRate(tempo);
+    }
+    notifyListeners();
+  }
+
   Future<void> detener() async {
-    await _player.stop();
+    if (_web) {
+      if (_duenoWeb == this) puente.rwDetener();
+      _sondeo?.cancel();
+      estado = PlayerState.stopped;
+    } else {
+      await _player!.stop();
+    }
     posicion = Duration.zero;
     notifyListeners();
   }
 
-  Future<void> irA(Duration destino) => _player.seek(destino);
+  Future<void> irA(Duration destino) async {
+    if (_web) {
+      if (_duenoWeb == this) puente.rwIrA(destino.inMilliseconds / 1000);
+      posicion = destino;
+      notifyListeners();
+    } else {
+      await _player!.seek(destino);
+    }
+  }
 
   Future<void> alternarRepetir() async {
     repetir = !repetir;
-    await _player.setReleaseMode(repetir ? ReleaseMode.loop : ReleaseMode.stop);
+    if (_web) {
+      if (_duenoWeb == this) puente.rwRepetir(repetir);
+    } else {
+      await _player!.setReleaseMode(repetir ? ReleaseMode.loop : ReleaseMode.stop);
+    }
     notifyListeners();
   }
 
@@ -1614,10 +1752,15 @@ class ReproductorSecuencias extends ChangeNotifier {
 
   @override
   void dispose() {
+    _sondeo?.cancel();
+    if (_web && _duenoWeb == this) {
+      puente.rwDetener();
+      _duenoWeb = null;
+    }
     for (final s in _subs) {
       s.cancel();
     }
-    _player.dispose();
+    _player?.dispose();
     super.dispose();
   }
 }
@@ -1632,6 +1775,10 @@ class FilaSecuencia extends StatelessWidget {
   final String? subtitulo;
   final Widget? acciones;
 
+  /// Con qué tempo (1 = normal) y tono arranca la pista al darle play.
+  final double tempo;
+  final int semitonos;
+
   const FilaSecuencia({
     super.key,
     required this.reproductor,
@@ -1640,6 +1787,8 @@ class FilaSecuencia extends StatelessWidget {
     required this.audioUrl,
     this.subtitulo,
     this.acciones,
+    this.tempo = 1.0,
+    this.semitonos = 0,
   });
 
   @override
@@ -1665,7 +1814,7 @@ class FilaSecuencia extends StatelessWidget {
                   tooltip: sonando ? 'Pausar' : 'Reproducir',
                   onPressed: audioUrl.isEmpty
                       ? null
-                      : () => reproductor.alternar(id, audioUrl).catchError((e) {
+                      : () => reproductor.alternar(id, audioUrl, tempo: tempo, semitonos: semitonos).catchError((e) {
                             if (context.mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(content: Text('No se pudo reproducir: $e'), backgroundColor: Colors.redAccent),
@@ -5402,6 +5551,153 @@ class _SecuenciasTabState extends State<SecuenciasTab> with AutomaticKeepAliveCl
     await SecuenciasService.quitarDeSala(widget.codigoSala, id);
   }
 
+  static String _textoSemitonos(int semitonos) {
+    if (semitonos == 0) return 'Original';
+    final signo = semitonos > 0 ? '+' : '−';
+    return '$signo${semitonos.abs()} ${semitonos.abs() == 1 ? 'semitono' : 'semitonos'}';
+  }
+
+  /// "Tono +2 · Tempo 95%", o null si la secuencia está como se subió.
+  static String? _resumenAjustes(int semitonos, int tempoPorcentaje) {
+    final partes = [
+      if (semitonos != 0) 'Tono ${semitonos > 0 ? '+' : '−'}${semitonos.abs()}',
+      if (tempoPorcentaje != 100) 'Tempo $tempoPorcentaje%',
+    ];
+    return partes.isEmpty ? null : partes.join(' · ');
+  }
+
+  /// Tono (±12 semitonos) y tempo (50-150%) de una secuencia, como Music
+  /// Speed Changer: uno no cambia al otro. Suena en vivo mientras se mueve y
+  /// se guarda en la sala para todos (el tempo al soltar el deslizador).
+  Future<void> _ajustarTonoYTempo(String id, String titulo, int semitonosIniciales, int tempoInicial) async {
+    var semitonos = semitonosIniciales;
+    var tempo = tempoInicial;
+
+    void guardar() {
+      SecuenciasService.actualizarAjustes(widget.codigoSala, id, semitonos: semitonos, tempoPorcentaje: tempo)
+          .catchError((e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('No se pudo guardar el ajuste: $e'), backgroundColor: Colors.redAccent),
+          );
+        }
+      });
+    }
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setSheet) {
+          void cambiar({int? nuevoTono, int? nuevoTempo, bool guardarYa = true}) {
+            setSheet(() {
+              if (nuevoTono != null) semitonos = nuevoTono;
+              if (nuevoTempo != null) tempo = nuevoTempo;
+            });
+            _reproductor.aplicarAjustes(id, tempo: tempo / 100, semitonos: semitonos);
+            if (guardarYa) guardar();
+          }
+
+          final soportaTono = ReproductorSecuencias.soportaTono;
+          return SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(titulo, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 4),
+                  const Text(
+                    'Se guarda para toda la sala. Tono y tempo se cambian por separado.',
+                    style: TextStyle(fontSize: 12, color: Colors.grey),
+                  ),
+                  const SizedBox(height: 20),
+                  const Text('TONO', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1)),
+                  const SizedBox(height: 8),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      IconButton.filledTonal(
+                        iconSize: 32,
+                        icon: const Icon(Icons.remove),
+                        tooltip: 'Bajar un semitono',
+                        onPressed: soportaTono && semitonos > -12 ? () => cambiar(nuevoTono: semitonos - 1) : null,
+                      ),
+                      SizedBox(
+                        width: 160,
+                        child: Text(
+                          _textoSemitonos(semitonos),
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      IconButton.filledTonal(
+                        iconSize: 32,
+                        icon: const Icon(Icons.add),
+                        tooltip: 'Subir un semitono',
+                        onPressed: soportaTono && semitonos < 12 ? () => cambiar(nuevoTono: semitonos + 1) : null,
+                      ),
+                    ],
+                  ),
+                  if (!soportaTono)
+                    const Padding(
+                      padding: EdgeInsets.only(top: 4),
+                      child: Text(
+                        'El cambio de tono por ahora solo funciona en la versión web.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(fontSize: 12, color: Colors.grey),
+                      ),
+                    ),
+                  const SizedBox(height: 20),
+                  Row(
+                    children: [
+                      const Expanded(
+                        child: Text('TEMPO', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1)),
+                      ),
+                      Text('$tempo%', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                  Row(
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.remove),
+                        tooltip: 'Más lento (1%)',
+                        onPressed: tempo > 50 ? () => cambiar(nuevoTempo: tempo - 1) : null,
+                      ),
+                      Expanded(
+                        child: Slider(
+                          value: tempo.toDouble(),
+                          min: 50,
+                          max: 150,
+                          divisions: 100,
+                          label: '$tempo%',
+                          onChanged: (v) => cambiar(nuevoTempo: v.round(), guardarYa: false),
+                          onChangeEnd: (_) => guardar(),
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.add),
+                        tooltip: 'Más rápido (1%)',
+                        onPressed: tempo < 150 ? () => cambiar(nuevoTempo: tempo + 1) : null,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  TextButton.icon(
+                    icon: const Icon(Icons.restart_alt),
+                    label: const Text('Restablecer (tono original, 100%)'),
+                    onPressed: semitonos == 0 && tempo == 100 ? null : () => cambiar(nuevoTono: 0, nuevoTempo: 100),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     super.build(context);
@@ -5423,18 +5719,40 @@ class _SecuenciasTabState extends State<SecuenciasTab> with AutomaticKeepAliveCl
         Widget fila(QueryDocumentSnapshot<Map<String, dynamic>> doc, int i) {
           final data = doc.data();
           final titulo = data['titulo'] as String? ?? '';
+          final semitonos = (data['semitonos'] as num?)?.toInt() ?? 0;
+          final tempoPorcentaje = (data['tempoPorcentaje'] as num?)?.toInt() ?? 100;
+          // Si otro integrante cambió tono o tempo de la pista que está
+          // cargada acá, se aplica en vivo (fuera del build).
+          if (_reproductor.idActual == doc.id) {
+            scheduleMicrotask(() => _reproductor.aplicarAjustes(
+                  doc.id,
+                  tempo: tempoPorcentaje / 100,
+                  semitonos: semitonos,
+                ));
+          }
+          final ajustes = _resumenAjustes(semitonos, tempoPorcentaje);
           return FilaSecuencia(
             key: ValueKey(doc.id),
             reproductor: _reproductor,
             id: doc.id,
             titulo: '${i + 1}. $titulo',
             audioUrl: data['audioUrl'] as String? ?? '',
-            subtitulo: 'Cargada por ${data['subidoPor'] ?? '—'}',
+            subtitulo: [
+              'Cargada por ${data['subidoPor'] ?? '—'}',
+              if (ajustes != null) ajustes,
+            ].join(' · '),
+            tempo: tempoPorcentaje / 100,
+            semitonos: semitonos,
             acciones: widget.esSonidista
                 ? null
                 : Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
+                      IconButton(
+                        icon: Icon(Icons.tune, color: ajustes != null ? context.acento : null),
+                        tooltip: 'Tono y tempo',
+                        onPressed: () => _ajustarTonoYTempo(doc.id, titulo, semitonos, tempoPorcentaje),
+                      ),
                       IconButton(
                         icon: const Icon(Icons.remove_circle_outline, color: Colors.red),
                         tooltip: 'Quitar de la sala',
@@ -6520,7 +6838,7 @@ class _MisSecuenciasScreenState extends State<MisSecuenciasScreen> {
     // (sin conversor) se avisa acá y se sigue con los demás.
     const limite = SecuenciasService.tamanoMaximoBytes;
     var aSubir = result.files;
-    if (!conversor.conversorMp3Disponible) {
+    if (!puente.conversorMp3Disponible) {
       final grandes = result.files.where((a) => a.size > limite).toList();
       aSubir = result.files.where((a) => a.size <= limite).toList();
       if (grandes.isNotEmpty) {
@@ -6557,7 +6875,7 @@ class _MisSecuenciasScreenState extends State<MisSecuenciasScreen> {
         try {
           if (bytes.length > limite) {
             setState(() => _progresoSubida = 'Convirtiendo a MP3$contador');
-            final mp3 = await conversor.convertirAMp3(
+            final mp3 = await puente.convertirAMp3(
               bytes,
               SecuenciasService.tamanoObjetivoMp3Bytes,
               (p) {

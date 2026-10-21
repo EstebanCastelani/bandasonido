@@ -3,7 +3,7 @@
 // de 50 MB, así que los audios que no entran se convierten acá, antes de
 // subirlos. El navegador decodifica el audio (WAV, MP3, M4A, OGG...) y el
 // MP3 lo codifica lamejs (lame.min.js) en conversor_mp3_worker.js, en un
-// hilo aparte para no congelar la app. Lo llama lib/conversor_mp3_web.dart.
+// hilo aparte para no congelar la app. Lo llama lib/puente_web.dart.
 
 // Bitrates válidos de MP3 de más a menos calidad: se usa el más alto con el
 // que el resultado entra en el límite.
