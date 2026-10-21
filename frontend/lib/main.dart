@@ -1382,6 +1382,305 @@ class SetlistService {
   }
 }
 
+// --- SERVICIO DE SECUENCIAS (PISTAS DE AUDIO: BIBLIOTECA Y SALA) ---
+
+/// Secuencias = pistas de audio (backing tracks, clicks, loops) que cada
+/// usuario guarda en su cuenta, sin límite de cantidad, y que después carga
+/// en la sala para el show del día. Mismo esquema que el repertorio de PDFs:
+/// archivo en el bucket de Supabase (kSupabaseRepertorioBucket, carpeta
+/// usuarios/{uid}/secuencias/ — las políticas RLS por carpeta de usuario ya
+/// la cubren) y metadatos en Firestore:
+///   usuarios/{uid}/mis_secuencias/{id} — biblioteca personal
+///   salas/{codigoSala}/secuencias/{id} — las elegidas para el show (copia
+///     liviana: título + URL pública, igual que el setlist con los PDFs)
+class SecuenciasService {
+  static const extensionesPermitidas = ['mp3', 'wav', 'm4a', 'aac', 'ogg'];
+
+  static CollectionReference<Map<String, dynamic>> _refUsuario(String uid) =>
+      FirebaseFirestore.instance.collection('usuarios').doc(uid).collection('mis_secuencias');
+
+  static CollectionReference<Map<String, dynamic>> _refSala(String codigoSala) =>
+      FirebaseFirestore.instance.collection('salas').doc(codigoSala).collection('secuencias');
+
+  static Stream<QuerySnapshot<Map<String, dynamic>>> streamMisSecuencias(String uid) {
+    return _refUsuario(uid).orderBy('createdAt', descending: true).snapshots();
+  }
+
+  static Stream<QuerySnapshot<Map<String, dynamic>>> streamSecuenciasSala(String codigoSala) {
+    return _refSala(codigoSala).orderBy('orden').snapshots();
+  }
+
+  static String _contentType(String nombreArchivo) {
+    switch (nombreArchivo.split('.').last.toLowerCase()) {
+      case 'wav':
+        return 'audio/wav';
+      case 'm4a':
+        return 'audio/mp4';
+      case 'aac':
+        return 'audio/aac';
+      case 'ogg':
+        return 'audio/ogg';
+      default:
+        return 'audio/mpeg';
+    }
+  }
+
+  static Future<void> subirSecuencia({
+    required String uid,
+    required String titulo,
+    required String nombreArchivo,
+    required Uint8List bytes,
+  }) async {
+    final nombreUnico =
+        '${DateTime.now().millisecondsSinceEpoch}_${RepertorioService._sanitizarNombreArchivo(nombreArchivo)}';
+    final storagePath = 'usuarios/$uid/secuencias/$nombreUnico';
+
+    await supabase.storage.from(kSupabaseRepertorioBucket).uploadBinary(
+          storagePath,
+          bytes,
+          fileOptions: FileOptions(contentType: _contentType(nombreArchivo)),
+        );
+    final audioUrl = supabase.storage.from(kSupabaseRepertorioBucket).getPublicUrl(storagePath);
+
+    await _refUsuario(uid).add({
+      'titulo': titulo,
+      'audioUrl': audioUrl,
+      'storagePath': storagePath,
+      'storageProvider': 'supabase',
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  static Future<void> renombrarSecuencia(String uid, String id, String titulo) async {
+    await _refUsuario(uid).doc(id).update({'titulo': titulo});
+  }
+
+  /// Borra el archivo (best-effort) y el documento. Las copias que ya estén
+  /// cargadas en alguna sala quedan apuntando a un audio que ya no existe;
+  /// se ven en la lista pero no suenan, igual que un PDF borrado del setlist.
+  static Future<void> eliminarSecuencia(String uid, String id, String? storagePath) async {
+    if (storagePath != null && storagePath.isNotEmpty) {
+      try {
+        await supabase.storage.from(kSupabaseRepertorioBucket).remove([storagePath]);
+      } catch (e) {
+        debugPrint('No se pudo borrar el audio de Storage: $e');
+      }
+    }
+    await _refUsuario(uid).doc(id).delete();
+  }
+
+  /// Carga varias secuencias de la biblioteca a la sala de una sola vez, al
+  /// final de la lista (ordenInicial = cantidad que ya había).
+  static Future<void> agregarASala({
+    required String codigoSala,
+    required List<Map<String, dynamic>> secuencias,
+    required String subidoPor,
+    required int ordenInicial,
+  }) async {
+    final batch = FirebaseFirestore.instance.batch();
+    for (var i = 0; i < secuencias.length; i++) {
+      batch.set(_refSala(codigoSala).doc(), {
+        'titulo': secuencias[i]['titulo'] as String? ?? '',
+        'audioUrl': secuencias[i]['audioUrl'] as String? ?? '',
+        'subidoPor': subidoPor,
+        'orden': ordenInicial + i,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+    }
+    await batch.commit();
+  }
+
+  static Future<void> quitarDeSala(String codigoSala, String id) async {
+    await _refSala(codigoSala).doc(id).delete();
+  }
+
+  static Future<void> reordenarSala(String codigoSala, List<String> idsEnOrden) async {
+    final batch = FirebaseFirestore.instance.batch();
+    for (var i = 0; i < idsEnOrden.length; i++) {
+      batch.update(_refSala(codigoSala).doc(idsEnOrden[i]), {'orden': i});
+    }
+    await batch.commit();
+  }
+}
+
+/// Reproductor compartido por la pestaña Secuencias de la sala y por "Mis
+/// secuencias": una sola pista a la vez (dar play a otra corta la anterior).
+/// Cada dispositivo reproduce por su cuenta — no se sincroniza el play entre
+/// los integrantes de la sala; quien maneja las secuencias en el show es el
+/// que las dispara.
+class ReproductorSecuencias extends ChangeNotifier {
+  final AudioPlayer _player = AudioPlayer();
+  final List<StreamSubscription> _subs = [];
+
+  String? idActual;
+  PlayerState estado = PlayerState.stopped;
+  Duration posicion = Duration.zero;
+  Duration duracion = Duration.zero;
+  bool repetir = false;
+  bool cargando = false;
+
+  ReproductorSecuencias() {
+    _subs.add(_player.onPlayerStateChanged.listen((s) {
+      estado = s;
+      if (s == PlayerState.completed) posicion = Duration.zero;
+      notifyListeners();
+    }));
+    _subs.add(_player.onPositionChanged.listen((p) {
+      posicion = p;
+      notifyListeners();
+    }));
+    _subs.add(_player.onDurationChanged.listen((d) {
+      duracion = d;
+      notifyListeners();
+    }));
+  }
+
+  bool estaSonando(String id) => idActual == id && estado == PlayerState.playing;
+
+  /// Play/pausa sobre la pista [id]. Si es otra distinta a la actual, corta
+  /// la anterior y arranca la nueva desde el principio.
+  Future<void> alternar(String id, String url) async {
+    if (idActual == id) {
+      if (estado == PlayerState.playing) {
+        await _player.pause();
+      } else {
+        await _player.resume();
+      }
+      return;
+    }
+    idActual = id;
+    posicion = Duration.zero;
+    duracion = Duration.zero;
+    cargando = true;
+    notifyListeners();
+    try {
+      await _player.stop();
+      await _player.setReleaseMode(repetir ? ReleaseMode.loop : ReleaseMode.stop);
+      await _player.play(UrlSource(url));
+    } finally {
+      cargando = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> detener() async {
+    await _player.stop();
+    posicion = Duration.zero;
+    notifyListeners();
+  }
+
+  Future<void> irA(Duration destino) => _player.seek(destino);
+
+  Future<void> alternarRepetir() async {
+    repetir = !repetir;
+    await _player.setReleaseMode(repetir ? ReleaseMode.loop : ReleaseMode.stop);
+    notifyListeners();
+  }
+
+  static String formatear(Duration d) {
+    final minutos = d.inMinutes;
+    final segundos = d.inSeconds % 60;
+    return '$minutos:${segundos.toString().padLeft(2, '0')}';
+  }
+
+  @override
+  void dispose() {
+    for (final s in _subs) {
+      s.cancel();
+    }
+    _player.dispose();
+    super.dispose();
+  }
+}
+
+/// Fila de una secuencia con play/pausa y, si es la que está sonando, barra
+/// de progreso con tiempo. La usan la pestaña de la sala y "Mis secuencias".
+class FilaSecuencia extends StatelessWidget {
+  final ReproductorSecuencias reproductor;
+  final String id;
+  final String titulo;
+  final String audioUrl;
+  final String? subtitulo;
+  final Widget? acciones;
+
+  const FilaSecuencia({
+    super.key,
+    required this.reproductor,
+    required this.id,
+    required this.titulo,
+    required this.audioUrl,
+    this.subtitulo,
+    this.acciones,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: reproductor,
+      builder: (context, _) {
+        final esActual = reproductor.idActual == id;
+        final sonando = reproductor.estaSonando(id);
+        final maxMs = reproductor.duracion.inMilliseconds.toDouble();
+        final posMs = reproductor.posicion.inMilliseconds.toDouble().clamp(0.0, maxMs > 0 ? maxMs : 0.0);
+        return Container(
+          color: esActual ? context.acento.withOpacity(0.08) : null,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: IconButton.filledTonal(
+                  iconSize: 32,
+                  icon: (esActual && reproductor.cargando)
+                      ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2))
+                      : Icon(sonando ? Icons.pause : Icons.play_arrow),
+                  tooltip: sonando ? 'Pausar' : 'Reproducir',
+                  onPressed: audioUrl.isEmpty
+                      ? null
+                      : () => reproductor.alternar(id, audioUrl).catchError((e) {
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('No se pudo reproducir: $e'), backgroundColor: Colors.redAccent),
+                              );
+                            }
+                          }),
+                ),
+                title: Text(titulo, style: const TextStyle(fontWeight: FontWeight.w600)),
+                subtitle: subtitulo == null ? null : Text(subtitulo!, style: const TextStyle(fontSize: 12)),
+                trailing: acciones,
+              ),
+              if (esActual &&
+                  maxMs > 0 &&
+                  reproductor.estado != PlayerState.stopped &&
+                  reproductor.estado != PlayerState.completed)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                  child: Row(
+                    children: [
+                      Text(ReproductorSecuencias.formatear(reproductor.posicion), style: const TextStyle(fontSize: 12)),
+                      Expanded(
+                        child: Slider(
+                          value: posMs,
+                          max: maxMs,
+                          onChanged: (v) => reproductor.irA(Duration(milliseconds: v.round())),
+                        ),
+                      ),
+                      Text(ReproductorSecuencias.formatear(reproductor.duracion), style: const TextStyle(fontSize: 12)),
+                      IconButton(
+                        icon: const Icon(Icons.stop),
+                        tooltip: 'Detener',
+                        onPressed: reproductor.detener,
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
 // --- SERVICIO DE BASE DE DATOS ---
 
 class FirestoreService {
@@ -2478,6 +2777,15 @@ class IngressMenuScreen extends StatelessWidget {
 
               ),
 
+              const SizedBox(height: 12),
+
+              OutlinedButton.icon(
+                icon: const Icon(Icons.graphic_eq),
+                label: const Text('MIS SECUENCIAS'),
+                onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MisSecuenciasScreen())),
+                style: OutlinedButton.styleFrom(padding: const EdgeInsets.all(16)),
+              ),
+
             ],
 
             const SizedBox(height: 12),
@@ -3272,7 +3580,7 @@ class _RequestScreenState extends State<RequestScreen> with SingleTickerProvider
     MiembrosSalaService.registrarPresencia(widget.codigoSala)
         .catchError((e) => debugPrint('No se pudo registrar presencia en la sala: $e'));
 
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
 
   }
 
@@ -3551,6 +3859,8 @@ class _RequestScreenState extends State<RequestScreen> with SingleTickerProvider
             Tab(text: 'PEDIDOS'),
 
             Tab(text: 'SETLIST'),
+
+            Tab(text: 'SECUENCIAS'),
 
           ],
 
@@ -3848,6 +4158,11 @@ class _RequestScreenState extends State<RequestScreen> with SingleTickerProvider
 
             onIrAPedidos: _irAPedidos,
 
+          ),
+
+          SecuenciasTab(
+            codigoSala: widget.codigoSala,
+            nombreUsuario: widget.userName,
           ),
 
         ],
@@ -4881,6 +5196,308 @@ class SetlistTab extends StatelessWidget {
 
 
 
+// --- SECUENCIAS DE LA SALA (PISTAS DEL SHOW) ---
+
+/// Pestaña "Secuencias" de RequestScreen/SonidistaPage: las pistas que la
+/// banda cargó para el show de hoy (desde "Mis secuencias" de cada uno), con
+/// reproductor. Mantiene su estado vivo (AutomaticKeepAliveClientMixin) para
+/// que la pista siga sonando al pasar a Pedidos o Setlist — TabBarView
+/// destruye las pestañas que no se ven si no se le pide lo contrario.
+class SecuenciasTab extends StatefulWidget {
+  final String codigoSala;
+  final String nombreUsuario;
+
+  /// Igual que en SetlistTab: el sonidista puede reproducir, pero no cargar,
+  /// quitar ni reordenar — eso lo arman los músicos.
+  final bool esSonidista;
+
+  const SecuenciasTab({
+    super.key,
+    required this.codigoSala,
+    required this.nombreUsuario,
+    this.esSonidista = false,
+  });
+
+  @override
+  State<SecuenciasTab> createState() => _SecuenciasTabState();
+}
+
+class _SecuenciasTabState extends State<SecuenciasTab> with AutomaticKeepAliveClientMixin {
+  final _reproductor = ReproductorSecuencias();
+
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  void dispose() {
+    _reproductor.dispose();
+    super.dispose();
+  }
+
+  /// Lista de "Mis secuencias" con casillas para elegir varias de una vez.
+  /// Las que ya están cargadas en la sala (misma URL) aparecen tildadas y
+  /// deshabilitadas, para no duplicarlas.
+  Future<void> _cargarDesdeMisSecuencias(Set<String> urlsEnSala, int cantidadEnSala) async {
+    final user = AuthService.currentUser;
+    if (user == null || user.isAnonymous) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Necesitás iniciar sesión para usar tus secuencias.')),
+      );
+      return;
+    }
+    final elegidas = <String, Map<String, dynamic>>{};
+    final busqueda = TextEditingController();
+
+    final confirmar = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) => DraggableScrollableSheet(
+          expand: false,
+          initialChildSize: 0.75,
+          builder: (context, scrollController) => StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+            stream: SecuenciasService.streamMisSecuencias(user.uid),
+            builder: (context, snapshot) {
+              if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+              final docs = RepertorioService.ordenarPorTitulo(snapshot.data!.docs);
+              if (docs.isEmpty) {
+                return const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(32),
+                    child: Text(
+                      'No tenés secuencias todavía.\nSubilas desde "Mis secuencias" en el menú principal.',
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                );
+              }
+              final secuencias = RepertorioService.filtrarPorTituloYTonalidad(
+                docs.map((d) => {...d.data(), 'id': d.id}).toList(),
+                titulo: busqueda.text,
+                tonalidad: '',
+              );
+              return Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                    child: TextField(
+                      controller: busqueda,
+                      onChanged: (_) => setModalState(() {}),
+                      decoration: InputDecoration(
+                        hintText: 'Buscar secuencia...',
+                        isDense: true,
+                        prefixIcon: const Icon(Icons.search, size: 20),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: ListView.builder(
+                      controller: scrollController,
+                      itemCount: secuencias.length,
+                      itemBuilder: (context, i) {
+                        final data = secuencias[i];
+                        final id = data['id'] as String;
+                        final yaCargada = urlsEnSala.contains(data['audioUrl']);
+                        return CheckboxListTile(
+                          value: yaCargada || elegidas.containsKey(id),
+                          onChanged: yaCargada
+                              ? null
+                              : (v) => setModalState(() => v == true ? elegidas[id] = data : elegidas.remove(id)),
+                          secondary: Icon(Icons.graphic_eq, color: context.acento),
+                          title: Text(data['titulo'] as String? ?? ''),
+                          subtitle: yaCargada ? const Text('Ya está en la sala') : null,
+                        );
+                      },
+                    ),
+                  ),
+                  SafeArea(
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: SizedBox(
+                        width: double.infinity,
+                        child: FilledButton.icon(
+                          icon: const Icon(Icons.playlist_add),
+                          label: Text(elegidas.isEmpty
+                              ? 'Elegí las secuencias de hoy'
+                              : 'CARGAR ${elegidas.length} A LA SALA'),
+                          onPressed: elegidas.isEmpty ? null : () => Navigator.pop(context, true),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+        ),
+      ),
+    );
+    busqueda.dispose();
+    if (confirmar != true || elegidas.isEmpty) return;
+
+    try {
+      await SecuenciasService.agregarASala(
+        codigoSala: widget.codigoSala,
+        secuencias: elegidas.values.toList(),
+        subidoPor: widget.nombreUsuario,
+        ordenInicial: cantidadEnSala,
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('No se pudieron cargar: $e'), backgroundColor: Colors.redAccent),
+        );
+      }
+    }
+  }
+
+  Future<void> _quitar(String id, String titulo) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Quitar de la sala'),
+        content: Text('¿Quitar "$titulo" de las secuencias de hoy? Sigue estando en la biblioteca de quien la subió.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Quitar', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    if (_reproductor.idActual == id) await _reproductor.detener();
+    await SecuenciasService.quitarDeSala(widget.codigoSala, id);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+      stream: SecuenciasService.streamSecuenciasSala(widget.codigoSala),
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Text('No se pudieron cargar las secuencias: ${snapshot.error}', textAlign: TextAlign.center),
+            ),
+          );
+        }
+        if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+        final docs = snapshot.data!.docs;
+        final urlsEnSala = docs.map((d) => d.data()['audioUrl'] as String? ?? '').toSet();
+
+        Widget fila(QueryDocumentSnapshot<Map<String, dynamic>> doc, int i) {
+          final data = doc.data();
+          final titulo = data['titulo'] as String? ?? '';
+          return FilaSecuencia(
+            key: ValueKey(doc.id),
+            reproductor: _reproductor,
+            id: doc.id,
+            titulo: '${i + 1}. $titulo',
+            audioUrl: data['audioUrl'] as String? ?? '',
+            subtitulo: 'Cargada por ${data['subidoPor'] ?? '—'}',
+            acciones: widget.esSonidista
+                ? null
+                : Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.remove_circle_outline, color: Colors.red),
+                        tooltip: 'Quitar de la sala',
+                        onPressed: () => _quitar(doc.id, titulo),
+                      ),
+                      ReorderableDragStartListener(index: i, child: const Icon(Icons.drag_handle)),
+                    ],
+                  ),
+          );
+        }
+
+        return Scaffold(
+          body: Column(
+            children: [
+              ListenableBuilder(
+                listenable: _reproductor,
+                builder: (context, _) => Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 8, 0),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          docs.isEmpty ? '' : '${docs.length} secuencia${docs.length == 1 ? '' : 's'} para hoy',
+                          style: const TextStyle(fontSize: 12, color: Colors.grey),
+                        ),
+                      ),
+                      FilterChip(
+                        avatar: const Icon(Icons.repeat, size: 18),
+                        label: const Text('Repetir'),
+                        selected: _reproductor.repetir,
+                        onSelected: (_) => _reproductor.alternarRepetir(),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              Expanded(
+                child: docs.isEmpty
+                    ? Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(32),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.graphic_eq, size: 64, color: context.acento.withOpacity(0.5)),
+                              const SizedBox(height: 12),
+                              Text(
+                                widget.esSonidista
+                                    ? 'Todavía no hay secuencias cargadas para hoy.'
+                                    : 'Todavía no hay secuencias cargadas para hoy.\nTocá + para elegirlas de "Mis secuencias".',
+                                textAlign: TextAlign.center,
+                              ),
+                            ],
+                          ),
+                        ),
+                      )
+                    : widget.esSonidista
+                        ? ListView.separated(
+                            padding: const EdgeInsets.only(bottom: 88),
+                            itemCount: docs.length,
+                            separatorBuilder: (_, __) => const Divider(height: 1),
+                            itemBuilder: (context, i) => fila(docs[i], i),
+                          )
+                        : ReorderableListView.builder(
+                            padding: const EdgeInsets.only(bottom: 88),
+                            buildDefaultDragHandles: false,
+                            itemCount: docs.length,
+                            itemBuilder: (context, i) => fila(docs[i], i),
+                            onReorder: (viejo, nuevo) {
+                              final ids = docs.map((d) => d.id).toList();
+                              if (nuevo > viejo) nuevo--;
+                              ids.insert(nuevo, ids.removeAt(viejo));
+                              SecuenciasService.reordenarSala(widget.codigoSala, ids);
+                            },
+                          ),
+              ),
+            ],
+          ),
+          floatingActionButton: widget.esSonidista
+              ? null
+              : FloatingActionButton(
+                  heroTag: 'agregar_secuencias',
+                  tooltip: 'Cargar secuencias de hoy',
+                  onPressed: () => _cargarDesdeMisSecuencias(urlsEnSala, docs.length),
+                  child: const Icon(Icons.add),
+                ),
+        );
+      },
+    );
+  }
+}
+
 // --- ADMINISTRACIÓN DE FRASES PREDEFINIDAS ---
 
 class FrasesAdminScreen extends StatelessWidget {
@@ -5822,6 +6439,226 @@ class _MiRepertorioScreenState extends State<MiRepertorioScreen> {
 
 }
 
+// --- MIS SECUENCIAS (BIBLIOTECA PERSONAL DE PISTAS DE AUDIO) ---
+
+class MisSecuenciasScreen extends StatefulWidget {
+  const MisSecuenciasScreen({super.key});
+
+  @override
+  State<MisSecuenciasScreen> createState() => _MisSecuenciasScreenState();
+}
+
+class _MisSecuenciasScreenState extends State<MisSecuenciasScreen> {
+  final _reproductor = ReproductorSecuencias();
+  final _busquedaController = TextEditingController();
+  bool _subiendo = false;
+  String _progresoSubida = '';
+
+  @override
+  void dispose() {
+    _reproductor.dispose();
+    _busquedaController.dispose();
+    super.dispose();
+  }
+
+  /// Permite elegir varios audios a la vez; el título de cada uno sale del
+  /// nombre del archivo (se puede renombrar después).
+  Future<void> _subirSecuencias(String uid) async {
+    final esPro = kFuncionesProGratisPorAhora || await UsuarioService.streamEsPro(uid).first;
+    if (!esPro) {
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Función Pro'),
+          content: const Text('Subir tus propias secuencias es parte de Sound Check Pro. Activá tu cuenta Pro para usar esta función.'),
+          actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Entendido'))],
+        ),
+      );
+      return;
+    }
+
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: SecuenciasService.extensionesPermitidas,
+      allowMultiple: true,
+      withData: true,
+    );
+    if (result == null || result.files.isEmpty) return;
+
+    setState(() => _subiendo = true);
+    final errores = <String>[];
+    try {
+      for (var i = 0; i < result.files.length; i++) {
+        final archivo = result.files[i];
+        if (archivo.bytes == null) continue;
+        setState(() => _progresoSubida = '${i + 1}/${result.files.length}');
+        final punto = archivo.name.lastIndexOf('.');
+        final titulo = punto > 0 ? archivo.name.substring(0, punto) : archivo.name;
+        try {
+          await SecuenciasService.subirSecuencia(
+            uid: uid,
+            titulo: titulo,
+            nombreArchivo: archivo.name,
+            bytes: archivo.bytes!,
+          );
+        } catch (e) {
+          debugPrint('No se pudo subir ${archivo.name}: $e');
+          errores.add(archivo.name);
+        }
+      }
+    } finally {
+      if (mounted) setState(() => _subiendo = false);
+    }
+    if (errores.isNotEmpty && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('No se pudieron subir: ${errores.join(', ')}'), backgroundColor: Colors.redAccent),
+      );
+    }
+  }
+
+  Future<void> _renombrar(String uid, String id, String tituloActual) async {
+    final controller = TextEditingController(text: tituloActual);
+    final nuevo = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Renombrar secuencia'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(labelText: 'Título'),
+          onSubmitted: (v) => Navigator.pop(context, v),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
+          FilledButton(onPressed: () => Navigator.pop(context, controller.text), child: const Text('Guardar')),
+        ],
+      ),
+    );
+    if (nuevo == null || nuevo.trim().isEmpty) return;
+    await SecuenciasService.renombrarSecuencia(uid, id, nuevo.trim());
+  }
+
+  Future<void> _confirmarEliminar(String uid, String id, String titulo, String? storagePath) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Eliminar secuencia'),
+        content: Text('¿Eliminar "$titulo" de tu biblioteca?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Eliminar', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    if (_reproductor.idActual == id) await _reproductor.detener();
+    await SecuenciasService.eliminarSecuencia(uid, id, storagePath);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final user = AuthService.currentUser;
+    return Scaffold(
+      appBar: AppBar(title: const Text('Mis secuencias')),
+      body: (user == null || user.isAnonymous)
+          ? const Center(child: Text('Necesitás iniciar sesión para tener tus secuencias.'))
+          : Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                  child: TextField(
+                    controller: _busquedaController,
+                    onChanged: (_) => setState(() {}),
+                    decoration: InputDecoration(
+                      hintText: 'Buscar secuencia...',
+                      isDense: true,
+                      prefixIcon: const Icon(Icons.search, size: 20),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+                    stream: SecuenciasService.streamMisSecuencias(user.uid),
+                    builder: (context, snapshot) {
+                      if (snapshot.hasError) {
+                        return Center(child: Text('Error al cargar: ${snapshot.error}'));
+                      }
+                      if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+                      final docs = RepertorioService.ordenarPorTitulo(snapshot.data!.docs);
+                      if (docs.isEmpty) {
+                        return const Center(
+                          child: Padding(
+                            padding: EdgeInsets.all(32),
+                            child: Text(
+                              'Todavía no subiste secuencias.\nTocá el botón de abajo para cargar tus pistas de audio (MP3, WAV, M4A...).',
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                        );
+                      }
+                      final secuencias = docs.map((d) => {...d.data(), 'id': d.id}).toList();
+                      final filtradas = RepertorioService.filtrarPorTituloYTonalidad(
+                        secuencias,
+                        titulo: _busquedaController.text,
+                        tonalidad: '',
+                      );
+                      if (filtradas.isEmpty) return const Center(child: Text('Sin resultados.'));
+                      return ListView.separated(
+                        padding: const EdgeInsets.only(bottom: 88),
+                        itemCount: filtradas.length,
+                        separatorBuilder: (_, __) => const Divider(height: 1),
+                        itemBuilder: (context, i) {
+                          final data = filtradas[i];
+                          final id = data['id'] as String;
+                          final titulo = data['titulo'] as String? ?? '';
+                          return FilaSecuencia(
+                            reproductor: _reproductor,
+                            id: id,
+                            titulo: titulo,
+                            audioUrl: data['audioUrl'] as String? ?? '',
+                            acciones: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton(
+                                  icon: const Icon(Icons.edit),
+                                  tooltip: 'Renombrar',
+                                  onPressed: () => _renombrar(user.uid, id, titulo),
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.delete, color: Colors.red),
+                                  tooltip: 'Eliminar',
+                                  onPressed: () =>
+                                      _confirmarEliminar(user.uid, id, titulo, data['storagePath'] as String?),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+      floatingActionButton: (user == null || user.isAnonymous)
+          ? null
+          : FloatingActionButton.extended(
+              onPressed: _subiendo ? null : () => _subirSecuencias(user.uid),
+              icon: _subiendo
+                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Icon(Icons.upload_file),
+              label: Text(_subiendo ? 'Subiendo $_progresoSubida' : 'Subir secuencias'),
+            ),
+    );
+  }
+}
+
 // --- VISOR DE CIFRADO (TEXTO CON ACORDES TRANSPONIBLES) ---
 
 class CifradoViewerScreen extends StatefulWidget {
@@ -6690,7 +7527,7 @@ class _SonidistaPageState extends State<SonidistaPage> with SingleTickerProvider
 
     _escucharPedidosNuevos();
 
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 4, vsync: this);
 
   }
 
@@ -7108,6 +7945,12 @@ class _SonidistaPageState extends State<SonidistaPage> with SingleTickerProvider
 
           controller: _tabController,
 
+          // Con 4 pestañas los nombres no entran en el ancho de un celular:
+          // la barra se desliza en vez de cortarlos.
+          isScrollable: true,
+
+          tabAlignment: TabAlignment.center,
+
           tabs: const [
 
             Tab(text: 'PEDIDOS'),
@@ -7115,6 +7958,8 @@ class _SonidistaPageState extends State<SonidistaPage> with SingleTickerProvider
             Tab(text: 'HISTORIAL'),
 
             Tab(text: 'SETLIST'),
+
+            Tab(text: 'SECUENCIAS'),
 
           ],
 
@@ -7324,6 +8169,12 @@ class _SonidistaPageState extends State<SonidistaPage> with SingleTickerProvider
 
             esSonidista: true,
 
+          ),
+
+          SecuenciasTab(
+            codigoSala: widget.codigoSala,
+            nombreUsuario: 'Sonidista',
+            esSonidista: true,
           ),
 
         ],

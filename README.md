@@ -1,22 +1,23 @@
 # AppSonido (Sound Check Pro)
 
-App multiplataforma para comunicacion en tiempo real entre musicos/cantantes y sonidista durante un show.
+App multiplataforma para bandas en vivo: comunicación en tiempo real entre músicos/cantantes y el sonidista, setlist compartido del show, biblioteca de partituras/cifrados y secuencias (pistas de audio).
 
-## Como funciona
+> **Si sos una IA (o una persona nueva en el proyecto), leé primero [`CONTEXTO_PARA_IA.md`](CONTEXTO_PARA_IA.md).** Tiene la arquitectura, el modelo de datos, el estado de la infraestructura, las decisiones de diseño y lo que está pendiente. Este README es solo un resumen.
 
-- El sonidista o un musico crea una sala, que genera un PIN de 6 digitos.
-- El resto de la banda se une a esa sala con el PIN y su nombre.
-- Musicos y cantantes mandan pedidos rapidos predefinidos (o texto libre) al sonidista.
-- El sonidista ve todos los pedidos de la sala en tiempo real, puede marcarlos como atendidos, responder en privado o borrarlos.
+## Cómo funciona
+
+- Alguien crea una sala, que genera un PIN de 8 caracteres alfanuméricos. El resto se une con el PIN y su nombre (sin cuenta, como invitado, o con cuenta registrada).
+- La sala tiene pestañas:
+  - **Pedidos**: músicos y cantantes mandan pedidos rápidos (o texto libre, opcionalmente urgentes) al sonidista, que los ve en tiempo real, los marca como atendidos, responde o borra.
+  - **Setlist**: lista de temas del show con PDFs/cifrados, transposición de acordes y estado de cada tema.
+  - **Secuencias**: las pistas de audio que se van a usar ese día, con reproductor.
+- Con cuenta registrada: frases propias, "Mi repertorio" (PDFs), "Mis secuencias" (audios) y "Mis salas".
 
 ## Estructura
 
-- `frontend`: Flutter (Android, iOS, Web). Toda la app vive en `frontend/lib/main.dart`.
-- Persistencia y tiempo real: Firebase Firestore (proyecto `appbandasonido`), sin backend propio.
-
-## Requisitos
-
-- Flutter 3.22+ y Dart 3.4+
+- `frontend`: Flutter (Web desplegada en GitHub Pages; Android en pruebas). Toda la app vive en `frontend/lib/main.dart`.
+- Firebase Firestore + Auth (proyecto `appbandasonido`), sin backend propio. Archivos (PDFs y audios) en Supabase Storage, temporalmente.
+- `firestore.rules` / `storage.rules`: reglas de seguridad versionadas en el repo.
 
 ## Ejecutar
 
@@ -26,12 +27,6 @@ flutter pub get
 flutter run -d chrome
 ```
 
-Para movil:
+## Seguridad
 
-```bash
-flutter run -d android
-```
-
-## Seguridad de Firestore
-
-Las reglas (`salas/{salaId}/pedidos/{pedidoId}`) exigen conocer el `salaId` (el PIN) para leer o escribir, y bloquean cualquier otra coleccion. Como el PIN es corto (6 digitos) y no hay rate limiting, es fuerza-bruteable; no depender de esto para datos sensibles.
+El acceso a una sala es "conocer el PIN alcanza" (con sesión de Firebase, aunque sea anónima). Ver `CONTEXTO_PARA_IA.md` §6 para el detalle y los trade-offs.

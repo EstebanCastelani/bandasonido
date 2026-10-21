@@ -13,8 +13,9 @@ al sonidista ("subime el retorno", "más voz") sin señas, y que el sonidista
 vea esos pedidos en tiempo real desde su propio celular/tablet. Se fue
 ampliando hacia una herramienta de banda más completa: setlist compartido
 del show, biblioteca personal de partituras/cifrados en PDF con
-transposición de acordes, y una versión "Pro" pensada para monetizar más
-adelante.
+transposición de acordes, secuencias (pistas de audio) que cada uno sube
+a su cuenta y carga en la sala para reproducirlas en el show, y una
+versión "Pro" pensada para monetizar más adelante.
 
 **Objetivo final / visión:** app multiplataforma (hoy solo Web desplegada,
 pensada para llegar a Android/iOS) que reemplaza la comunicación gestual en
@@ -32,7 +33,7 @@ Firestore/Auth. No reintroducir un backend salvo que haya una razón de peso
 y se documente acá por qué.
 
 **Todo el código Dart vive en un solo archivo:** `frontend/lib/main.dart`
-(~6.400 líneas a esta fecha — y va a seguir creciendo; no confíes en este
+(~8.200 líneas a oct-2026 — y va a seguir creciendo; no confíes en este
 número, correlo de nuevo con `wc -l` si te importa la cifra exacta). Es una
 convención explícita del dueño del
 proyecto, no un descuido — no dividir en múltiples archivos sin que te lo
@@ -46,10 +47,13 @@ CONFIGURACIÓN DE SUPABASE          — Solo Storage, temporal (ver §7.1)
 MODELOS Y CONSTANTES               — AppConstants.pedidosRapidos (frases default)
 IDENTIDADES DE COLOR (PALETAS)     — AppPalette: 5 temas seleccionables
 TRANSPOSICIÓN DE CIFRADOS          — ChordTransposer (lógica pura, sin Flutter)
+EXTRACCIÓN DE CIFRADO DESDE PDF    — CifradoPdfExtractor (acordes en su columna, ver §9)
 SERVICIO DE AUTENTICACIÓN          — AuthService (Google/email/anónimo)
-SERVICIO DE USUARIOS Y FRASES      — UsuarioService, FrasesService
+SERVICIO DE USUARIOS Y FRASES      — UsuarioService, MisSalasService, FrasesService
+SERVICIO DE COMPAÑEROS DE SALA     — MiembrosSalaService (presencia, ver §5 ítem 19)
 SERVICIO DE REPERTORIO PERSONAL    — RepertorioService (PDFs en Storage)
 SERVICIO DE SETLIST DE SALA        — SetlistService
+SERVICIO DE SECUENCIAS             — SecuenciasService, ReproductorSecuencias, FilaSecuencia
 SERVICIO DE BASE DE DATOS          — FirestoreService (pedidos de sala)
 APLICACIÓN PRINCIPAL               — SoundCheckProApp (theme, paleta persistida)
 PANTALLA DE CARGA Y REDIRECCIÓN    — SplashScreen (decide a dónde navegar)
@@ -61,8 +65,10 @@ PANTALLA PARA UNIRSE A SALA        — UnirmeSalaScreen
 MIS SALAS                          — MisSalasScreen (historial multi-sala, función Pro)
 PANTALLA DE PEDIDOS INDIVIDUAL     — RequestScreen (músico/cantante, tabs Pedidos/Setlist)
 LISTA DE TEMAS COMPARTIDA          — SetlistTab (widget reusado en RequestScreen y SonidistaPage)
+SECUENCIAS DE LA SALA              — SecuenciasTab (pestaña con reproductor, misma reutilización)
 ADMINISTRACIÓN DE FRASES           — FrasesAdminScreen ("Mis frases")
 MI REPERTORIO                      — MiRepertorioScreen (biblioteca de PDFs)
+MIS SECUENCIAS                     — MisSecuenciasScreen (biblioteca de audios)
 VISOR DE CIFRADO                   — CifradoViewerScreen (texto + transposición)
 VISOR DE PDF                       — PdfViewerScreen (Syncfusion)
 ACCESO SONIDISTA                   — SonidistaPinScreen
@@ -100,6 +106,16 @@ salas/{codigoSala}/setlist/{id}       — lista de temas del show
   transposicion (int, semitonos): sincroniza en vivo la transposición del
   cifrado entre todos los que estén viendo el mismo tema en la sala — ver
   CifradoViewerScreen.
+
+usuarios/{uid}/mis_secuencias/{id}   — biblioteca personal de secuencias (audios)
+  titulo, audioUrl, storagePath, storageProvider ('supabase'), createdAt
+  Sin límite de cantidad. Archivo en el bucket de Supabase, carpeta
+  usuarios/{uid}/secuencias/. Solo el dueño lee/escribe.
+
+salas/{codigoSala}/secuencias/{id}    — secuencias cargadas para el show de hoy
+  titulo, audioUrl, subidoPor, orden, createdAt
+  Copia liviana de las elegidas desde mis_secuencias (no se comparte la
+  biblioteca entera). El play NO se sincroniza entre dispositivos.
 
 usuarios/{uid}/mis_salas/{codigoSala}  — historial de salas (función Pro)
   rolUsado, nombre, ultimoAcceso, nombreSala (opcional, editable)
@@ -266,6 +282,28 @@ registrada sin chequear `esPro` — ver §8 para cómo revertir esto.
     propio usuario) tiene biblioteca todavía en la sala, se muestra un
     mensaje en vez de buscar. Ver reglas para `miembros` en
     `firestore.rules`.
+20. **Secuencias (pistas de audio)**: botón "MIS SECUENCIAS" en el menú
+    (cuenta registrada) para subir audios sin límite (mp3/wav/m4a/aac/ogg,
+    varios a la vez; el título sale del nombre del archivo y se puede
+    renombrar). En la sala hay una pestaña nueva "SECUENCIAS" (en
+    `RequestScreen` y `SonidistaPage`) donde se eligen con casillas las
+    que se usan ese día, se reordenan, se quitan y se reproducen
+    (play/pausa, barra de progreso, detener, "Repetir"). El sonidista solo
+    reproduce. Una pista a la vez por dispositivo (`ReproductorSecuencias`)
+    y la reproducción es local de cada dispositivo, no se sincroniza.
+    `SecuenciasTab` usa `AutomaticKeepAliveClientMixin` para que la pista
+    siga sonando al cambiar a Pedidos/Setlist (sin eso `TabBarView`
+    destruye la pestaña y corta el audio). Los audios van al mismo bucket
+    de Supabase que los PDFs: **el bucket tiene que aceptar tipos de audio**
+    (ver §7.1). Con esta pestaña `SonidistaPage` pasó a tener 4 pestañas
+    (Pedidos/Historial/Setlist/Secuencias), que en un celular no entraban
+    (nombres cortados): su `TabBar` es `isScrollable: true`. La de
+    `RequestScreen` (3 pestañas) entra sin eso.
+    Estado a oct-2026: probado en la sala (aparecer en vivo, play/pausa,
+    cortar una al dar play a otra, seguir sonando al cambiar de pestaña,
+    reordenar, quitar, vista del sonidista). **No probado todavía**: subir
+    audios desde "Mis secuencias" (necesita cuenta registrada y el cambio
+    de MIME en Supabase).
 
 ## 6. Modelo de seguridad de las salas — trade-off consciente, no bug
 
@@ -296,7 +334,21 @@ de la app real.
   apenas se active Blaze (Firebase Console → Storage → Reglas, pegar el
   contenido del archivo).
 - **`firestore.rules`** sí está publicado y vigente — el archivo en el repo
-  refleja exactamente lo que está en producción a la fecha de este commit.
+  refleja exactamente lo que está en producción (última publicación:
+  21-oct-2026, con las reglas de `secuencias`/`mis_secuencias`). Si lo
+  cambiás, hay que volver a publicarlo o las colecciones nuevas dan
+  `permission-denied`.
+  **Cómo publicarlo:** el Firebase CLI de la PC del dueño está logueado
+  con su cuenta y tiene acceso a `appbandasonido`. El repo **no tiene
+  `firebase.json`** (a propósito, para no sumar config); se publica desde
+  una carpeta temporal con una copia de `firestore.rules` y un
+  `firebase.json` mínimo (`{"firestore": {"rules": "firestore.rules"}}`):
+  `firebase deploy --only firestore:rules --project appbandasonido`. Es
+  producción: pedir OK al dueño antes de cada publicación. El compilador
+  avisa "sub-expressions are not comparable" en los `salaId != null` —
+  es preexistente e inofensivo (siempre da true, el `size() > 0` es el
+  que filtra). La alternativa sin CLI es Firebase Console → Firestore →
+  Reglas, pegando el archivo.
 - Proveedores de Firebase Auth habilitados: Email/contraseña, Google,
   Anónimo (con limpieza automática de cuentas anónimas >30 días activada).
 - Dominio autorizado para Auth: `estebancastelani.github.io` (además de los
@@ -386,6 +438,16 @@ Storage. Es un parche deliberadamente acotado: **Firestore y Auth siguen
     and (storage.foldername(name))[2] = (auth.jwt()->>'sub')
   );
   ```
+- **Secuencias (audios) en el mismo bucket**: `SecuenciasService` sube a
+  `repertorio-pdfs` bajo `usuarios/{uid}/secuencias/` (las políticas RLS
+  por carpeta de usuario ya lo cubren, no hacen falta políticas nuevas).
+  Requiere que en el bucket, en "Allowed MIME types", además de
+  `application/pdf` estén `audio/mpeg`, `audio/wav`, `audio/mp4`,
+  `audio/aac` y `audio/ogg`, y que el límite de tamaño alcance para los
+  audios (un WAV de 4 minutos ronda los 40 MB; los 25 MB originales solo
+  alcanzan para MP3). **Pendiente a oct-2026**: el dueño todavía no hizo
+  este cambio en el dashboard (Storage → `repertorio-pdfs` → Edit bucket);
+  hasta entonces subir secuencias falla con error de tipo de archivo.
 - **Para revertir cuando se active Blaze**: el plan fue diseñado para que
   la vuelta atrás sea acotada a `RepertorioService` — cambiar
   `subirCancion` para que vuelva a usar `FirebaseStorage.instance` (como
@@ -502,13 +564,15 @@ app, esto es lo primero para revisar.
 - El repertorio personal sube PDFs a Supabase Storage en vez de Firebase
   Storage, mientras no se active Blaze. Ya probado end-to-end (subida real
   funcionando) — es deuda a mediano plazo, no un bloqueante activo.
+- El bucket `repertorio-pdfs` todavía solo acepta PDF: falta agregar los
+  tipos de audio para que funcione "Mis secuencias" (ver §7.1).
 - Cuando se active Blaze, hay que decidir si se revierte `RepertorioService`
   a Firebase Storage (dejando los archivos ya subidos a Supabase donde
   están) o si se migran esos archivos también — no está resuelto todavía,
   es una decisión pendiente.
 
 **Deuda de código:**
-- `main.dart` es un archivo único de ~6.400 líneas y creciendo. Es una decisión
+- `main.dart` es un archivo único de ~8.200 líneas y creciendo. Es una decisión
   consciente del dueño del proyecto (ver §2), no lo dividas sin que te lo
   pidan explícitamente.
 - Sin tests automatizados. `frontend/test/widget_test.dart` es el
@@ -633,3 +697,34 @@ flutter run -d chrome
 
 No hace falta nada de backend ni variables de entorno — todo apunta a
 Firebase directo con la config hardcodeada en `main.dart`.
+
+**Para una IA con navegador integrado (Claude Code, etc.):**
+`.claude/launch.json` tiene la config `appsonido-frontend`, que levanta
+`flutter run -d web-server --web-port 5000`. **El dueño quiere que se use
+el puerto 5000**, no otro. Detalles que costaron tiempo:
+- El web-server no recarga solo al editar `main.dart`: hay que detener y
+  volver a levantar el servidor, y recargar la página.
+- Al detener el preview a veces queda vivo el proceso `dartvm` ocupando el
+  5000 (el siguiente arranque cae en otro puerto o falla con "Solo se
+  permite un uso de cada dirección de socket"). Revisar quién escucha en
+  el 5000 (`Get-NetTCPConnection -LocalPort 5000`) y cerrar ese `dartvm`.
+- La primera carga tarda ~30 s (compilación de debug); si la página se
+  abre antes, queda en blanco: esperar y recargar.
+- Probar en tamaño celular (375×812): ahí aparecen los problemas reales
+  de espacio (ej. las pestañas del sonidista). Después de cambiar el
+  tamaño de la ventana, Flutter a veces dibuja mal hasta recargar.
+- Cuidado al cambiar de pestaña: un clic durante la animación cae en la
+  pestaña anterior (así se mandaron pedidos de prueba sin querer).
+
+**Probar sin cuenta registrada:** "Continuar sin cuenta" alcanza para
+crear/unirse a una sala y ver Pedidos/Setlist/Secuencias. Todo lo que
+depende de cuenta real (Mi repertorio, Mis secuencias, Mis frases, Mis
+salas) necesita que el dueño inicie sesión — una IA no debe tipear
+contraseñas. Para cargar datos de prueba en una sala sin cuenta se puede
+usar la REST API como invitado anónimo (es lo mismo que hace la app):
+`POST identitytoolkit.googleapis.com/v1/accounts:signUp?key=<apiKey>` con
+`{"returnSecureToken": true}` → `idToken`, y con ese token escribir en
+`firestore.googleapis.com/v1/projects/appbandasonido/databases/(default)/documents/salas/<PIN>/...`.
+Como audio de prueba sirve el asset de la app
+(`http://localhost:5000/assets/assets/sounds/pedido_nuevo.wav`). **Borrar
+los datos de prueba al terminar** — la base es la de producción.

@@ -17,6 +17,13 @@ service cloud.firestore {
       allow read, write: if request.auth != null && salaId != null && salaId.size() > 0;
     }
 
+    // Secuencias (pistas de audio) cargadas para el show de hoy: mismo
+    // modelo de acceso que pedidos/setlist. Solo guardan título + URL
+    // pública del audio, el archivo vive en la biblioteca de quien lo subió.
+    match /salas/{salaId}/secuencias/{itemId} {
+      allow read, write: if request.auth != null && salaId != null && salaId.size() > 0;
+    }
+
     // Presencia de compañeros con cuenta real en la sala (para que el
     // buscador de "bibliotecas de la sala" sepa en qué usuarios/{uid}
     // mirar — ver MiembrosSalaService en main.dart). Lectura: cualquiera
@@ -79,6 +86,16 @@ service cloud.firestore {
         allow write: if request.auth != null
                      && request.auth.uid == uid
                      && request.auth.token.firebase.sign_in_provider != 'anonymous';
+      }
+
+      // Biblioteca personal de secuencias (audios). Sin límite de cantidad.
+      // Solo el dueño, con cuenta real, lee y escribe: a la sala no se
+      // comparte la biblioteca entera, sino una copia de las elegidas (ver
+      // /salas/{salaId}/secuencias). Mismo criterio Pro que mi_repertorio.
+      match /mis_secuencias/{secuenciaId} {
+        allow read, write: if request.auth != null
+                           && request.auth.uid == uid
+                           && request.auth.token.firebase.sign_in_provider != 'anonymous';
       }
 
       // Historial de salas (multi-banda/multi-sala, función Pro): solo el
