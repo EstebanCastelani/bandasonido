@@ -1396,6 +1396,12 @@ class SetlistService {
 class SecuenciasService {
   static const extensionesPermitidas = ['mp3', 'wav', 'm4a', 'aac', 'ogg'];
 
+  /// Límite fijo por archivo del plan gratis de Supabase Storage (no se
+  /// puede subir sin pasar a Pro). Un WAV de más de ~5 minutos ya lo supera.
+  static const tamanoMaximoBytes = 50 * 1024 * 1024;
+
+  static String formatearMb(int bytes) => '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+
   static CollectionReference<Map<String, dynamic>> _refUsuario(String uid) =>
       FirebaseFirestore.instance.collection('usuarios').doc(uid).collection('mis_secuencias');
 
@@ -6486,13 +6492,34 @@ class _MisSecuenciasScreenState extends State<MisSecuenciasScreen> {
     );
     if (result == null || result.files.isEmpty) return;
 
+    // Supabase rechaza los archivos que pasan el límite con un error poco
+    // claro; se avisan acá, antes de subir, y se sigue con los demás.
+    final grandes = result.files.where((a) => a.size > SecuenciasService.tamanoMaximoBytes).toList();
+    final aSubir = result.files.where((a) => a.size <= SecuenciasService.tamanoMaximoBytes).toList();
+    if (grandes.isNotEmpty) {
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text(grandes.length == 1 ? 'Archivo demasiado grande' : 'Archivos demasiado grandes'),
+          content: Text(
+            '${grandes.map((a) => '• ${a.name} (${SecuenciasService.formatearMb(a.size)})').join('\n')}\n\n'
+            'El máximo por archivo es ${SecuenciasService.formatearMb(SecuenciasService.tamanoMaximoBytes)}. '
+            'Convertilo a MP3 (a 320 kbps una canción entera ocupa unos 10-15 MB) y volvé a subirlo.',
+          ),
+          actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Entendido'))],
+        ),
+      );
+    }
+    if (aSubir.isEmpty) return;
+
     setState(() => _subiendo = true);
     final errores = <String>[];
     try {
-      for (var i = 0; i < result.files.length; i++) {
-        final archivo = result.files[i];
+      for (var i = 0; i < aSubir.length; i++) {
+        final archivo = aSubir[i];
         if (archivo.bytes == null) continue;
-        setState(() => _progresoSubida = '${i + 1}/${result.files.length}');
+        setState(() => _progresoSubida = '${i + 1}/${aSubir.length}');
         final punto = archivo.name.lastIndexOf('.');
         final titulo = punto > 0 ? archivo.name.substring(0, punto) : archivo.name;
         try {

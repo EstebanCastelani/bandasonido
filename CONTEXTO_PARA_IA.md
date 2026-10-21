@@ -449,8 +449,14 @@ Storage. Es un parche deliberadamente acotado: **Firestore y Auth siguen
   `SecuenciasService.extensionesPermitidas`, sumar también su MIME acá o
   la subida falla. El bucket no tiene límite de tamaño propio ("Restrict
   file size" apagado), así que rige el límite global del proyecto de
-  Supabase (50 MB por archivo en el plan gratis): MP3 sobra, un WAV largo
-  puede no entrar.
+  Supabase: **50 MB por archivo, fijo en el plan gratis** (el dashboard no
+  deja cambiarlo; solo Pro lo hace configurable). Un WAV estéreo de 44,1
+  kHz supera ese tamaño a partir de ~5 minutos — pasó con el primer tema
+  real que se intentó subir (61 MB), y Supabase lo rechazaba con un error
+  poco claro. Por eso `MisSecuenciasScreen` filtra antes de subir los
+  archivos que pasan `SecuenciasService.tamanoMaximoBytes` y avisa que hay
+  que convertirlos a MP3 (a 320 kbps ese tema quedó en 13 MB). Si se pasa
+  a Supabase Pro o a Firebase Storage (Blaze), subir esa constante.
 - **Para revertir cuando se active Blaze**: el plan fue diseñado para que
   la vuelta atrás sea acotada a `RepertorioService` — cambiar
   `subirCancion` para que vuelva a usar `FirebaseStorage.instance` (como
