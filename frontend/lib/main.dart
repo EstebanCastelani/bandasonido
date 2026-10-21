@@ -204,7 +204,22 @@ void main() async {
 
 // --- MODELOS Y CONSTANTES ---
 
-enum UserRole { musico, cantante }
+enum UserRole { musico, cantante, cantanteMusico }
+
+extension UserRoleTexto on UserRole {
+  /// Texto que se guarda en prefs/Firestore y se muestra en pantalla.
+  String get etiqueta => switch (this) {
+        UserRole.musico => 'Músico',
+        UserRole.cantante => 'Cantante',
+        UserRole.cantanteMusico => 'Cantante y músico',
+      };
+
+  static UserRole desdeEtiqueta(String? texto) => switch (texto) {
+        'Cantante' => UserRole.cantante,
+        'Cantante y músico' => UserRole.cantanteMusico,
+        _ => UserRole.musico,
+      };
+}
 
 
 
@@ -1610,7 +1625,7 @@ class _SplashScreenState extends State<SplashScreen> {
 
           final rolStr = prefs.getString('rol') ?? 'Músico';
 
-          final userRole = (rolStr == 'Cantante') ? UserRole.cantante : UserRole.musico;
+          final userRole = UserRoleTexto.desdeEtiqueta(rolStr);
 
 
 
@@ -2688,13 +2703,13 @@ class _CrearSalaScreenState extends State<CrearSalaScreen> {
 
       await prefs.setString('nombre', nombre);
 
-      await prefs.setString('rol', _role == UserRole.cantante ? 'Cantante' : 'Músico');
+      await prefs.setString('rol', (_role ?? UserRole.musico).etiqueta);
 
       await _registrarSalaSiCorresponde(
 
         codigoSala: _pin,
 
-        rolUsado: _role == UserRole.cantante ? 'Cantante' : 'Músico',
+        rolUsado: (_role ?? UserRole.musico).etiqueta,
 
         nombre: nombre,
 
@@ -2794,9 +2809,9 @@ class _CrearSalaScreenState extends State<CrearSalaScreen> {
 
             const SizedBox(height: 16),
 
-            RadioListTile(title: const Text('Músico'), value: UserRole.musico, groupValue: _role, onChanged: (v) => setState(() => _role = v)),
+            for (final rol in UserRole.values)
 
-            RadioListTile(title: const Text('Cantante'), value: UserRole.cantante, groupValue: _role, onChanged: (v) => setState(() => _role = v)),
+              RadioListTile<UserRole>(title: Text(rol.etiqueta), value: rol, groupValue: _role, onChanged: (v) => setState(() => _role = v)),
 
             const SizedBox(height: 24),
 
@@ -2882,13 +2897,13 @@ class _UnirmeSalaScreenState extends State<UnirmeSalaScreen> {
 
       await prefs.setString('nombre', nombre);
 
-      await prefs.setString('rol', _role == UserRole.cantante ? 'Cantante' : 'Músico');
+      await prefs.setString('rol', (_role ?? UserRole.musico).etiqueta);
 
       await _registrarSalaSiCorresponde(
 
         codigoSala: pin,
 
-        rolUsado: _role == UserRole.cantante ? 'Cantante' : 'Músico',
+        rolUsado: (_role ?? UserRole.musico).etiqueta,
 
         nombre: nombre,
 
@@ -2980,9 +2995,9 @@ class _UnirmeSalaScreenState extends State<UnirmeSalaScreen> {
 
             const SizedBox(height: 16),
 
-            RadioListTile(title: const Text('Músico'), value: UserRole.musico, groupValue: _role, onChanged: (v) => setState(() => _role = v)),
+            for (final rol in UserRole.values)
 
-            RadioListTile(title: const Text('Cantante'), value: UserRole.cantante, groupValue: _role, onChanged: (v) => setState(() => _role = v)),
+              RadioListTile<UserRole>(title: Text(rol.etiqueta), value: rol, groupValue: _role, onChanged: (v) => setState(() => _role = v)),
 
             const SizedBox(height: 24),
 
@@ -3044,7 +3059,7 @@ class MisSalasScreen extends StatelessWidget {
         MaterialPageRoute(
           builder: (_) => RequestScreen(
             userName: nombre,
-            role: rol == 'Cantante' ? UserRole.cantante : UserRole.musico,
+            role: UserRoleTexto.desdeEtiqueta(rol),
             codigoSala: codigoSala,
           ),
         ),
@@ -3296,7 +3311,7 @@ class _RequestScreenState extends State<RequestScreen> with SingleTickerProvider
 
     if (texto.trim().isEmpty) return;
 
-    final rolStr = widget.role == UserRole.musico ? 'Músico' : 'Cantante';
+    final rolStr = widget.role.etiqueta;
 
     final urgente = _esUrgente;
 
@@ -3400,7 +3415,7 @@ class _RequestScreenState extends State<RequestScreen> with SingleTickerProvider
 
   Widget build(BuildContext context) {
 
-    final rolStr = widget.role == UserRole.musico ? 'Músico' : 'Cantante';
+    final rolStr = widget.role.etiqueta;
 
 
 
