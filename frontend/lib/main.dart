@@ -1564,9 +1564,10 @@ void rwRepetir(bool valor) => _soloWeb();
 /// que las dispara.
 ///
 /// Tono y tempo independientes (como Music Speed Changer): en web se usa el
-/// reproductor de web/reproductor_secuencias.js (SoundTouch), que es único
-/// para toda la página; fuera de la web, audioplayers, que solo cambia el
-/// tempo (soportaTono = false).
+/// reproductor de web/reproductor_secuencias.js (reproduce mientras baja;
+/// tempo del navegador, tono con SoundTouch), que es único para toda la
+/// página; fuera de la web, audioplayers, que solo cambia el tempo
+/// (soportaTono = false).
 class ReproductorSecuencias extends ChangeNotifier {
   static bool get soportaTono => puente.reproductorWebDisponible;
 
@@ -1672,14 +1673,15 @@ class ReproductorSecuencias extends ChangeNotifier {
       if (_web) {
         _duenoWeb = this;
         _sondeo?.cancel();
+        // Tono y tempo antes de cargar: rwCargar ya arranca a sonar apenas
+        // hay datos (sin esperar a bajar la pista entera).
+        puente.rwTempo(this.tempo);
+        puente.rwSemitonos(this.semitonos);
+        puente.rwRepetir(repetir);
         final segundos = await puente.rwCargar(url);
         // Se pidió otra pista (o la tomó otra pantalla) mientras cargaba.
         if (segundos < 0 || idActual != id || _duenoWeb != this) return;
         duracion = Duration(milliseconds: (segundos * 1000).round());
-        puente.rwTempo(this.tempo);
-        puente.rwSemitonos(this.semitonos);
-        puente.rwRepetir(repetir);
-        puente.rwReproducir();
         estado = PlayerState.playing;
         _empezarSondeo();
       } else {

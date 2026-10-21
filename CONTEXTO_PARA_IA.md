@@ -337,25 +337,40 @@ registrada sin chequear `esPro` — ver §8 para cómo revertir esto.
     **Cómo suena**: el reproductor normal (audioplayers) solo cambia la
     velocidad; separar tono de tempo requiere procesar el audio. En web,
     `ReproductorSecuencias` usa `web/reproductor_secuencias.js`, que
-    reproduce con SoundTouch (`web/soundtouch.js` = soundtouchjs 0.3.0 de
-    npm, checksum verificado, LGPL-2.1 → `web/soundtouch.LICENSE.txt`; solo
-    se le quitó la línea final `sourceMappingURL` para no pedir un `.map`
-    inexistente). Ese reproductor baja y decodifica la pista entera antes de
-    sonar (unos segundos para un MP3 de 13 MB), es **uno solo para toda la
-    página** (`ReproductorSecuencias._duenoWeb` decide qué pantalla lo
-    controla) y Dart consulta su estado cada 200 ms. Se carga como
-    `<script type="module">` en `web/index.html`. El audio se arranca con
-    `rwDesbloquear()` antes de cualquier `await`: los navegadores de
-    celular solo permiten iniciar audio dentro del toque del usuario.
+    **reproduce mientras descarga** con un `<audio>` (no baja la pista
+    entera): el **tempo** lo hace el navegador (`playbackRate` con
+    `preservesPitch`, ya mantiene el tono) y el **tono** lo hace SoundTouch
+    en vivo sobre la salida (`createMediaElementSource` → ScriptProcessor de
+    4096 → `SoundTouch` con solo `pitchSemitones`; `web/soundtouch.js` =
+    soundtouchjs 0.3.0 de npm, checksum verificado, LGPL-2.1 →
+    `web/soundtouch.LICENSE.txt`; solo se le quitó la línea final
+    `sourceMappingURL` para no pedir un `.map` inexistente). Con tono
+    original el audio va directo a la salida, sin pasar por SoundTouch.
+    Requiere `audio.crossOrigin = 'anonymous'` (Supabase manda CORS): sin
+    eso el navegador entrega **silencio** al procesar audio de otro dominio,
+    sin dar error. Al cambiar de pista hay que volver a poner el
+    `playbackRate` (el navegador lo resetea). El reproductor es **uno solo
+    para toda la página** (`ReproductorSecuencias._duenoWeb` decide qué
+    pantalla lo controla) y Dart consulta su estado cada 200 ms. Se carga
+    como `<script type="module">` en `web/index.html`. Orden al dar play:
+    `rwDesbloquear()` → tempo/tono/repetir → `rwCargar(url)`, que ya llama a
+    `audio.play()` sin `await` previo, dentro del toque del usuario (los
+    navegadores de celular solo dejan iniciar audio así).
+    **Historia (para no volver atrás):** la primera versión usaba el
+    `PitchShifter` de SoundTouch sobre la pista entera: bajaba los 13 MB y
+    decodificaba todo (~120 MB en memoria) antes de sonar → ~1,8 s en una PC
+    con buena conexión y bastante más en celular con datos. La versión que
+    reproduce mientras descarga empieza a sonar en ~0,6 s en la misma PC.
     **Android** sigue con audioplayers: el tempo funciona
     (`setPlaybackRate`, mantiene el tono) pero el tono no — el panel lo
     muestra deshabilitado con un aviso (decisión del dueño; para tenerlo
     habría que pasar Android a `just_audio`, que sí lo soporta).
-    Probado en web (oct-2026): −2 semitonos y 98% aplicados en vivo; a 75%
-    la pista avanzó 4,44 s en 6 s reales; un cambio escrito por "otro
-    integrante" (+3, 110%) llegó solo al reproductor. No se probó en un
-    celular real (rendimiento de SoundTouch, memoria del audio
-    decodificado, ~120 MB para un tema de 6 min).
+    Probado en web (oct-2026): −2 semitonos y 98% aplicados en vivo; un
+    cambio escrito por "otro integrante" (+3, 110%) llegó solo al
+    reproductor. Con la versión que reproduce mientras descarga: suena a
+    los 0,62 s del toque, sale señal con tono original y con −2 semitonos
+    (medido con un AnalyserNode), y a 75% avanza a 0,75×. El cambio de tono
+    no se escuchó (se verificó por señal). No se probó en un celular real.
 
 ## 6. Modelo de seguridad de las salas — trade-off consciente, no bug
 

@@ -72,7 +72,9 @@ const bool reproductorWebDisponible = true;
 /// await: los navegadores de celular solo dejan arrancar audio en un gesto.
 void rwDesbloquear() => _reproductor.desbloquear();
 
-/// Duración en segundos, o -1 si mientras tanto se pidió otra pista.
+/// Empieza a reproducir la pista apenas hay datos (no la baja entera) y
+/// devuelve la duración en segundos, o -1 si mientras tanto se pidió otra.
+/// Aplicar tempo/semitonos/repetir antes de llamarla.
 Future<double> rwCargar(String url) async => (await _reproductor.cargar(url.toJS).toDart).toDartDouble;
 
 void rwReproducir() => _reproductor.reproducir();
