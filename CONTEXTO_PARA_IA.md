@@ -302,8 +302,8 @@ registrada sin chequear `esPro` — ver §8 para cómo revertir esto.
     Estado a oct-2026: probado en la sala (aparecer en vivo, play/pausa,
     cortar una al dar play a otra, seguir sonando al cambiar de pestaña,
     reordenar, quitar, vista del sonidista). **No probado todavía**: subir
-    audios desde "Mis secuencias" (necesita cuenta registrada y el cambio
-    de MIME en Supabase).
+    audios desde "Mis secuencias" (necesita que el dueño inicie sesión con
+    su cuenta; el bucket ya acepta audio).
 
 ## 6. Modelo de seguridad de las salas — trade-off consciente, no bug
 
@@ -415,7 +415,8 @@ Storage. Es un parche deliberadamente acotado: **Firestore y Auth siguen
   migrar nada.
 - **Estado del lado de Supabase, a la fecha de este commit: configurado y
   probado end-to-end, subida de PDF funcionando.** Bucket `repertorio-pdfs`
-  creado (público, límite 25 MB, solo `application/pdf`), Firebase agregado
+  creado (público; hoy sin límite de tamaño propio y con PDF + tipos de
+  audio permitidos, ver bullet de Secuencias más abajo), Firebase agregado
   como Third-Party Auth provider, y las políticas RLS de `insert`/`delete`
   sobre `storage.objects` corridas — **sin `to authenticated`** (ver el
   gotcha de arriba). El SQL real que quedó aplicado:
@@ -441,13 +442,15 @@ Storage. Es un parche deliberadamente acotado: **Firestore y Auth siguen
 - **Secuencias (audios) en el mismo bucket**: `SecuenciasService` sube a
   `repertorio-pdfs` bajo `usuarios/{uid}/secuencias/` (las políticas RLS
   por carpeta de usuario ya lo cubren, no hacen falta políticas nuevas).
-  Requiere que en el bucket, en "Allowed MIME types", además de
-  `application/pdf` estén `audio/mpeg`, `audio/wav`, `audio/mp4`,
-  `audio/aac` y `audio/ogg`, y que el límite de tamaño alcance para los
-  audios (un WAV de 4 minutos ronda los 40 MB; los 25 MB originales solo
-  alcanzan para MP3). **Pendiente a oct-2026**: el dueño todavía no hizo
-  este cambio en el dashboard (Storage → `repertorio-pdfs` → Edit bucket);
-  hasta entonces subir secuencias falla con error de tipo de archivo.
+  Para eso el bucket acepta, en "Allowed MIME types": `application/pdf,
+  audio/mpeg, audio/wav, audio/mp4, audio/aac, audio/ogg` (configurado el
+  21-oct-2026 desde el dashboard: Storage → `repertorio-pdfs` → Edit
+  bucket → Bucket settings). Si se agrega un formato nuevo en
+  `SecuenciasService.extensionesPermitidas`, sumar también su MIME acá o
+  la subida falla. El bucket no tiene límite de tamaño propio ("Restrict
+  file size" apagado), así que rige el límite global del proyecto de
+  Supabase (50 MB por archivo en el plan gratis): MP3 sobra, un WAV largo
+  puede no entrar.
 - **Para revertir cuando se active Blaze**: el plan fue diseñado para que
   la vuelta atrás sea acotada a `RepertorioService` — cambiar
   `subirCancion` para que vuelva a usar `FirebaseStorage.instance` (como
@@ -564,8 +567,6 @@ app, esto es lo primero para revisar.
 - El repertorio personal sube PDFs a Supabase Storage en vez de Firebase
   Storage, mientras no se active Blaze. Ya probado end-to-end (subida real
   funcionando) — es deuda a mediano plazo, no un bloqueante activo.
-- El bucket `repertorio-pdfs` todavía solo acepta PDF: falta agregar los
-  tipos de audio para que funcione "Mis secuencias" (ver §7.1).
 - Cuando se active Blaze, hay que decidir si se revierte `RepertorioService`
   a Firebase Storage (dejando los archivos ya subidos a Supabase donde
   están) o si se migran esos archivos también — no está resuelto todavía,
