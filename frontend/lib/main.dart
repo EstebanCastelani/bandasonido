@@ -204,21 +204,64 @@ void main() async {
 
 // --- MODELOS Y CONSTANTES ---
 
-enum UserRole { musico, cantante, cantanteMusico }
+enum UserRole { musico, cantante, talkback }
 
 extension UserRoleTexto on UserRole {
-  /// Texto que se guarda en prefs/Firestore y se muestra en pantalla.
   String get etiqueta => switch (this) {
         UserRole.musico => 'Músico',
         UserRole.cantante => 'Cantante',
-        UserRole.cantanteMusico => 'Cantante y músico',
+        UserRole.talkback => 'Talkback',
       };
+}
 
-  static UserRole desdeEtiqueta(String? texto) => switch (texto) {
-        'Cantante' => UserRole.cantante,
-        'Cantante y músico' => UserRole.cantanteMusico,
-        _ => UserRole.musico,
-      };
+/// Una persona puede tener varios roles a la vez (ej: canta y toca). Se
+/// guardan en prefs/Firestore como un único texto legible ("Músico y
+/// Cantante"), que es también lo que ve el sonidista en los pedidos.
+String etiquetaRoles(Set<UserRole> roles) {
+  final nombres = [for (final r in UserRole.values) if (roles.contains(r)) r.etiqueta];
+  if (nombres.isEmpty) return UserRole.musico.etiqueta;
+  if (nombres.length == 1) return nombres.first;
+  return '${nombres.sublist(0, nombres.length - 1).join(', ')} y ${nombres.last}';
+}
+
+Set<UserRole> rolesDesdeEtiqueta(String? texto) {
+  final t = (texto ?? '').toLowerCase().replaceAll('ú', 'u');
+  final roles = {
+    if (t.contains('musico')) UserRole.musico,
+    if (t.contains('cantante')) UserRole.cantante,
+    if (t.contains('talkback')) UserRole.talkback,
+  };
+  return roles.isEmpty ? {UserRole.musico} : roles;
+}
+
+/// Casillas para elegir uno o más roles al crear o unirse a una sala.
+class SelectorRoles extends StatelessWidget {
+  final Set<UserRole> seleccionados;
+  final ValueChanged<Set<UserRole>> alCambiar;
+
+  const SelectorRoles({super.key, required this.seleccionados, required this.alCambiar});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Padding(
+          padding: EdgeInsets.only(left: 16, bottom: 4),
+          child: Text('Tu rol (podés marcar más de uno)'),
+        ),
+        for (final rol in UserRole.values)
+          CheckboxListTile(
+            title: Text(rol.etiqueta),
+            value: seleccionados.contains(rol),
+            controlAffinity: ListTileControlAffinity.leading,
+            onChanged: (marcado) => alCambiar(
+              marcado == true ? {...seleccionados, rol} : ({...seleccionados}..remove(rol)),
+            ),
+          ),
+      ],
+    );
+  }
 }
 
 
@@ -1625,7 +1668,7 @@ class _SplashScreenState extends State<SplashScreen> {
 
           final rolStr = prefs.getString('rol') ?? 'Músico';
 
-          final userRole = UserRoleTexto.desdeEtiqueta(rolStr);
+          final roles = rolesDesdeEtiqueta(rolStr);
 
 
 
@@ -1639,7 +1682,7 @@ class _SplashScreenState extends State<SplashScreen> {
 
                 userName: nombre,
 
-                role: userRole,
+                roles: roles,
 
                 codigoSala: salaId,
 
@@ -2675,7 +2718,7 @@ class _CrearSalaScreenState extends State<CrearSalaScreen> {
 
   final String _pin = generarCodigoSala();
 
-  UserRole? _role = UserRole.musico;
+  Set<UserRole> _roles = {UserRole.musico};
 
   bool _procesando = false;
 
@@ -2686,6 +2729,14 @@ class _CrearSalaScreenState extends State<CrearSalaScreen> {
     final nombre = _nameController.text.trim();
 
     if (nombre.isEmpty || _procesando) return;
+
+    if (_roles.isEmpty) {
+
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Marcá al menos un rol.')));
+
+      return;
+
+    }
 
 
 
@@ -2703,13 +2754,13 @@ class _CrearSalaScreenState extends State<CrearSalaScreen> {
 
       await prefs.setString('nombre', nombre);
 
-      await prefs.setString('rol', (_role ?? UserRole.musico).etiqueta);
+      await prefs.setString('rol', etiquetaRoles(_roles));
 
       await _registrarSalaSiCorresponde(
 
         codigoSala: _pin,
 
-        rolUsado: (_role ?? UserRole.musico).etiqueta,
+        rolUsado: etiquetaRoles(_roles),
 
         nombre: nombre,
 
@@ -2731,7 +2782,7 @@ class _CrearSalaScreenState extends State<CrearSalaScreen> {
 
             userName: nombre,
 
-            role: _role!,
+            roles: _roles,
 
             codigoSala: _pin,
 
@@ -2809,9 +2860,7 @@ class _CrearSalaScreenState extends State<CrearSalaScreen> {
 
             const SizedBox(height: 16),
 
-            for (final rol in UserRole.values)
-
-              RadioListTile<UserRole>(title: Text(rol.etiqueta), value: rol, groupValue: _role, onChanged: (v) => setState(() => _role = v)),
+            SelectorRoles(seleccionados: _roles, alCambiar: (roles) => setState(() => _roles = roles)),
 
             const SizedBox(height: 24),
 
@@ -2865,7 +2914,7 @@ class _UnirmeSalaScreenState extends State<UnirmeSalaScreen> {
 
   late final _pinController = TextEditingController(text: widget.codigoInicial ?? '');
 
-  UserRole? _role = UserRole.musico;
+  Set<UserRole> _roles = {UserRole.musico};
 
   bool _procesando = false;
 
@@ -2880,6 +2929,14 @@ class _UnirmeSalaScreenState extends State<UnirmeSalaScreen> {
 
 
     if (nombre.isEmpty || pin.length != 8 || _procesando) return;
+
+    if (_roles.isEmpty) {
+
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Marcá al menos un rol.')));
+
+      return;
+
+    }
 
 
 
@@ -2897,13 +2954,13 @@ class _UnirmeSalaScreenState extends State<UnirmeSalaScreen> {
 
       await prefs.setString('nombre', nombre);
 
-      await prefs.setString('rol', (_role ?? UserRole.musico).etiqueta);
+      await prefs.setString('rol', etiquetaRoles(_roles));
 
       await _registrarSalaSiCorresponde(
 
         codigoSala: pin,
 
-        rolUsado: (_role ?? UserRole.musico).etiqueta,
+        rolUsado: etiquetaRoles(_roles),
 
         nombre: nombre,
 
@@ -2925,7 +2982,7 @@ class _UnirmeSalaScreenState extends State<UnirmeSalaScreen> {
 
             userName: nombre,
 
-            role: _role!,
+            roles: _roles,
 
             codigoSala: pin,
 
@@ -2995,9 +3052,7 @@ class _UnirmeSalaScreenState extends State<UnirmeSalaScreen> {
 
             const SizedBox(height: 16),
 
-            for (final rol in UserRole.values)
-
-              RadioListTile<UserRole>(title: Text(rol.etiqueta), value: rol, groupValue: _role, onChanged: (v) => setState(() => _role = v)),
+            SelectorRoles(seleccionados: _roles, alCambiar: (roles) => setState(() => _roles = roles)),
 
             const SizedBox(height: 24),
 
@@ -3059,7 +3114,7 @@ class MisSalasScreen extends StatelessWidget {
         MaterialPageRoute(
           builder: (_) => RequestScreen(
             userName: nombre,
-            role: UserRoleTexto.desdeEtiqueta(rol),
+            roles: rolesDesdeEtiqueta(rol),
             codigoSala: codigoSala,
           ),
         ),
@@ -3174,11 +3229,11 @@ class RequestScreen extends StatefulWidget {
 
   final String userName;
 
-  final UserRole role;
+  final Set<UserRole> roles;
 
   final String codigoSala;
 
-  const RequestScreen({super.key, required this.userName, required this.role, required this.codigoSala});
+  const RequestScreen({super.key, required this.userName, required this.roles, required this.codigoSala});
 
 
 
@@ -3311,7 +3366,7 @@ class _RequestScreenState extends State<RequestScreen> with SingleTickerProvider
 
     if (texto.trim().isEmpty) return;
 
-    final rolStr = widget.role.etiqueta;
+    final rolStr = etiquetaRoles(widget.roles);
 
     final urgente = _esUrgente;
 
@@ -3415,7 +3470,7 @@ class _RequestScreenState extends State<RequestScreen> with SingleTickerProvider
 
   Widget build(BuildContext context) {
 
-    final rolStr = widget.role.etiqueta;
+    final rolStr = etiquetaRoles(widget.roles);
 
 
 
