@@ -70,6 +70,7 @@ SERVICIO DE SECUENCIAS             — SecuenciasService, ReproductorSecuencias,
 SERVICIO DE BASE DE DATOS          — FirestoreService (pedidos de sala)
 APLICACIÓN PRINCIPAL               — SoundCheckProApp (theme, paleta persistida)
 PANTALLA DE CARGA Y REDIRECCIÓN    — SplashScreen (decide a dónde navegar)
+PANTALLA DE PRESENTACIÓN           — BienvenidaScreen (primera pantalla sin sesión)
 PANTALLA DE LOGIN / REGISTRO       — AuthScreen
 MENÚ DE INGRESO                    — IngressMenuScreen (home post-login)
 SELECTOR DE IDENTIDAD DE COLOR     — PaletaPickerScreen
@@ -452,6 +453,68 @@ registrada sin chequear `esPro` — ver §8 para cómo revertir esto.
       las claves de la sesión (`borrarSesionDeSala`: `tipo_login`,
       `sala_id`, `nombre`, `rol`). Antes, salir de una sala borraba también
       la paleta de colores elegida (y hubiera borrado las pestañas).
+
+23. **Pantalla de presentación (`BienvenidaScreen`, oct-2026)**: primera
+    pantalla para quien no tiene sesión (la muestra `SplashScreen` y
+    también cerrar sesión de cuenta, en vez de ir directo a `AuthScreen`).
+    Diseño del dueño (una imagen de referencia): logo de barras de onda con
+    degradé celeste→violeta (`_PintorOnda`, dibujado por código), "SOUND
+    CHECK **PRO**", subtítulo, tres botones y una tarjeta con las cuatro
+    funciones. Botones: "Iniciar sesión" → `AuthScreen`; "Crear cuenta" →
+    `AuthScreen(modoRegistroInicial: true)`; "Entrar como invitado" →
+    `IngressMenuScreen` (lo mismo que hacía "Continuar sin cuenta", que
+    sigue existiendo dentro de `AuthScreen`). Arriba quedan solo modo
+    claro/oscuro y paleta (los de la imagen de referencia, más el de
+    iniciar sesión, que sobraba).
+    - **Es la excepción a "el color sale de `context.acento`"**: esta
+      pantalla es siempre oscura y usa colores propios (`_celeste`,
+      `_violeta`), porque es la identidad de marca de la imagen.
+    - **Fondo**: `assets/images/fondo_bienvenida.jpg` (900×1600; luces
+      violetas y celestes, micrófono, consola y guitarra, **sin** textos ni
+      botones). Sale de la imagen de referencia del dueño, que trae todo el
+      diseño pegado: se le borraron la barra de estado, los íconos, el logo
+      y textos, los botones, la tarjeta y la barra de abajo con el filtro
+      `delogo` de ffmpeg (rellena cada rectángulo interpolando los bordes),
+      y se suavizaron con `gblur` + máscara de bordes suaves las rayas
+      horizontales que deja ese relleno sobre las luces de la consola. Zonas
+      rellenadas (x,y,ancho,alto): (1,1,898,82), (585,92,300,84),
+      (236,100,455,540), (168,668,568,420), (40,1100,830,290),
+      (40,1404,830,170). Si hay que rehacerlo con otra imagen, mismo
+      método. Si el archivo no está, `Image.asset` falla en silencio y se
+      dibuja `_FondoEscenario` (degradé oscuro con luces dibujadas por
+      código). `assets/images/` está declarada entera en `pubspec.yaml`:
+      cambiar la foto es soltar otra con el mismo nombre, sin tocar código.
+      Se muestra con `BoxFit.cover`: en celulares angostos recorta un poco
+      los costados (el micrófono queda cortado en el borde izquierdo).
+    - La barra de abajo de la imagen de referencia (Inicio, Setlist,
+      Pedidos, Repertorio, Ajustes) **no se hizo**: implica reorganizar la
+      navegación de toda la app (decisión del dueño: dejarlo para después).
+    - Para ver esta pantalla sin cerrar la sesión del navegador de prueba:
+      el servidor de desarrollo **no tolera** abrirse desde `127.0.0.1` (se
+      cae por la conexión de depuración); en cambio, `flutter build web
+      --release` + un servidor estático en `127.0.0.1:<otro puerto>` da un
+      origen sin sesión.
+
+24. **Paleta "Escenario" (oct-2026)**: el estilo de `BienvenidaScreen`
+    (casi negro, celeste y violeta neón, bordes celestes finos, esquinas
+    redondeadas) llevado a toda la app como una paleta más
+    (`AppPalette.escenario`, la primera del selector) y **la predeterminada**
+    (`AppPalette.porDefecto`: se usa si el usuario nunca eligió una; quien ya
+    había elegido otra la conserva). Se aplica desde el tema global
+    (`_temaEscenario()`, que `construirTema` devuelve para esta paleta): app
+    bars, botones, tarjetas, campos de texto, pestañas, diálogos, bottom
+    sheets, snackbars, sliders, chips, checkbox/switch, FAB. No se tocó
+    ninguna pantalla una por una. Es **siempre oscura**: el botón de modo
+    claro/oscuro no hace nada con esta paleta. Para volver a lo de antes:
+    cambiar `porDefecto` a `consola` (o elegir otra en "Color de la app").
+    Verificado en web como invitado: menú, crear sala, la sala (pedidos,
+    pestañas), el selector de pestañas y el selector de colores. **No se
+    revisaron** con este tema las pantallas que piden cuenta (Mis
+    secuencias, Mi repertorio, Mis frases, Mis salas) ni el visor de PDF/
+    cifrado. Posible siguiente paso (no hecho): el fondo con la foto del
+    escenario también detrás de las otras pantallas (no se puso con un
+    fondo transparente global porque durante las transiciones de pantalla se
+    verían dos a la vez).
 
 ## 6. Modelo de seguridad de las salas — trade-off consciente, no bug
 

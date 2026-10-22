@@ -381,15 +381,190 @@ class AppPalette {
     surfaceLight: Color(0xFFFFFFFF),
   );
 
-  static const List<AppPalette> todas = [consola, placa, wash, worklight, camarin];
+  /// Estilo de la pantalla de presentación llevado a toda la app: fondo casi
+  /// negro, celeste y violeta neón. Es siempre oscuro (ver
+  /// _temaEscenario): el modo claro usa los mismos colores.
+  static const escenario = AppPalette(
+    key: 'escenario',
+    nombre: 'Escenario',
+    tag: 'Neón celeste y violeta',
+    accentDark: Color(0xFF22D3EE),
+    accentLight: Color(0xFF22D3EE),
+    bgDark: Color(0xFF07060F),
+    bgLight: Color(0xFF07060F),
+    surfaceDark: Color(0xFF0F0D1F),
+    surfaceLight: Color(0xFF0F0D1F),
+  );
+
+  static const List<AppPalette> todas = [escenario, consola, placa, wash, worklight, camarin];
+
+  /// La que se usa si el usuario nunca eligió una.
+  static const porDefecto = escenario;
 
   static AppPalette porClave(String? clave) {
-    return todas.firstWhere((p) => p.key == clave, orElse: () => consola);
+    return todas.firstWhere((p) => p.key == clave, orElse: () => porDefecto);
   }
+}
+
+/// Tema neón de "Escenario": mismo lenguaje visual que BienvenidaScreen
+/// (bordes celestes finos, esquinas redondeadas, fondo muy oscuro).
+ThemeData _temaEscenario() {
+  const celeste = BienvenidaScreen._celeste;
+  const violeta = BienvenidaScreen._violeta;
+  const fondo = BienvenidaScreen._fondo;
+  const superficie = Color(0xFF0F0D1F);
+  const bordeSutil = Color(0x3322D3EE);
+  final esquinas = RoundedRectangleBorder(borderRadius: BorderRadius.circular(14));
+
+  final esquema = ColorScheme.fromSeed(
+    seedColor: celeste,
+    brightness: Brightness.dark,
+  ).copyWith(
+    primary: const Color(0xFF14C8DC),
+    onPrimary: Colors.white,
+    secondary: violeta,
+    onSecondary: Colors.white,
+    tertiary: violeta,
+    surface: superficie,
+    onSurface: Colors.white,
+    surfaceContainerLowest: fondo,
+    surfaceContainerLow: const Color(0xFF0C0A18),
+    surfaceContainer: superficie,
+    surfaceContainerHigh: const Color(0xFF15132A),
+    surfaceContainerHighest: const Color(0xFF1B1933),
+    outline: const Color(0x8022D3EE),
+    outlineVariant: const Color(0x3322D3EE),
+  );
+
+  return ThemeData(
+    useMaterial3: true,
+    brightness: Brightness.dark,
+    colorScheme: esquema,
+    scaffoldBackgroundColor: fondo,
+    canvasColor: fondo,
+    dividerColor: Colors.white12,
+    appBarTheme: const AppBarTheme(
+      backgroundColor: Color(0xFF0B0A18),
+      foregroundColor: Colors.white,
+      elevation: 0,
+      scrolledUnderElevation: 0,
+      surfaceTintColor: Colors.transparent,
+      shape: Border(bottom: BorderSide(color: bordeSutil)),
+    ),
+    cardTheme: CardThemeData(
+      color: superficie,
+      surfaceTintColor: Colors.transparent,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: const BorderSide(color: bordeSutil),
+      ),
+    ),
+    filledButtonTheme: FilledButtonThemeData(
+      style: FilledButton.styleFrom(
+        backgroundColor: const Color(0xFF14C8DC),
+        foregroundColor: Colors.white,
+        shape: esquinas,
+        textStyle: const TextStyle(fontWeight: FontWeight.w700),
+      ),
+    ),
+    outlinedButtonTheme: OutlinedButtonThemeData(
+      style: OutlinedButton.styleFrom(
+        foregroundColor: Colors.white,
+        backgroundColor: const Color(0xCC07060F),
+        side: const BorderSide(color: Color(0xB322D3EE), width: 1.3),
+        shape: esquinas,
+        textStyle: const TextStyle(fontWeight: FontWeight.w600),
+      ),
+    ),
+    textButtonTheme: TextButtonThemeData(
+      style: TextButton.styleFrom(foregroundColor: celeste),
+    ),
+    iconButtonTheme: IconButtonThemeData(
+      style: IconButton.styleFrom(foregroundColor: Colors.white),
+    ),
+    floatingActionButtonTheme: FloatingActionButtonThemeData(
+      backgroundColor: const Color(0xFF14C8DC),
+      foregroundColor: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+    ),
+    inputDecorationTheme: InputDecorationTheme(
+      filled: true,
+      fillColor: const Color(0xFF0C0A18),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: const BorderSide(color: Color(0x6622D3EE)),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: const BorderSide(color: Color(0x6622D3EE)),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: const BorderSide(color: celeste, width: 1.6),
+      ),
+      labelStyle: const TextStyle(color: Color(0xCCFFFFFF)),
+    ),
+    tabBarTheme: const TabBarThemeData(
+      labelColor: celeste,
+      unselectedLabelColor: Color(0xB3FFFFFF),
+      indicatorColor: celeste,
+      dividerColor: bordeSutil,
+    ),
+    dialogTheme: DialogThemeData(
+      backgroundColor: superficie,
+      surfaceTintColor: Colors.transparent,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+        side: const BorderSide(color: bordeSutil),
+      ),
+    ),
+    bottomSheetTheme: const BottomSheetThemeData(
+      backgroundColor: superficie,
+      surfaceTintColor: Colors.transparent,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+        side: BorderSide(color: bordeSutil),
+      ),
+    ),
+    snackBarTheme: SnackBarThemeData(
+      backgroundColor: const Color(0xFF1B1933),
+      contentTextStyle: const TextStyle(color: Colors.white),
+      behavior: SnackBarBehavior.floating,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    ),
+    sliderTheme: const SliderThemeData(
+      activeTrackColor: celeste,
+      thumbColor: celeste,
+      inactiveTrackColor: Color(0x3322D3EE),
+    ),
+    chipTheme: ChipThemeData(
+      backgroundColor: const Color(0xFF15132A),
+      selectedColor: const Color(0x3322D3EE),
+      side: const BorderSide(color: bordeSutil),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    ),
+    listTileTheme: const ListTileThemeData(iconColor: celeste),
+    checkboxTheme: CheckboxThemeData(
+      fillColor: WidgetStateProperty.resolveWith(
+        (estados) => estados.contains(WidgetState.selected) ? const Color(0xFF14C8DC) : null,
+      ),
+    ),
+    switchTheme: SwitchThemeData(
+      thumbColor: WidgetStateProperty.resolveWith(
+        (estados) => estados.contains(WidgetState.selected) ? Colors.white : null,
+      ),
+      trackColor: WidgetStateProperty.resolveWith(
+        (estados) => estados.contains(WidgetState.selected) ? const Color(0xFF14C8DC) : null,
+      ),
+    ),
+    progressIndicatorTheme: const ProgressIndicatorThemeData(color: celeste),
+  );
 }
 
 /// Construye el ThemeData de Material 3 para una paleta y un brillo dados.
 ThemeData construirTema(AppPalette paleta, Brightness brightness) {
+  // "Escenario" es siempre oscuro, también si el sistema/usuario pide claro.
+  if (paleta.key == AppPalette.escenario.key) return _temaEscenario();
   final esOscuro = brightness == Brightness.dark;
   return ThemeData(
     useMaterial3: true,
@@ -2093,7 +2268,7 @@ class _SoundCheckProAppState extends State<SoundCheckProApp> {
 
   ThemeMode _themeMode = ThemeMode.light;
 
-  AppPalette _paleta = AppPalette.consola;
+  AppPalette _paleta = AppPalette.porDefecto;
 
   @override
 
@@ -2279,7 +2454,7 @@ class _SplashScreenState extends State<SplashScreen> {
 
     final destino = AuthService.esUsuarioRegistrado
         ? const IngressMenuScreen()
-        : const AuthScreen();
+        : const BienvenidaScreen();
 
     Navigator.pushReplacement(
 
@@ -2313,11 +2488,390 @@ class _SplashScreenState extends State<SplashScreen> {
 
 
 
+// --- PANTALLA DE PRESENTACIÓN (BIENVENIDA) ---
+
+/// Primera pantalla para quien no tiene sesión: logo, tres accesos y las
+/// funciones principales. Siempre oscura, con colores propios (no sigue la
+/// paleta elegida ni el modo claro/oscuro: es la identidad de la marca).
+///
+/// El fondo es la foto assets/images/fondo_bienvenida.jpg (micrófono,
+/// consola, guitarra; sin textos ni botones). Si el archivo no está, se
+/// dibuja un fondo oscuro con luces de escenario.
+class BienvenidaScreen extends StatelessWidget {
+  const BienvenidaScreen({super.key});
+
+  static const _celeste = Color(0xFF22D3EE);
+  static const _violeta = Color(0xFFA855F7);
+  static const _fondo = Color(0xFF07060F);
+
+  @override
+  Widget build(BuildContext context) {
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.light,
+      child: Scaffold(
+        backgroundColor: _fondo,
+        body: Stack(
+          fit: StackFit.expand,
+          children: [
+            Image.asset(
+              'assets/images/fondo_bienvenida.jpg',
+              fit: BoxFit.cover,
+              alignment: Alignment.center,
+              errorBuilder: (_, __, ___) => const _FondoEscenario(),
+            ),
+            // Oscurece apenas arriba y abajo (el centro de la foto ya es
+            // oscuro y liso) para que se lean los textos y la tarjeta.
+            const DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Color(0x33000000), Color(0x00000000), Color(0x00000000), Color(0x99000000)],
+                  stops: [0, 0.25, 0.7, 1],
+                ),
+              ),
+            ),
+            SafeArea(
+              child: LayoutBuilder(
+                builder: (context, constraints) => SingleChildScrollView(
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                    child: Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 440),
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Align(
+                                alignment: Alignment.centerRight,
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    IconButton(
+                                      icon: const Icon(Icons.wb_sunny_outlined, color: Colors.white),
+                                      tooltip: 'Modo claro/oscuro (para el resto de la app)',
+                                      onPressed: () => SoundCheckProApp.of(context).toggleTheme(),
+                                    ),
+                                    IconButton(
+                                      icon: const Icon(Icons.palette_outlined, color: Colors.white),
+                                      tooltip: 'Color de la app',
+                                      onPressed: () => Navigator.push(
+                                        context,
+                                        MaterialPageRoute(builder: (_) => const PaletaPickerScreen()),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              const _LogoOnda(),
+                              const SizedBox(height: 20),
+                              const Text(
+                                'SOUND',
+                                style: TextStyle(
+                                  fontSize: 44,
+                                  height: 1.0,
+                                  fontWeight: FontWeight.w900,
+                                  color: Colors.white,
+                                  letterSpacing: 1,
+                                  shadows: [Shadow(color: Color(0x8022D3EE), blurRadius: 18)],
+                                ),
+                              ),
+                              const Text.rich(
+                                TextSpan(
+                                  children: [
+                                    TextSpan(text: 'CHECK ', style: TextStyle(color: Colors.white)),
+                                    TextSpan(text: 'PRO', style: TextStyle(color: _celeste)),
+                                  ],
+                                ),
+                                style: TextStyle(
+                                  fontSize: 44,
+                                  height: 1.05,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: 1,
+                                  shadows: [Shadow(color: Color(0x8022D3EE), blurRadius: 18)],
+                                ),
+                              ),
+                              const SizedBox(height: 18),
+                              const Text(
+                                'Comunicación en vivo\nentre músicos y sonidistas',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(fontSize: 17, height: 1.35, color: Colors.white),
+                              ),
+                              const SizedBox(height: 32),
+                              _BotonBienvenida(
+                                texto: 'Iniciar sesión',
+                                icono: Icons.monitor_heart_outlined,
+                                estilo: _EstiloBoton.principal,
+                                onPressed: () => Navigator.push(
+                                  context,
+                                  MaterialPageRoute(builder: (_) => const AuthScreen()),
+                                ),
+                              ),
+                              const SizedBox(height: 14),
+                              _BotonBienvenida(
+                                texto: 'Crear cuenta',
+                                icono: Icons.person_outline,
+                                estilo: _EstiloBoton.celeste,
+                                onPressed: () => Navigator.push(
+                                  context,
+                                  MaterialPageRoute(builder: (_) => const AuthScreen(modoRegistroInicial: true)),
+                                ),
+                              ),
+                              const SizedBox(height: 14),
+                              _BotonBienvenida(
+                                texto: 'Entrar como invitado',
+                                icono: Icons.groups_outlined,
+                                estilo: _EstiloBoton.violeta,
+                                onPressed: () => Navigator.pushAndRemoveUntil(
+                                  context,
+                                  MaterialPageRoute(builder: (_) => const IngressMenuScreen()),
+                                  (route) => false,
+                                ),
+                              ),
+                              const SizedBox(height: 26),
+                              const _FuncionesDestacadas(),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Fondo de respaldo: oscuro con luces de escenario violeta y celeste.
+class _FondoEscenario extends StatelessWidget {
+  const _FondoEscenario();
+
+  @override
+  Widget build(BuildContext context) {
+    Widget luz(Alignment alineacion, Color color, double radio) => Align(
+          alignment: alineacion,
+          child: Container(
+            width: radio * 2,
+            height: radio * 2,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: RadialGradient(colors: [color.withOpacity(0.55), color.withOpacity(0)]),
+            ),
+          ),
+        );
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        const DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [Color(0xFF14102B), Color(0xFF0A0818), Color(0xFF05040C)],
+            ),
+          ),
+        ),
+        luz(const Alignment(-0.9, -0.95), BienvenidaScreen._violeta, 150),
+        luz(const Alignment(-0.45, -0.8), BienvenidaScreen._celeste, 110),
+        luz(const Alignment(0.55, -0.9), BienvenidaScreen._celeste, 130),
+        luz(const Alignment(1.0, -0.55), BienvenidaScreen._violeta, 120),
+        luz(const Alignment(-1.0, 0.25), BienvenidaScreen._celeste, 140),
+        luz(const Alignment(1.0, 0.35), BienvenidaScreen._violeta, 150),
+      ],
+    );
+  }
+}
+
+/// Logo: barras verticales de onda de sonido con degradé celeste → violeta.
+class _LogoOnda extends StatelessWidget {
+  const _LogoOnda();
+
+  @override
+  Widget build(BuildContext context) {
+    return const SizedBox(
+      width: 190,
+      height: 120,
+      child: CustomPaint(painter: _PintorOnda()),
+    );
+  }
+}
+
+class _PintorOnda extends CustomPainter {
+  const _PintorOnda();
+
+  // Alto de cada barra (0 a 1), de izquierda a derecha, como en el diseño.
+  static const _alturas = [0.28, 0.55, 0.78, 1.0, 0.78, 0.55, 0.28];
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final ancho = size.width / (_alturas.length * 2 - 1);
+    final degrade = const LinearGradient(
+      begin: Alignment.topCenter,
+      end: Alignment.bottomCenter,
+      colors: [BienvenidaScreen._celeste, Color(0xFF6366F1), BienvenidaScreen._violeta],
+    ).createShader(Offset.zero & size);
+    final pincel = Paint()..shader = degrade;
+    final brillo = Paint()
+      ..shader = degrade
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
+    for (var i = 0; i < _alturas.length; i++) {
+      final alto = size.height * _alturas[i];
+      final rect = RRect.fromRectAndRadius(
+        Rect.fromLTWH(i * ancho * 2, (size.height - alto) / 2, ancho, alto),
+        Radius.circular(ancho / 2),
+      );
+      canvas.drawRRect(rect, brillo);
+      canvas.drawRRect(rect, pincel);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+enum _EstiloBoton { principal, celeste, violeta }
+
+class _BotonBienvenida extends StatelessWidget {
+  final String texto;
+  final IconData icono;
+  final _EstiloBoton estilo;
+  final VoidCallback onPressed;
+
+  const _BotonBienvenida({
+    required this.texto,
+    required this.icono,
+    required this.estilo,
+    required this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final principal = estilo == _EstiloBoton.principal;
+    final color = estilo == _EstiloBoton.violeta ? BienvenidaScreen._violeta : BienvenidaScreen._celeste;
+    return Semantics(
+      button: true,
+      label: texto,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: onPressed,
+          child: Ink(
+            height: 62,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              color: principal ? null : const Color(0xCC07060F),
+              gradient: principal
+                  ? const LinearGradient(colors: [Color(0xFF22D3EE), Color(0xFF06B6D4)])
+                  : null,
+              border: Border.all(color: principal ? const Color(0xFFA5F3FC) : color.withOpacity(0.7), width: 1.3),
+              boxShadow: [BoxShadow(color: color.withOpacity(principal ? 0.55 : 0.25), blurRadius: principal ? 22 : 14)],
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            child: Row(
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: principal ? null : const Color(0x33FFFFFF),
+                    border: principal ? Border.all(color: Colors.white, width: 1.5) : null,
+                  ),
+                  child: Icon(icono, color: principal ? Colors.white : color, size: 24),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Text(
+                    texto,
+                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: Colors.white),
+                  ),
+                ),
+                const Icon(Icons.chevron_right, color: Colors.white, size: 28),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Tarjeta con las cuatro funciones principales de la app.
+class _FuncionesDestacadas extends StatelessWidget {
+  const _FuncionesDestacadas();
+
+  @override
+  Widget build(BuildContext context) {
+    const items = [
+      (Icons.bolt, BienvenidaScreen._celeste, 'Tiempo real', 'Sincronización\ninstantánea'),
+      (Icons.notifications_none, BienvenidaScreen._violeta, 'Urgente', 'Alertas visuales\ny sonoras'),
+      (Icons.groups_outlined, BienvenidaScreen._celeste, 'Multi-sala', 'Manejá varias\nbandas y shows'),
+      (Icons.music_note_outlined, BienvenidaScreen._violeta, 'Setlist en vivo', 'Lista de temas\ncompartida'),
+    ];
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 6),
+      decoration: BoxDecoration(
+        color: const Color(0xB307060F),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0x3322D3EE)),
+      ),
+      child: IntrinsicHeight(
+        child: Row(
+          children: [
+            for (var i = 0; i < items.length; i++) ...[
+              if (i > 0) VerticalDivider(color: Colors.white.withOpacity(0.12), width: 1, thickness: 1),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 3),
+                  child: Column(
+                    children: [
+                      Icon(items[i].$1, color: items[i].$2, size: 34),
+                      const SizedBox(height: 8),
+                      Text(
+                        items[i].$3,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.white),
+                      ),
+                      const SizedBox(height: 4),
+                      // Se achica si no entra, en vez de partir una palabra
+                      // ("Sincronizació/n") en pantallas angostas.
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          items[i].$4,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(fontSize: 10.5, height: 1.3, color: Color(0xCCFFFFFF)),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 // --- PANTALLA DE LOGIN / REGISTRO ---
 
 class AuthScreen extends StatefulWidget {
 
-  const AuthScreen({super.key});
+  /// Abre el formulario ya en modo "Crear cuenta" (botón de la pantalla de
+  /// presentación).
+  final bool modoRegistroInicial;
+
+  const AuthScreen({super.key, this.modoRegistroInicial = false});
 
   @override
 
@@ -2326,6 +2880,12 @@ class AuthScreen extends StatefulWidget {
 }
 
 class _AuthScreenState extends State<AuthScreen> {
+
+  @override
+  void initState() {
+    super.initState();
+    _modoRegistro = widget.modoRegistroInicial;
+  }
 
   final _formKey = GlobalKey<FormState>();
 
@@ -2853,7 +3413,7 @@ class IngressMenuScreen extends StatelessWidget {
 
       context,
 
-      MaterialPageRoute(builder: (_) => const AuthScreen()),
+      MaterialPageRoute(builder: (_) => const BienvenidaScreen()),
 
       (route) => false,
 
