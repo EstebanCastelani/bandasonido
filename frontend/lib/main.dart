@@ -7240,6 +7240,27 @@ class _CifradoViewerScreenState extends State<CifradoViewerScreen> {
 
   final _swipe = DetectorSwipe();
 
+  final _scrollVertical = ScrollController();
+
+  final _scrollHorizontal = ScrollController();
+
+  /// Posición del scroll cuando se apoyó el dedo: si al levantarlo cambió,
+  /// el gesto fue para desplazarse por la letra, no un swipe (sin esto,
+  /// bajar por la letra arrastrando hacia arriba volvía a Pedidos).
+  Offset _scrollAlBajar = Offset.zero;
+
+  Offset get _posicionScroll => Offset(
+        _scrollHorizontal.hasClients ? _scrollHorizontal.offset : 0,
+        _scrollVertical.hasClients ? _scrollVertical.offset : 0,
+      );
+
+  @override
+  void dispose() {
+    _scrollVertical.dispose();
+    _scrollHorizontal.dispose();
+    super.dispose();
+  }
+
   void _navegarAIndice(int indice) {
 
     final item = widget.setlistItems![indice];
@@ -7289,6 +7310,10 @@ class _CifradoViewerScreenState extends State<CifradoViewerScreen> {
     final delta = _swipe.alSubir(evento);
 
     if (delta == null) return;
+
+    // Si la letra se desplazó, el usuario estaba haciendo scroll. El swipe
+    // vale solo cuando no había más para desplazar en esa dirección.
+    if ((_posicionScroll - _scrollAlBajar).distance > 2) return;
 
     const umbral = 80.0;
 
@@ -7398,7 +7423,10 @@ class _CifradoViewerScreenState extends State<CifradoViewerScreen> {
 
       body: Listener(
 
-        onPointerDown: _swipe.alBajar,
+        onPointerDown: (evento) {
+          _swipe.alBajar(evento);
+          _scrollAlBajar = _posicionScroll;
+        },
 
         onPointerUp: _manejarSwipe,
 
@@ -7418,19 +7446,30 @@ class _CifradoViewerScreenState extends State<CifradoViewerScreen> {
 
             final tamano = columnas == 0 ? 14.0 : (disponible / (columnas * 0.6)).clamp(9.0, 14.0);
 
-            return SingleChildScrollView(
-
-              padding: const EdgeInsets.all(16),
+            // Ocupa toda la pantalla aunque la letra sea corta: si no, el
+            // scroll medía solo lo que el texto y el swipe no funcionaba
+            // sobre el espacio vacío de abajo.
+            return SizedBox.expand(
 
               child: SingleChildScrollView(
 
-                scrollDirection: Axis.horizontal,
+                controller: _scrollVertical,
 
-                child: SelectableText(
+                padding: const EdgeInsets.all(16),
 
-                  texto,
+                child: SingleChildScrollView(
 
-                  style: TextStyle(fontFamily: 'RobotoMono', fontSize: tamano, height: 1.6),
+                  controller: _scrollHorizontal,
+
+                  scrollDirection: Axis.horizontal,
+
+                  child: SelectableText(
+
+                    texto,
+
+                    style: TextStyle(fontFamily: 'RobotoMono', fontSize: tamano, height: 1.6),
+
+                  ),
 
                 ),
 
@@ -7546,6 +7585,19 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
   /// moverse por la página, no para cambiar de tema.
   double _zoom = 1.0;
 
+  final _pdfController = PdfViewerController();
+
+  /// Posición del scroll del PDF cuando se apoyó el dedo: si al levantarlo
+  /// cambió, el gesto fue para pasar de página, no un swipe (sin esto,
+  /// bajar por un PDF de varias páginas volvía a Pedidos).
+  Offset _scrollAlBajar = Offset.zero;
+
+  @override
+  void dispose() {
+    _pdfController.dispose();
+    super.dispose();
+  }
+
   void _navegarAIndice(int indice) {
 
     final item = widget.setlistItems![indice];
@@ -7588,6 +7640,10 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
 
     if (delta == null || _zoom > 1.05) return;
 
+    // Si el PDF se desplazó, el usuario estaba haciendo scroll. El swipe
+    // vale solo cuando no había más para desplazar en esa dirección.
+    if ((_pdfController.scrollOffset - _scrollAlBajar).distance > 2) return;
+
     const umbral = 80.0;
 
     if (delta.dx.abs() > delta.dy.abs()) {
@@ -7626,7 +7682,10 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
 
       body: Listener(
 
-        onPointerDown: _swipe.alBajar,
+        onPointerDown: (evento) {
+          _swipe.alBajar(evento);
+          _scrollAlBajar = _pdfController.scrollOffset;
+        },
 
         onPointerUp: _manejarSwipe,
 
@@ -7671,6 +7730,8 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
             : SfPdfViewer.network(
 
                 widget.pdfUrl,
+
+                controller: _pdfController,
 
                 onZoomLevelChanged: (details) => _zoom = details.newZoomLevel,
 

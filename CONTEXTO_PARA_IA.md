@@ -803,6 +803,22 @@ commiteado y qué no.
   (`onZoomLevelChanged`), para poder arrastrar la página ampliada sin cambiar
   de tema. Usá `DetectorSwipe` para cualquier swipe nuevo en vez de guardar un
   `Offset?` suelto.
+  **Segunda trampa (corregida oct-2026): hacer scroll sacaba del visor.**
+  `Listener` ve el arrastre aunque sea un scroll, así que bajar por la letra
+  del cifrado (o por un PDF de varias páginas) arrastrando hacia arriba se
+  tomaba como "swipe arriba → volver a Pedidos". Regla actual en ambos
+  visores: se guarda la posición del scroll al apoyar el dedo
+  (`_scrollAlBajar`: los `ScrollController` del cifrado, o
+  `PdfViewerController.scrollOffset` del PDF) y, si al levantarlo cambió más
+  de 2 px, el gesto fue un scroll y se ignora. Así el swipe solo vale cuando
+  no había más para desplazar en esa dirección (al final de la letra, o si
+  entra entera). Además el contenido del cifrado ocupa toda la pantalla
+  (`SizedBox.expand`): con letra corta el scroll medía solo lo que el texto
+  y el swipe no funcionaba sobre el espacio vacío. Verificado con una
+  prueba de widget (arrastres reales: en el medio desplaza sin salir, al
+  final vuelve a Pedidos, con letra corta vuelve a Pedidos); la prueba se
+  borró después (no hay suite de tests). En el PDF solo se verificó que abre
+  bien con el controlador nuevo, no el gesto en sí.
 
 ## 10. Cómo levantar el proyecto
 
