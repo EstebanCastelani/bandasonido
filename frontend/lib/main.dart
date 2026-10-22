@@ -16,7 +16,7 @@ import 'package:firebase_core/firebase_core.dart';
 
 import 'package:firebase_storage/firebase_storage.dart';
 
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kIsWeb, listEquals;
 
 import 'package:flutter/material.dart';
 
@@ -3803,6 +3803,104 @@ class MisSalasScreen extends StatelessWidget {
   }
 }
 
+// --- PESTAÑAS VISIBLES DE LA SALA ---
+
+/// Pestañas que puede tener la pantalla de sala. Cada usuario elige cuáles
+/// ver (botón de la barra de arriba), por separado para la pantalla de
+/// músico/cantante (RequestScreen) y la del sonidista (SonidistaPage).
+enum PestanaSala {
+  pedidos('PEDIDOS', 'Pedidos'),
+  historial('HISTORIAL', 'Historial'),
+  setlist('SETLIST', 'Setlist'),
+  secuencias('SECUENCIAS', 'Secuencias');
+
+  const PestanaSala(this.etiqueta, this.nombre);
+
+  /// Texto de la pestaña.
+  final String etiqueta;
+
+  /// Texto en el selector.
+  final String nombre;
+}
+
+/// Guarda en el dispositivo qué pestañas quiere ver el usuario (como la
+/// paleta de colores: funciona también para invitados sin cuenta). No se
+/// borra al salir de la sala (ver borrarSesionDeSala).
+class PestanasSalaService {
+  static String _clave(String pantalla) => 'pestanas_sala_$pantalla';
+
+  /// Las pestañas elegidas, en el orden de [todas]. Si nunca se eligió nada
+  /// (o lo guardado ya no sirve), todas.
+  static Future<List<PestanaSala>> cargar(String pantalla, List<PestanaSala> todas) async {
+    final prefs = await SharedPreferences.getInstance();
+    final guardadas = prefs.getStringList(_clave(pantalla));
+    if (guardadas == null) return todas;
+    final elegidas = todas.where((p) => guardadas.contains(p.name)).toList();
+    return elegidas.isEmpty ? todas : elegidas;
+  }
+
+  static Future<void> guardar(String pantalla, List<PestanaSala> elegidas) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(_clave(pantalla), elegidas.map((p) => p.name).toList());
+  }
+}
+
+/// Diálogo con casillas para elegir qué pestañas ver (al menos una).
+/// Devuelve la elección, o null si se canceló.
+Future<List<PestanaSala>?> elegirPestanasSala(
+  BuildContext context, {
+  required List<PestanaSala> todas,
+  required List<PestanaSala> visibles,
+}) {
+  final elegidas = {...visibles};
+  return showDialog<List<PestanaSala>>(
+    context: context,
+    builder: (context) => StatefulBuilder(
+      builder: (context, setDialog) => AlertDialog(
+        title: const Text('¿Qué querés ver en la sala?'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (final p in todas)
+              CheckboxListTile(
+                value: elegidas.contains(p),
+                title: Text(p.nombre),
+                // La última que queda no se puede destildar.
+                onChanged: elegidas.length == 1 && elegidas.contains(p)
+                    ? null
+                    : (v) => setDialog(() => v == true ? elegidas.add(p) : elegidas.remove(p)),
+              ),
+            const Padding(
+              padding: EdgeInsets.only(top: 8),
+              child: Text(
+                'Se guarda en este dispositivo. Tiene que quedar al menos una.',
+                style: TextStyle(fontSize: 12, color: Colors.grey),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, todas.where(elegidas.contains).toList()),
+            child: const Text('Guardar'),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+/// Al salir de una sala se borra solo la sesión de la sala, no el resto de
+/// lo guardado en el dispositivo (paleta de colores, pestañas elegidas).
+/// Antes se hacía prefs.clear(), que también borraba eso.
+Future<void> borrarSesionDeSala() async {
+  final prefs = await SharedPreferences.getInstance();
+  for (final clave in ['tipo_login', 'sala_id', 'nombre', 'rol']) {
+    await prefs.remove(clave);
+  }
+}
+
 // --- PANTALLA DE PEDIDOS INDIVIDUAL (MÚSICO/CANTANTE) ---
 
 class RequestScreen extends StatefulWidget {
@@ -3825,7 +3923,7 @@ class RequestScreen extends StatefulWidget {
 
 
 
-class _RequestScreenState extends State<RequestScreen> with SingleTickerProviderStateMixin {
+class _RequestScreenState extends State<RequestScreen> with TickerProviderStateMixin {
 
   final _customPedidoController = TextEditingController();
 
@@ -3833,7 +3931,13 @@ class _RequestScreenState extends State<RequestScreen> with SingleTickerProvider
 
   bool _esUrgente = false;
 
-  late final TabController _tabController;
+  /// Se vuelve a crear cuando el usuario cambia las pestañas visibles (por
+  /// eso TickerProviderStateMixin y no SingleTicker...).
+  late TabController _tabController;
+
+  static const _todasLasPestanas = [PestanaSala.pedidos, PestanaSala.setlist, PestanaSala.secuencias];
+
+  List<PestanaSala> _pestanas = _todasLasPestanas;
 
   /// Último visor de PDF/cifrado abierto desde el setlist, para poder
 
@@ -3854,7 +3958,11 @@ class _RequestScreenState extends State<RequestScreen> with SingleTickerProvider
     MiembrosSalaService.registrarPresencia(widget.codigoSala)
         .catchError((e) => debugPrint('No se pudo registrar presencia en la sala: $e'));
 
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: _pestanas.length, vsync: this);
+
+    PestanasSalaService.cargar('musico', _todasLasPestanas).then((elegidas) {
+      if (mounted) _aplicarPestanas(elegidas);
+    });
 
   }
 
@@ -3872,13 +3980,37 @@ class _RequestScreenState extends State<RequestScreen> with SingleTickerProvider
 
   }
 
+  /// Cambia las pestañas visibles quedándose, si sigue visible, en la que
+  /// se estaba mirando.
+  void _aplicarPestanas(List<PestanaSala> nuevas) {
+    if (listEquals(nuevas, _pestanas)) return;
+    final actual = _pestanas[_tabController.index];
+    final indice = nuevas.indexOf(actual);
+    _tabController.dispose();
+    setState(() {
+      _pestanas = nuevas;
+      _tabController = TabController(length: nuevas.length, vsync: this, initialIndex: indice < 0 ? 0 : indice);
+    });
+  }
+
+  Future<void> _elegirPestanas() async {
+    final elegidas = await elegirPestanasSala(context, todas: _todasLasPestanas, visibles: _pestanas);
+    if (elegidas == null || !mounted) return;
+    await PestanasSalaService.guardar('musico', elegidas);
+    _aplicarPestanas(elegidas);
+  }
+
+  /// Swipe hacia arriba en el visor de PDF/cifrado: vuelve a la sala y, si
+  /// el usuario tiene la pestaña de Pedidos visible, la muestra.
   void _irAPedidos(Widget visorActual) {
 
     _ultimoVisor = visorActual;
 
     Navigator.pop(context);
 
-    _tabController.animateTo(0);
+    final pedidos = _pestanas.indexOf(PestanaSala.pedidos);
+
+    if (pedidos >= 0) _tabController.animateTo(pedidos);
 
   }
 
@@ -3922,9 +4054,7 @@ class _RequestScreenState extends State<RequestScreen> with SingleTickerProvider
 
   Future<void> _cerrarSesion(BuildContext context) async {
 
-    final prefs = await SharedPreferences.getInstance();
-
-    await prefs.clear();
+    await borrarSesionDeSala();
 
     if (!context.mounted) return;
 
@@ -4122,23 +4252,21 @@ class _RequestScreenState extends State<RequestScreen> with SingleTickerProvider
 
           ),
 
+          IconButton(
+            icon: const Icon(Icons.view_carousel_outlined),
+            tooltip: 'Elegir qué ver en la sala',
+            onPressed: _elegirPestanas,
+          ),
+
         ],
 
-        bottom: TabBar(
-
-          controller: _tabController,
-
-          tabs: const [
-
-            Tab(text: 'PEDIDOS'),
-
-            Tab(text: 'SETLIST'),
-
-            Tab(text: 'SECUENCIAS'),
-
-          ],
-
-        ),
+        // Con una sola pestaña elegida no hace falta la barra.
+        bottom: _pestanas.length < 2
+            ? null
+            : TabBar(
+                controller: _tabController,
+                tabs: [for (final p in _pestanas) Tab(text: p.etiqueta)],
+              ),
 
       ),
 
@@ -4146,9 +4274,9 @@ class _RequestScreenState extends State<RequestScreen> with SingleTickerProvider
 
         controller: _tabController,
 
-        children: [
+        children: _contenidoDePestanas({
 
-          Listener(
+          PestanaSala.pedidos: Listener(
 
             onPointerDown: (e) => _inicioArrastrePedidos = e.position,
 
@@ -4424,7 +4552,7 @@ class _RequestScreenState extends State<RequestScreen> with SingleTickerProvider
 
           ),
 
-          SetlistTab(
+          PestanaSala.setlist: SetlistTab(
 
             codigoSala: widget.codigoSala,
 
@@ -4434,18 +4562,22 @@ class _RequestScreenState extends State<RequestScreen> with SingleTickerProvider
 
           ),
 
-          SecuenciasTab(
+          PestanaSala.secuencias: SecuenciasTab(
             codigoSala: widget.codigoSala,
             nombreUsuario: widget.userName,
           ),
 
-        ],
+        }),
 
       ),
 
     );
 
   }
+
+  /// El contenido de las pestañas elegidas, en orden.
+  List<Widget> _contenidoDePestanas(Map<PestanaSala, Widget> contenido) =>
+      [for (final p in _pestanas) contenido[p]!];
 
 }
 
@@ -8110,7 +8242,7 @@ class SonidistaPage extends StatefulWidget {
 
 }
 
-class _SonidistaPageState extends State<SonidistaPage> with SingleTickerProviderStateMixin {
+class _SonidistaPageState extends State<SonidistaPage> with TickerProviderStateMixin {
 
   bool _pantallaEncendida = true;
 
@@ -8122,7 +8254,18 @@ class _SonidistaPageState extends State<SonidistaPage> with SingleTickerProvider
 
   bool _primerSnapshotPedidos = true;
 
-  late final TabController _tabController;
+  /// Se vuelve a crear cuando el usuario cambia las pestañas visibles (por
+  /// eso TickerProviderStateMixin y no SingleTicker...).
+  late TabController _tabController;
+
+  static const _todasLasPestanas = [
+    PestanaSala.pedidos,
+    PestanaSala.historial,
+    PestanaSala.setlist,
+    PestanaSala.secuencias,
+  ];
+
+  List<PestanaSala> _pestanas = _todasLasPestanas;
 
   /// Último visor de PDF/cifrado abierto desde el setlist, para poder
 
@@ -8145,7 +8288,11 @@ class _SonidistaPageState extends State<SonidistaPage> with SingleTickerProvider
 
     _escucharPedidosNuevos();
 
-    _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(length: _pestanas.length, vsync: this);
+
+    PestanasSalaService.cargar('sonidista', _todasLasPestanas).then((elegidas) {
+      if (mounted) _aplicarPestanas(elegidas);
+    });
 
   }
 
@@ -8165,13 +8312,38 @@ class _SonidistaPageState extends State<SonidistaPage> with SingleTickerProvider
 
   }
 
+  /// Cambia las pestañas visibles quedándose, si sigue visible, en la que
+  /// se estaba mirando. El aviso sonoro de pedidos nuevos sigue andando
+  /// aunque la pestaña de Pedidos esté oculta.
+  void _aplicarPestanas(List<PestanaSala> nuevas) {
+    if (listEquals(nuevas, _pestanas)) return;
+    final actual = _pestanas[_tabController.index];
+    final indice = nuevas.indexOf(actual);
+    _tabController.dispose();
+    setState(() {
+      _pestanas = nuevas;
+      _tabController = TabController(length: nuevas.length, vsync: this, initialIndex: indice < 0 ? 0 : indice);
+    });
+  }
+
+  Future<void> _elegirPestanas() async {
+    final elegidas = await elegirPestanasSala(context, todas: _todasLasPestanas, visibles: _pestanas);
+    if (elegidas == null || !mounted) return;
+    await PestanasSalaService.guardar('sonidista', elegidas);
+    _aplicarPestanas(elegidas);
+  }
+
+  /// Swipe hacia arriba en el visor de PDF/cifrado: vuelve a la sala y, si
+  /// la pestaña de Pedidos está visible, la muestra.
   void _irAPedidos(Widget visorActual) {
 
     _ultimoVisor = visorActual;
 
     Navigator.pop(context);
 
-    _tabController.animateTo(0);
+    final pedidos = _pestanas.indexOf(PestanaSala.pedidos);
+
+    if (pedidos >= 0) _tabController.animateTo(pedidos);
 
   }
 
@@ -8255,9 +8427,7 @@ class _SonidistaPageState extends State<SonidistaPage> with SingleTickerProvider
 
   Future<void> _cerrarSesion(BuildContext context) async {
 
-    final prefs = await SharedPreferences.getInstance();
-
-    await prefs.clear();
+    await borrarSesionDeSala();
 
     if (!context.mounted) return;
 
@@ -8557,31 +8727,25 @@ class _SonidistaPageState extends State<SonidistaPage> with SingleTickerProvider
 
           ),
 
+          IconButton(
+            icon: const Icon(Icons.view_carousel_outlined),
+            tooltip: 'Elegir qué ver en la sala',
+            onPressed: _elegirPestanas,
+          ),
+
         ],
 
-        bottom: TabBar(
-
-          controller: _tabController,
-
-          // Con 4 pestañas los nombres no entran en el ancho de un celular:
-          // la barra se desliza en vez de cortarlos.
-          isScrollable: true,
-
-          tabAlignment: TabAlignment.center,
-
-          tabs: const [
-
-            Tab(text: 'PEDIDOS'),
-
-            Tab(text: 'HISTORIAL'),
-
-            Tab(text: 'SETLIST'),
-
-            Tab(text: 'SECUENCIAS'),
-
-          ],
-
-        ),
+        // Con una sola pestaña elegida no hace falta la barra.
+        bottom: _pestanas.length < 2
+            ? null
+            : TabBar(
+                controller: _tabController,
+                // Con 4 pestañas los nombres no entran en el ancho de un
+                // celular: la barra se desliza en vez de cortarlos.
+                isScrollable: _pestanas.length > 3,
+                tabAlignment: _pestanas.length > 3 ? TabAlignment.center : null,
+                tabs: [for (final p in _pestanas) Tab(text: p.etiqueta)],
+              ),
 
       ),
 
@@ -8589,9 +8753,9 @@ class _SonidistaPageState extends State<SonidistaPage> with SingleTickerProvider
 
         controller: _tabController,
 
-        children: [
+        children: _contenidoDePestanas({
 
-          Listener(
+          PestanaSala.pedidos: Listener(
 
             onPointerDown: (e) => _inicioArrastrePedidos = e.position,
 
@@ -8691,7 +8855,7 @@ class _SonidistaPageState extends State<SonidistaPage> with SingleTickerProvider
 
           ),
 
-          StreamBuilder<QuerySnapshot>(
+          PestanaSala.historial: StreamBuilder<QuerySnapshot>(
 
             stream: FirebaseFirestore.instance
 
@@ -8777,7 +8941,7 @@ class _SonidistaPageState extends State<SonidistaPage> with SingleTickerProvider
 
           ),
 
-          SetlistTab(
+          PestanaSala.setlist: SetlistTab(
 
             codigoSala: widget.codigoSala,
 
@@ -8789,18 +8953,22 @@ class _SonidistaPageState extends State<SonidistaPage> with SingleTickerProvider
 
           ),
 
-          SecuenciasTab(
+          PestanaSala.secuencias: SecuenciasTab(
             codigoSala: widget.codigoSala,
             nombreUsuario: 'Sonidista',
             esSonidista: true,
           ),
 
-        ],
+        }),
 
       ),
 
     );
 
   }
+
+  /// El contenido de las pestañas elegidas, en orden.
+  List<Widget> _contenidoDePestanas(Map<PestanaSala, Widget> contenido) =>
+      [for (final p in _pestanas) contenido[p]!];
 
 }

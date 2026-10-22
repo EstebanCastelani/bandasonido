@@ -76,7 +76,8 @@ SELECTOR DE IDENTIDAD DE COLOR     — PaletaPickerScreen
 PANTALLA DE CREACIÓN DE SALA       — CrearSalaScreen
 PANTALLA PARA UNIRSE A SALA        — UnirmeSalaScreen
 MIS SALAS                          — MisSalasScreen (historial multi-sala, función Pro)
-PANTALLA DE PEDIDOS INDIVIDUAL     — RequestScreen (músico/cantante, tabs Pedidos/Setlist)
+PESTAÑAS VISIBLES DE LA SALA       — PestanaSala, PestanasSalaService, elegirPestanasSala, borrarSesionDeSala
+PANTALLA DE PEDIDOS INDIVIDUAL     — RequestScreen (músico/cantante, tabs Pedidos/Setlist/Secuencias)
 LISTA DE TEMAS COMPARTIDA          — SetlistTab (widget reusado en RequestScreen y SonidistaPage)
 SECUENCIAS DE LA SALA              — SecuenciasTab (pestaña con reproductor, misma reutilización)
 ADMINISTRACIÓN DE FRASES           — FrasesAdminScreen ("Mis frases")
@@ -424,6 +425,33 @@ registrada sin chequear `esPro` — ver §8 para cómo revertir esto.
     sido una secuencia de la sala de prueba que quedó en +3 y 110% por una
     prueba de sincronización. Si vuelve a aparecer, pedir modelo de
     celular y navegador.
+22. **Cada usuario elige qué pestañas ver en la sala** (oct-2026): botón
+    con ícono de carrusel (`Icons.view_carousel_outlined`) en la barra de
+    `RequestScreen` y de `SonidistaPage` → diálogo con casillas
+    (`elegirPestanasSala`); tiene que quedar al menos una. Músico/cantante
+    elige entre Pedidos, Setlist y Secuencias; el sonidista, entre Pedidos,
+    Historial, Setlist y Secuencias (elección separada). Se guarda **en el
+    dispositivo** (`SharedPreferences`, claves `pestanas_sala_musico` y
+    `pestanas_sala_sonidista`; `PestanasSalaService`), así funciona también
+    para invitados sin cuenta; no se sincroniza entre dispositivos ni con
+    la cuenta. Detalles de implementación:
+    - Las pestañas se arman desde un mapa `PestanaSala → contenido`
+      (`_contenidoDePestanas`) filtrado por la elección; al cambiarla se
+      vuelve a crear el `TabController` (por eso esas pantallas usan
+      `TickerProviderStateMixin`), quedándose en la pestaña que se miraba
+      si sigue visible.
+    - Con una sola pestaña no se muestra la barra de pestañas. La del
+      sonidista solo se desliza (`isScrollable`) con 4.
+    - Si Pedidos está oculta, el swipe hacia arriba del visor de PDF/cifrado
+      solo vuelve a la sala (`_irAPedidos` busca el índice real de
+      Pedidos). El sonidista sigue recibiendo el aviso sonoro de pedidos
+      nuevos aunque oculte Pedidos.
+    - Ocultar Secuencias saca su pestaña de la pantalla y corta lo que esté
+      sonando (el reproductor se libera con la pestaña).
+    - **Al salir de la sala ya no se hace `prefs.clear()`**: se borran solo
+      las claves de la sesión (`borrarSesionDeSala`: `tipo_login`,
+      `sala_id`, `nombre`, `rol`). Antes, salir de una sala borraba también
+      la paleta de colores elegida (y hubiera borrado las pestañas).
 
 ## 6. Modelo de seguridad de las salas — trade-off consciente, no bug
 
