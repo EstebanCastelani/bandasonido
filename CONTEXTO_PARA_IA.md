@@ -126,10 +126,11 @@ usuarios/{uid}/mis_secuencias/{id}   — biblioteca personal de secuencias (audi
   usuarios/{uid}/secuencias/. Solo el dueño lee/escribe.
 
 salas/{codigoSala}/secuencias/{id}    — secuencias cargadas para el show de hoy
-  titulo, audioUrl, subidoPor, orden, createdAt, semitonos, tempoPorcentaje
-  semitonos (int, -12..12) y tempoPorcentaje (int, 50..150): tono y tempo
-  de esa secuencia en la sala, sincronizados a todos (faltan en docs
-  viejos → 0 y 100).
+  titulo, audioUrl, subidoPor, orden, createdAt, semitonos, tempoPorcentaje,
+  volumenPorcentaje
+  semitonos (int, -12..12), tempoPorcentaje (int, 50..150) y
+  volumenPorcentaje (int, 0..100): ajustes de esa secuencia en la sala,
+  sincronizados a todos (faltan en docs viejos → 0, 100 y 100).
   Copia liviana de las elegidas desde mis_secuencias (no se comparte la
   biblioteca entera). El play NO se sincroniza entre dispositivos.
 
@@ -320,32 +321,74 @@ registrada sin chequear `esPro` — ver §8 para cómo revertir esto.
     reordenar, quitar, vista del sonidista). **No probado todavía**: subir
     audios desde "Mis secuencias" (necesita que el dueño inicie sesión con
     su cuenta; el bucket ya acepta audio).
-21. **Tono y tempo de las secuencias (como Music Speed Changer)**: en la
-    pestaña Secuencias de la sala, el botón de ajustes (ícono de
+21. **Tono, tempo y volumen de las secuencias (como Music Speed Changer)**:
+    en la pestaña Secuencias de la sala, el botón de ajustes (ícono de
     controles, `_ajustarTonoYTempo` en `SecuenciasTab`) abre un panel con
-    tono ±12 semitonos (botones de a uno) y tempo 50-150% (deslizador +
-    botones de a 1%) y "Restablecer". Uno no cambia al otro. Suena en vivo
-    mientras se mueve y se guarda en el doc de la sala
-    (`semitonos`/`tempoPorcentaje`, `SecuenciasService.actualizarAjustes`;
-    el tempo del deslizador se guarda al soltarlo) → **sincronizado a toda
-    la sala** (decisión del dueño): si otro integrante lo cambia, la pista
-    que está sonando acá se ajusta sola (`ReproductorSecuencias.
-    aplicarAjustes`, llamado desde el `StreamBuilder`). La fila muestra
-    "Tono −2 · Tempo 95%". El sonidista ve el resumen pero no puede
-    cambiarlo (igual que la transposición del setlist). En "Mis
-    secuencias" no hay ajustes.
+    tono ±12 semitonos (botones de a uno), tempo 50-150% (deslizador +
+    botones de a 1%), volumen 0-100% (deslizador + botones de a 5%) y
+    "Restablecer". **Ninguno cambia a los otros**: `aplicarAjustes` solo
+    manda al reproductor lo que cambió (antes mandaba tono y tempo juntos).
+    Suena en vivo mientras se mueve y se guarda en el doc de la sala
+    (`semitonos`/`tempoPorcentaje`/`volumenPorcentaje`,
+    `SecuenciasService.actualizarAjustes`; los deslizadores se guardan al
+    soltarlos) → **sincronizado a toda la sala** (decisión del dueño): si
+    otro integrante lo cambia, la pista que está sonando acá se ajusta sola
+    (`ReproductorSecuencias.aplicarAjustes`, llamado desde el
+    `StreamBuilder`). La fila muestra "Tono −2 · Tempo 95% · Vol 80%". El
+    sonidista ve el resumen pero no puede cambiarlo (igual que la
+    transposición del setlist). En "Mis secuencias" no hay ajustes.
+    **Fade out**: botón con flecha hacia abajo junto a "detener" mientras
+    suena; baja el volumen en `ReproductorSecuencias.duracionFadeOut` (4 s)
+    y frena (web: `rwFadeOut`; Android: baja `setVolume` de a pasos).
+    **Sin chasquidos (web)**: play/pausa/stop/saltar/cambiar de pista usan
+    fundidos de 15-40 ms (`nodoFundido`); un corte en seco de la onda suena
+    como "click" en los parlantes.
     **Cómo suena**: el reproductor normal (audioplayers) solo cambia la
     velocidad; separar tono de tempo requiere procesar el audio. En web,
     `ReproductorSecuencias` usa `web/reproductor_secuencias.js`, que
     **reproduce mientras descarga** con un `<audio>` (no baja la pista
     entera): el **tempo** lo hace el navegador (`playbackRate` con
     `preservesPitch`, ya mantiene el tono) y el **tono** lo hace SoundTouch
-    en vivo sobre la salida (`createMediaElementSource` → ScriptProcessor de
-    4096 → `SoundTouch` con solo `pitchSemitones`; `web/soundtouch.js` =
-    soundtouchjs 0.3.0 de npm, checksum verificado, LGPL-2.1 →
-    `web/soundtouch.LICENSE.txt`; solo se le quitó la línea final
-    `sourceMappingURL` para no pedir un `.map` inexistente). Con tono
-    original el audio va directo a la salida, sin pasar por SoundTouch.
+    en vivo en el **hilo de audio** (`createMediaElementSource` →
+    AudioWorklet `web/procesador_tono.js` → `SoundTouch` con solo
+    `pitchSemitones`; `web/soundtouch.js` = soundtouchjs 0.3.0 de npm,
+    checksum verificado, LGPL-2.1 → `web/soundtouch.LICENSE.txt`; solo se le
+    quitó la línea final `sourceMappingURL` para no pedir un `.map`
+    inexistente). Cadena: `<audio>` → [procesador de tono] → `nodoVolumen` →
+    `nodoFundido` → salida. Con tono original el audio va directo, sin pasar
+    por SoundTouch. Detalles que costaron (no deshacer):
+    - **AudioWorklet, no ScriptProcessor.** La primera versión procesaba en
+      un ScriptProcessor (hilo principal); con el hilo ocupado (Flutter
+      dibujando, celular lento, pestaña en segundo plano) el navegador
+      metía huecos en el audio. El worklet se carga apenas carga la página
+      (`prepararCadena()` al importar el módulo; el contexto queda
+      suspendido hasta el primer toque) para no tener que esperarlo con un
+      `await` al dar play.
+    - **Reserva de 8.192 muestras** (`RESERVA` en procesador_tono.js):
+      SoundTouch devuelve audio en tandas de ~5.300 muestras a 48 kHz; con
+      4.096 se quedaba sin audio y hacía huecos (simulado en Node: 3 a 8
+      huecos en 20 s; con 8.192, ninguno). Agrega ~170 ms de demora al
+      sonido con tono, inaudible para una secuencia.
+    - **Calidad**: `stretch.setParameters(sampleRate, 0, 0, 8)` (SoundTouch
+      calcula sus ventanas para 44,1 kHz por defecto y el contexto suele
+      correr a 48 kHz) y búsqueda completa (`quickSeek = false`, ~2,5 ms por
+      cada 85 ms de audio en una PC). Si un dispositivo usa más del 35% del
+      tiempo procesando, pasa solo a la búsqueda rápida (`busquedaRapida` en
+      `rwEstado`, no se avisa en la UI).
+    - **Cambiar el tono, o el tempo con tono activo, mientras suena**:
+      tocar los parámetros con audio a medio procesar empalma mal (medido:
+      "click" de 0,25-0,36 en un tono puro). Se baja el volumen, se vacía
+      SoundTouch y el audio vuelve con una rampa de 1.024 muestras apenas
+      sale audio procesado (deja ~200 ms de silencio). Mientras se arrastra
+      el deslizador de tempo con tono activo queda en silencio hasta
+      soltarlo; sin tono el tempo cambia en vivo sin cortes.
+    - Para medir sin dejar código de prueba: en una pestaña aparte,
+      parchear `AudioNode.prototype.connect` para meter un AudioWorklet
+      "grabador" antes de la salida e importar una segunda copia del módulo
+      (`import('./reproductor_secuencias.js?prueba=' + Date.now())`), que
+      arma su cadena ya con el grabador. Con un tono de 440 Hz se mide el
+      salto máximo entre muestras (natural: ~0,021; un "click": >0,1) y la
+      frecuencia real.
     Requiere `audio.crossOrigin = 'anonymous'` (Supabase manda CORS): sin
     eso el navegador entrega **silencio** al procesar audio de otro dominio,
     sin dar error. Al cambiar de pista hay que volver a poner el
@@ -369,8 +412,18 @@ registrada sin chequear `esPro` — ver §8 para cómo revertir esto.
     cambio escrito por "otro integrante" (+3, 110%) llegó solo al
     reproductor. Con la versión que reproduce mientras descarga: suena a
     los 0,62 s del toque, sale señal con tono original y con −2 semitonos
-    (medido con un AnalyserNode), y a 75% avanza a 0,75×. El cambio de tono
-    no se escuchó (se verificó por señal). No se probó en un celular real.
+    (medido con un AnalyserNode), y a 75% avanza a 0,75×. Con el
+    procesador en el hilo de audio (medido con un tono de 440 Hz): +1, +2 y
+    −1 salen exactos (1,01 / 2,00 / −1,00) y el tempo no se mueve al cambiar
+    el tono; tempo 80% y 110% con tono exactos; pausa, play, saltar,
+    volumen, detener, cambiar tono y cambiar tempo sin saltos (≤0,024); el
+    fade out baja parejo y frena. El cambio de tono no se escuchó (se
+    verificó por señal). No se probó en un celular real.
+    **Reporte del dueño (oct-2026)**: "sube más de un semitono y cambia el
+    tempo" en el celular. No se pudo reproducir; lo más probable es que haya
+    sido una secuencia de la sala de prueba que quedó en +3 y 110% por una
+    prueba de sincronización. Si vuelve a aparecer, pedir modelo de
+    celular y navegador.
 
 ## 6. Modelo de seguridad de las salas — trade-off consciente, no bug
 

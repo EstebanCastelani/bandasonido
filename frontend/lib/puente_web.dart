@@ -56,6 +56,8 @@ extension type _ReproductorJs._(JSObject _) implements JSObject {
   external void setTempo(JSNumber valor);
   external void setSemitonos(JSNumber valor);
   external void setRepetir(JSBoolean valor);
+  external void setVolumen(JSNumber valor);
+  external void fadeOut(JSNumber segundos);
   external _EstadoJs estado();
 }
 
@@ -84,6 +86,13 @@ void rwIrA(double segundos) => _reproductor.irA(segundos.toJS);
 void rwTempo(double valor) => _reproductor.setTempo(valor.toJS);
 void rwSemitonos(int valor) => _reproductor.setSemitonos(valor.toJS);
 void rwRepetir(bool valor) => _reproductor.setRepetir(valor.toJS);
+
+/// 0 a 1.
+void rwVolumen(double valor) => _reproductor.setVolumen(valor.toJS);
+
+/// Baja hasta silencio en [segundos] y frena; al terminar, rwEstado()
+/// informa `termino` como si la pista hubiera llegado al final.
+void rwFadeOut(double segundos) => _reproductor.fadeOut(segundos.toJS);
 
 ({double posicion, double duracion, bool sonando, bool termino}) rwEstado() {
   final e = _reproductor.estado();

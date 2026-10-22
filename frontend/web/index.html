@@ -45,8 +45,9 @@
        (usa lame.min.js desde conversor_mp3_worker.js — ver
        lib/puente_web.dart). -->
   <script src="conversor_mp3.js"></script>
-  <!-- Reproductor de secuencias con tono y tempo (SoundTouch, ver
-       lib/puente_web.dart). Es módulo porque soundtouch.js lo es. -->
+  <!-- Reproductor de secuencias con tono, tempo y volumen (ver
+       lib/puente_web.dart). Carga procesador_tono.js (SoundTouch en el
+       hilo de audio); es módulo para resolver esa ruta con import.meta. -->
   <script type="module" src="reproductor_secuencias.js"></script>
 
   <!--

@@ -1518,15 +1518,21 @@ class SecuenciasService {
     await batch.commit();
   }
 
-  /// Tono (semitonos) y tempo (porcentaje, 100 = normal) de una secuencia de
-  /// la sala. Se guardan en el documento para que a todos les suene igual.
+  /// Tono (semitonos), tempo y volumen (porcentajes, 100 = como se subió) de
+  /// una secuencia de la sala. Se guardan en el documento para que a todos
+  /// les suene igual.
   static Future<void> actualizarAjustes(
     String codigoSala,
     String id, {
     required int semitonos,
     required int tempoPorcentaje,
+    required int volumenPorcentaje,
   }) async {
-    await _refSala(codigoSala).doc(id).update({'semitonos': semitonos, 'tempoPorcentaje': tempoPorcentaje});
+    await _refSala(codigoSala).doc(id).update({
+      'semitonos': semitonos,
+      'tempoPorcentaje': tempoPorcentaje,
+      'volumenPorcentaje': volumenPorcentaje,
+    });
   }
 }
 
@@ -1555,6 +1561,8 @@ void rwIrA(double segundos) => _soloWeb();
 void rwTempo(double valor) => _soloWeb();
 void rwSemitonos(int valor) => _soloWeb();
 void rwRepetir(bool valor) => _soloWeb();
+void rwVolumen(double valor) => _soloWeb();
+void rwFadeOut(double segundos) => _soloWeb();
 ({double posicion, double duracion, bool sonando, bool termino}) rwEstado() => _soloWeb();
 
 /// Reproductor compartido por la pestaña Secuencias de la sala y por "Mis
@@ -1589,6 +1597,16 @@ class ReproductorSecuencias extends ChangeNotifier {
   bool cargando = false;
   double tempo = 1.0;
   int semitonos = 0;
+
+  /// 0 a 1.
+  double volumen = 1.0;
+
+  /// Mientras baja el volumen con "Fade" (después se detiene sola).
+  bool enFadeOut = false;
+  Timer? _fadeNativo;
+
+  /// Duración del fade out para terminar una pista en vivo.
+  static const duracionFadeOut = Duration(seconds: 4);
 
   ReproductorSecuencias() {
     if (_web) return;
@@ -1628,18 +1646,36 @@ class ReproductorSecuencias extends ChangeNotifier {
         _sondeo?.cancel();
         estado = PlayerState.completed;
         posicion = Duration.zero;
+        enFadeOut = false;
       }
       notifyListeners();
     });
   }
 
+  /// Corta un fade out en curso fuera de la web (en web lo cancela el propio
+  /// reproductor JS al dar play/pausa) y deja el volumen como estaba.
+  void _cancelarFadeNativo() {
+    _fadeNativo?.cancel();
+    _fadeNativo = null;
+    if (!_web && enFadeOut) _player!.setVolume(volumen);
+    enFadeOut = false;
+  }
+
   /// Play/pausa sobre la pista [id]. Si es otra distinta a la actual, corta
   /// la anterior y arranca la nueva desde el principio, con [tempo] (1 =
-  /// normal) y [semitonos].
-  Future<void> alternar(String id, String url, {double tempo = 1.0, int semitonos = 0}) async {
+  /// normal), [semitonos] y [volumen] (0 a 1).
+  Future<void> alternar(
+    String id,
+    String url, {
+    double tempo = 1.0,
+    int semitonos = 0,
+    double volumen = 1.0,
+  }) async {
     // Antes de cualquier await: los navegadores de celular solo dejan
     // arrancar audio dentro del toque del usuario.
     if (_web) puente.rwDesbloquear();
+    _cancelarFadeNativo();
+    enFadeOut = false;
     if (idActual == id && (!_web || _duenoWeb == this)) {
       if (estado == PlayerState.playing) {
         if (_web) {
@@ -1667,16 +1703,18 @@ class ReproductorSecuencias extends ChangeNotifier {
     duracion = Duration.zero;
     this.tempo = tempo;
     this.semitonos = semitonos;
+    this.volumen = volumen;
     cargando = true;
     notifyListeners();
     try {
       if (_web) {
         _duenoWeb = this;
         _sondeo?.cancel();
-        // Tono y tempo antes de cargar: rwCargar ya arranca a sonar apenas
-        // hay datos (sin esperar a bajar la pista entera).
+        // Ajustes antes de cargar: rwCargar ya arranca a sonar apenas hay
+        // datos (sin esperar a bajar la pista entera).
         puente.rwTempo(this.tempo);
         puente.rwSemitonos(this.semitonos);
+        puente.rwVolumen(this.volumen);
         puente.rwRepetir(repetir);
         final segundos = await puente.rwCargar(url);
         // Se pidió otra pista (o la tomó otra pantalla) mientras cargaba.
@@ -1687,6 +1725,7 @@ class ReproductorSecuencias extends ChangeNotifier {
       } else {
         await _player!.stop();
         await _player!.setReleaseMode(repetir ? ReleaseMode.loop : ReleaseMode.stop);
+        await _player!.setVolume(this.volumen);
         await _player!.play(UrlSource(url));
         await _player!.setPlaybackRate(this.tempo);
       }
@@ -1696,25 +1735,67 @@ class ReproductorSecuencias extends ChangeNotifier {
     }
   }
 
-  /// Aplica tono y tempo a la pista [id] si es la que está cargada (si no,
-  /// se toman la próxima vez que se le dé play). Se llama al mover los
-  /// controles y cuando llega el cambio de otro integrante de la sala.
-  Future<void> aplicarAjustes(String id, {required double tempo, required int semitonos}) async {
-    if (idActual != id || (this.tempo == tempo && this.semitonos == semitonos)) return;
+  /// Aplica tono, tempo y volumen a la pista [id] si es la que está cargada
+  /// (si no, se toman la próxima vez que se le dé play). Se llama al mover
+  /// los controles y cuando llega el cambio de otro integrante de la sala.
+  Future<void> aplicarAjustes(
+    String id, {
+    required double tempo,
+    required int semitonos,
+    required double volumen,
+  }) async {
+    if (idActual != id) return;
+    if (this.tempo == tempo && this.semitonos == semitonos && this.volumen == volumen) return;
+    final cambioTempo = this.tempo != tempo;
+    final cambioTono = this.semitonos != semitonos;
+    final cambioVolumen = this.volumen != volumen;
     this.tempo = tempo;
     this.semitonos = semitonos;
+    this.volumen = volumen;
+    // Cada ajuste se aplica solo si cambió: mover el tono no toca el tempo
+    // ni el volumen, y viceversa.
     if (_web) {
       if (_duenoWeb == this) {
-        puente.rwTempo(tempo);
-        puente.rwSemitonos(semitonos);
+        if (cambioTempo) puente.rwTempo(tempo);
+        if (cambioTono) puente.rwSemitonos(semitonos);
+        if (cambioVolumen) puente.rwVolumen(volumen);
       }
     } else {
-      await _player!.setPlaybackRate(tempo);
+      if (cambioTempo) await _player!.setPlaybackRate(tempo);
+      if (cambioVolumen && !enFadeOut) await _player!.setVolume(volumen);
     }
     notifyListeners();
   }
 
+  /// Baja el volumen hasta silencio en [duracionFadeOut] y frena, para
+  /// terminar una pista en vivo sin cortarla en seco.
+  Future<void> fadeOut() async {
+    if (estado != PlayerState.playing || enFadeOut) return;
+    enFadeOut = true;
+    notifyListeners();
+    if (_web) {
+      if (_duenoWeb == this) puente.rwFadeOut(duracionFadeOut.inMilliseconds / 1000);
+      return;
+    }
+    const pasos = 40;
+    var paso = 0;
+    _fadeNativo = Timer.periodic(duracionFadeOut ~/ pasos, (t) async {
+      paso++;
+      await _player!.setVolume(volumen * (1 - paso / pasos));
+      if (paso >= pasos) {
+        t.cancel();
+        _fadeNativo = null;
+        await _player!.stop();
+        await _player!.setVolume(volumen);
+        enFadeOut = false;
+        posicion = Duration.zero;
+        notifyListeners();
+      }
+    });
+  }
+
   Future<void> detener() async {
+    _cancelarFadeNativo();
     if (_web) {
       if (_duenoWeb == this) puente.rwDetener();
       _sondeo?.cancel();
@@ -1755,6 +1836,7 @@ class ReproductorSecuencias extends ChangeNotifier {
   @override
   void dispose() {
     _sondeo?.cancel();
+    _fadeNativo?.cancel();
     if (_web && _duenoWeb == this) {
       puente.rwDetener();
       _duenoWeb = null;
@@ -1777,9 +1859,11 @@ class FilaSecuencia extends StatelessWidget {
   final String? subtitulo;
   final Widget? acciones;
 
-  /// Con qué tempo (1 = normal) y tono arranca la pista al darle play.
+  /// Con qué tempo (1 = normal), tono y volumen (0 a 1) arranca la pista al
+  /// darle play.
   final double tempo;
   final int semitonos;
+  final double volumen;
 
   const FilaSecuencia({
     super.key,
@@ -1791,6 +1875,7 @@ class FilaSecuencia extends StatelessWidget {
     this.acciones,
     this.tempo = 1.0,
     this.semitonos = 0,
+    this.volumen = 1.0,
   });
 
   @override
@@ -1816,7 +1901,9 @@ class FilaSecuencia extends StatelessWidget {
                   tooltip: sonando ? 'Pausar' : 'Reproducir',
                   onPressed: audioUrl.isEmpty
                       ? null
-                      : () => reproductor.alternar(id, audioUrl, tempo: tempo, semitonos: semitonos).catchError((e) {
+                      : () => reproductor
+                              .alternar(id, audioUrl, tempo: tempo, semitonos: semitonos, volumen: volumen)
+                              .catchError((e) {
                             if (context.mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(content: Text('No se pudo reproducir: $e'), backgroundColor: Colors.redAccent),
@@ -1845,6 +1932,13 @@ class FilaSecuencia extends StatelessWidget {
                         ),
                       ),
                       Text(ReproductorSecuencias.formatear(reproductor.duracion), style: const TextStyle(fontSize: 12)),
+                      IconButton(
+                        icon: Icon(Icons.trending_down, color: reproductor.enFadeOut ? context.acento : null),
+                        tooltip: reproductor.enFadeOut
+                            ? 'Bajando el volumen...'
+                            : 'Fade out (${ReproductorSecuencias.duracionFadeOut.inSeconds} s)',
+                        onPressed: sonando && !reproductor.enFadeOut ? reproductor.fadeOut : null,
+                      ),
                       IconButton(
                         icon: const Icon(Icons.stop),
                         tooltip: 'Detener',
@@ -5559,25 +5653,40 @@ class _SecuenciasTabState extends State<SecuenciasTab> with AutomaticKeepAliveCl
     return '$signo${semitonos.abs()} ${semitonos.abs() == 1 ? 'semitono' : 'semitonos'}';
   }
 
-  /// "Tono +2 · Tempo 95%", o null si la secuencia está como se subió.
-  static String? _resumenAjustes(int semitonos, int tempoPorcentaje) {
+  /// "Tono +2 · Tempo 95% · Vol 80%", o null si la secuencia está como se
+  /// subió.
+  static String? _resumenAjustes(int semitonos, int tempoPorcentaje, int volumenPorcentaje) {
     final partes = [
       if (semitonos != 0) 'Tono ${semitonos > 0 ? '+' : '−'}${semitonos.abs()}',
       if (tempoPorcentaje != 100) 'Tempo $tempoPorcentaje%',
+      if (volumenPorcentaje != 100) 'Vol $volumenPorcentaje%',
     ];
     return partes.isEmpty ? null : partes.join(' · ');
   }
 
-  /// Tono (±12 semitonos) y tempo (50-150%) de una secuencia, como Music
-  /// Speed Changer: uno no cambia al otro. Suena en vivo mientras se mueve y
-  /// se guarda en la sala para todos (el tempo al soltar el deslizador).
-  Future<void> _ajustarTonoYTempo(String id, String titulo, int semitonosIniciales, int tempoInicial) async {
+  /// Tono (±12 semitonos), tempo (50-150%) y volumen (0-100%) de una
+  /// secuencia, como Music Speed Changer: ninguno cambia a los otros. Suena
+  /// en vivo mientras se mueve y se guarda en la sala para todos (los
+  /// deslizadores, al soltarlos).
+  Future<void> _ajustarTonoYTempo(
+    String id,
+    String titulo,
+    int semitonosIniciales,
+    int tempoInicial,
+    int volumenInicial,
+  ) async {
     var semitonos = semitonosIniciales;
     var tempo = tempoInicial;
+    var volumen = volumenInicial;
 
     void guardar() {
-      SecuenciasService.actualizarAjustes(widget.codigoSala, id, semitonos: semitonos, tempoPorcentaje: tempo)
-          .catchError((e) {
+      SecuenciasService.actualizarAjustes(
+        widget.codigoSala,
+        id,
+        semitonos: semitonos,
+        tempoPorcentaje: tempo,
+        volumenPorcentaje: volumen,
+      ).catchError((e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('No se pudo guardar el ajuste: $e'), backgroundColor: Colors.redAccent),
@@ -5591,12 +5700,13 @@ class _SecuenciasTabState extends State<SecuenciasTab> with AutomaticKeepAliveCl
       isScrollControlled: true,
       builder: (context) => StatefulBuilder(
         builder: (context, setSheet) {
-          void cambiar({int? nuevoTono, int? nuevoTempo, bool guardarYa = true}) {
+          void cambiar({int? nuevoTono, int? nuevoTempo, int? nuevoVolumen, bool guardarYa = true}) {
             setSheet(() {
               if (nuevoTono != null) semitonos = nuevoTono;
               if (nuevoTempo != null) tempo = nuevoTempo;
+              if (nuevoVolumen != null) volumen = nuevoVolumen;
             });
-            _reproductor.aplicarAjustes(id, tempo: tempo / 100, semitonos: semitonos);
+            _reproductor.aplicarAjustes(id, tempo: tempo / 100, semitonos: semitonos, volumen: volumen / 100);
             if (guardarYa) guardar();
           }
 
@@ -5611,7 +5721,7 @@ class _SecuenciasTabState extends State<SecuenciasTab> with AutomaticKeepAliveCl
                   Text(titulo, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 4),
                   const Text(
-                    'Se guarda para toda la sala. Tono y tempo se cambian por separado.',
+                    'Se guarda para toda la sala. Tono, tempo y volumen se cambian por separado.',
                     style: TextStyle(fontSize: 12, color: Colors.grey),
                   ),
                   const SizedBox(height: 20),
@@ -5685,11 +5795,47 @@ class _SecuenciasTabState extends State<SecuenciasTab> with AutomaticKeepAliveCl
                       ),
                     ],
                   ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      const Expanded(
+                        child: Text('VOLUMEN', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1)),
+                      ),
+                      Text('$volumen%', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                  Row(
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.volume_down),
+                        tooltip: 'Bajar 5%',
+                        onPressed: volumen > 0 ? () => cambiar(nuevoVolumen: max(0, volumen - 5)) : null,
+                      ),
+                      Expanded(
+                        child: Slider(
+                          value: volumen.toDouble(),
+                          min: 0,
+                          max: 100,
+                          divisions: 100,
+                          label: '$volumen%',
+                          onChanged: (v) => cambiar(nuevoVolumen: v.round(), guardarYa: false),
+                          onChangeEnd: (_) => guardar(),
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.volume_up),
+                        tooltip: 'Subir 5%',
+                        onPressed: volumen < 100 ? () => cambiar(nuevoVolumen: min(100, volumen + 5)) : null,
+                      ),
+                    ],
+                  ),
                   const SizedBox(height: 8),
                   TextButton.icon(
                     icon: const Icon(Icons.restart_alt),
-                    label: const Text('Restablecer (tono original, 100%)'),
-                    onPressed: semitonos == 0 && tempo == 100 ? null : () => cambiar(nuevoTono: 0, nuevoTempo: 100),
+                    label: const Text('Restablecer (como se subió)'),
+                    onPressed: semitonos == 0 && tempo == 100 && volumen == 100
+                        ? null
+                        : () => cambiar(nuevoTono: 0, nuevoTempo: 100, nuevoVolumen: 100),
                   ),
                 ],
               ),
@@ -5723,16 +5869,18 @@ class _SecuenciasTabState extends State<SecuenciasTab> with AutomaticKeepAliveCl
           final titulo = data['titulo'] as String? ?? '';
           final semitonos = (data['semitonos'] as num?)?.toInt() ?? 0;
           final tempoPorcentaje = (data['tempoPorcentaje'] as num?)?.toInt() ?? 100;
-          // Si otro integrante cambió tono o tempo de la pista que está
-          // cargada acá, se aplica en vivo (fuera del build).
+          final volumenPorcentaje = (data['volumenPorcentaje'] as num?)?.toInt() ?? 100;
+          // Si otro integrante cambió tono, tempo o volumen de la pista que
+          // está cargada acá, se aplica en vivo (fuera del build).
           if (_reproductor.idActual == doc.id) {
             scheduleMicrotask(() => _reproductor.aplicarAjustes(
                   doc.id,
                   tempo: tempoPorcentaje / 100,
                   semitonos: semitonos,
+                  volumen: volumenPorcentaje / 100,
                 ));
           }
-          final ajustes = _resumenAjustes(semitonos, tempoPorcentaje);
+          final ajustes = _resumenAjustes(semitonos, tempoPorcentaje, volumenPorcentaje);
           return FilaSecuencia(
             key: ValueKey(doc.id),
             reproductor: _reproductor,
@@ -5745,6 +5893,7 @@ class _SecuenciasTabState extends State<SecuenciasTab> with AutomaticKeepAliveCl
             ].join(' · '),
             tempo: tempoPorcentaje / 100,
             semitonos: semitonos,
+            volumen: volumenPorcentaje / 100,
             acciones: widget.esSonidista
                 ? null
                 : Row(
@@ -5752,8 +5901,9 @@ class _SecuenciasTabState extends State<SecuenciasTab> with AutomaticKeepAliveCl
                     children: [
                       IconButton(
                         icon: Icon(Icons.tune, color: ajustes != null ? context.acento : null),
-                        tooltip: 'Tono y tempo',
-                        onPressed: () => _ajustarTonoYTempo(doc.id, titulo, semitonos, tempoPorcentaje),
+                        tooltip: 'Tono, tempo y volumen',
+                        onPressed: () =>
+                            _ajustarTonoYTempo(doc.id, titulo, semitonos, tempoPorcentaje, volumenPorcentaje),
                       ),
                       IconButton(
                         icon: const Icon(Icons.remove_circle_outline, color: Colors.red),
