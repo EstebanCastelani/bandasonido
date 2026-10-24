@@ -1011,4 +1011,60 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get colores => 'Couleurs';
+
+  @override
+  String get escribiTuNombre => 'Saisissez votre nom.';
+
+  @override
+  String get escribiElPin => 'Saisissez le PIN de la salle.';
+
+  @override
+  String get pinDe8Caracteres => 'Le code comporte 8 caractères.';
+
+  @override
+  String get errorSinConexion =>
+      'Pas de connexion. Vérifiez votre internet et réessayez.';
+
+  @override
+  String get errorSinPermiso => 'Vous n’avez pas l’autorisation de faire cela.';
+
+  @override
+  String get errorGenerico => 'Une erreur s’est produite. Réessayez.';
+
+  @override
+  String get reintentar => 'Réessayer';
+
+  @override
+  String get deshacer => 'Annuler';
+
+  @override
+  String get pedidoEliminado => 'Demande supprimée';
+
+  @override
+  String get marcarAtendido => 'Marquer comme traitée';
+
+  @override
+  String get salirDeLaSala => 'Quitter la salle';
+
+  @override
+  String get salirDeLaSalaPregunta => 'Quitter la salle ?';
+
+  @override
+  String get salirDeLaSalaDetalle =>
+      'Pour revenir, vous aurez besoin du code de la salle.';
+
+  @override
+  String get salir => 'Quitter';
+
+  @override
+  String get fraseMasVolumen => 'Plus de volume';
+
+  @override
+  String get fraseMenosVolumen => 'Moins de volume';
+
+  @override
+  String get borrarBusqueda => 'Effacer la recherche';
+
+  @override
+  String get borrarTodosLosPedidos => 'Supprimer toutes les demandes';
 }

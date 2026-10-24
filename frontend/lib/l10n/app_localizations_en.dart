@@ -1003,4 +1003,59 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get colores => 'Colors';
+
+  @override
+  String get escribiTuNombre => 'Enter your name.';
+
+  @override
+  String get escribiElPin => 'Enter the room PIN.';
+
+  @override
+  String get pinDe8Caracteres => 'The code has 8 characters.';
+
+  @override
+  String get errorSinConexion =>
+      'No connection. Check your internet and try again.';
+
+  @override
+  String get errorSinPermiso => 'You don’t have permission to do this.';
+
+  @override
+  String get errorGenerico => 'Something went wrong. Please try again.';
+
+  @override
+  String get reintentar => 'Retry';
+
+  @override
+  String get deshacer => 'Undo';
+
+  @override
+  String get pedidoEliminado => 'Request deleted';
+
+  @override
+  String get marcarAtendido => 'Mark as handled';
+
+  @override
+  String get salirDeLaSala => 'Leave the room';
+
+  @override
+  String get salirDeLaSalaPregunta => 'Leave the room?';
+
+  @override
+  String get salirDeLaSalaDetalle => 'To come back you’ll need the room code.';
+
+  @override
+  String get salir => 'Leave';
+
+  @override
+  String get fraseMasVolumen => 'More volume';
+
+  @override
+  String get fraseMenosVolumen => 'Less volume';
+
+  @override
+  String get borrarBusqueda => 'Clear search';
+
+  @override
+  String get borrarTodosLosPedidos => 'Delete all requests';
 }

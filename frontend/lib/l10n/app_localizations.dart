@@ -1795,6 +1795,114 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'Colores'**
   String get colores;
+
+  /// No description provided for @escribiTuNombre.
+  ///
+  /// In es, this message translates to:
+  /// **'Escribí tu nombre.'**
+  String get escribiTuNombre;
+
+  /// No description provided for @escribiElPin.
+  ///
+  /// In es, this message translates to:
+  /// **'Escribí el PIN de la sala.'**
+  String get escribiElPin;
+
+  /// No description provided for @pinDe8Caracteres.
+  ///
+  /// In es, this message translates to:
+  /// **'El código tiene 8 caracteres.'**
+  String get pinDe8Caracteres;
+
+  /// No description provided for @errorSinConexion.
+  ///
+  /// In es, this message translates to:
+  /// **'No hay conexión. Revisá tu internet e intentá de nuevo.'**
+  String get errorSinConexion;
+
+  /// No description provided for @errorSinPermiso.
+  ///
+  /// In es, this message translates to:
+  /// **'No tenés permiso para hacer esto.'**
+  String get errorSinPermiso;
+
+  /// No description provided for @errorGenerico.
+  ///
+  /// In es, this message translates to:
+  /// **'Algo salió mal. Intentá de nuevo.'**
+  String get errorGenerico;
+
+  /// No description provided for @reintentar.
+  ///
+  /// In es, this message translates to:
+  /// **'Reintentar'**
+  String get reintentar;
+
+  /// No description provided for @deshacer.
+  ///
+  /// In es, this message translates to:
+  /// **'Deshacer'**
+  String get deshacer;
+
+  /// No description provided for @pedidoEliminado.
+  ///
+  /// In es, this message translates to:
+  /// **'Pedido eliminado'**
+  String get pedidoEliminado;
+
+  /// No description provided for @marcarAtendido.
+  ///
+  /// In es, this message translates to:
+  /// **'Marcar como atendido'**
+  String get marcarAtendido;
+
+  /// No description provided for @salirDeLaSala.
+  ///
+  /// In es, this message translates to:
+  /// **'Salir de la sala'**
+  String get salirDeLaSala;
+
+  /// No description provided for @salirDeLaSalaPregunta.
+  ///
+  /// In es, this message translates to:
+  /// **'¿Salir de la sala?'**
+  String get salirDeLaSalaPregunta;
+
+  /// No description provided for @salirDeLaSalaDetalle.
+  ///
+  /// In es, this message translates to:
+  /// **'Para volver a entrar vas a necesitar el código de la sala.'**
+  String get salirDeLaSalaDetalle;
+
+  /// No description provided for @salir.
+  ///
+  /// In es, this message translates to:
+  /// **'Salir'**
+  String get salir;
+
+  /// No description provided for @fraseMasVolumen.
+  ///
+  /// In es, this message translates to:
+  /// **'Más volumen'**
+  String get fraseMasVolumen;
+
+  /// No description provided for @fraseMenosVolumen.
+  ///
+  /// In es, this message translates to:
+  /// **'Menos volumen'**
+  String get fraseMenosVolumen;
+
+  /// No description provided for @borrarBusqueda.
+  ///
+  /// In es, this message translates to:
+  /// **'Borrar búsqueda'**
+  String get borrarBusqueda;
+
+  /// No description provided for @borrarTodosLosPedidos.
+  ///
+  /// In es, this message translates to:
+  /// **'Borrar todos los pedidos'**
+  String get borrarTodosLosPedidos;
 }
 
 class _AppLocalizationsDelegate

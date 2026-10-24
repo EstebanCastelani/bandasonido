@@ -618,6 +618,33 @@ registrada sin chequear `esPro` — ver §8 para cómo revertir esto.
     selector con 5 opciones, cambio a italiano y persistencia al recargar.
     **No verificado**: el respaldo a español con un dispositivo en otro
     idioma (solo se revisó el código), ni Android.
+30. **Usabilidad: Etapas 1 y 3 de AUDITORIA_USABILIDAD.md (oct-2026)**:
+    - *Validaciones visibles*: Crear sala, Unirme y Acceso sonidista marcan en
+      rojo, debajo del campo, lo que falta (`_intentado` + `errorText`; claves
+      `escribiTuNombre`, `escribiTuRol`, `escribiElPin`, `pinDe8Caracteres`); los
+      errores se limpian al escribir y Enter envía el formulario.
+    - *Errores humanos*: `mensajeError(l10n, e)` convierte excepciones en
+      "sin conexión / sin permiso / algo salió mal" (+ botón **Reintentar** en
+      los ingresos); ya no se muestran códigos de Firebase al usuario.
+    - *Deshacer al borrar un pedido* (panel sonidista): SnackBar con
+      "Deshacer" que vuelve a crear el documento (`ref.set(data)`; las reglas
+      de pedidos lo permiten). Ícono de borrar separado del de "atendido".
+    - *Salir de la sala con confirmación* (`confirmarSalidaSala`), con ícono
+      `exit_to_app` y texto "Salir de la sala" (distinto de "Cerrar sesión"
+      de la cuenta, que está en el menú hamburguesa).
+    - *Legibilidad*: controles ≥ 14 px (botones de pedido rápido pasaron de 9
+      a 14), textos secundarios ≥ 12 px. Los pedidos "+" y "−" ahora dicen
+      "Más volumen" / "Menos volumen" **solo para quien copie las frases por
+      primera vez**: las copias que ya tiene cada cuenta en Firestore (Mis
+      frases) conservan "+" y "−" hasta que las edite.
+    - *Tooltips* en los íconos que no tenían (borrar setlist/frase/PDF, copiar
+      PIN, borrar búsqueda, borrar todos los pedidos, atendido).
+    - Verificado en web (servidor de desarrollo, invitado): errores en línea,
+      Enter, confirmación de salida (cancelar y salir), borrar + deshacer.
+      **No verificado**: el mensaje amigable de error de red (no hay forma
+      cómoda de provocarlo), Android/celular, textos a 150 % de escala.
+      Pendiente de limpiar: `AppConstants.pedidosRapidos` repite "Volumen
+      retorno" (primera y tercera fila).
 
 ## 6. Modelo de seguridad de las salas — trade-off consciente, no bug
 

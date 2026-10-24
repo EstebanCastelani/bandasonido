@@ -263,6 +263,40 @@ bool esRolSonidista(String rol) {
   return claves.any(t.contains);
 }
 
+/// Texto entendible para un error técnico (excepción de Firebase, red...):
+/// al usuario no se le muestra el código interno, solo qué pasó y qué hacer.
+String mensajeError(AppLocalizations l, Object? e) {
+  final t = '$e'.toLowerCase();
+  if (t.contains('permission-denied') || t.contains('insufficient permissions')) return l.errorSinPermiso;
+  if (t.contains('network') ||
+      t.contains('channel-error') ||
+      t.contains('unavailable') ||
+      t.contains('timeout') ||
+      t.contains('socketexception') ||
+      t.contains('failed host lookup')) {
+    return l.errorSinConexion;
+  }
+  return l.errorGenerico;
+}
+
+/// Pregunta si de verdad quiere salir de la sala (un toque suelto en el
+/// escenario no debería sacar a nadie). true = salir.
+Future<bool> confirmarSalidaSala(BuildContext context) async {
+  final l = context.l10n;
+  final salir = await showDialog<bool>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: Text(l.salirDeLaSalaPregunta),
+      content: Text(l.salirDeLaSalaDetalle),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l.cancelar)),
+        TextButton(onPressed: () => Navigator.pop(ctx, true), child: Text(l.salir)),
+      ],
+    ),
+  );
+  return salir ?? false;
+}
+
 /// Entra al panel del sonidista de la sala [codigo] (lo mismo que "Acceso
 /// sonidista"), y lo deja guardado para volver a abrirlo al reabrir la app.
 Future<void> entrarComoSonidista(BuildContext context, String codigo) async {
@@ -318,7 +352,7 @@ class AppConstants {
 
     l.fraseVolumenGuitarra, l.fraseVolumenTeclado, l.fraseVolumenTalkback, l.fraseVolumenPista, l.fraseVolumenClick,
 
-    l.fraseVolumenRetorno, l.fraseVolumenCoordinador, l.fraseVolumenGeneral, '+', '-', l.fraseListo,
+    l.fraseVolumenRetorno, l.fraseVolumenCoordinador, l.fraseVolumenGeneral, l.fraseMasVolumen, l.fraseMenosVolumen, l.fraseListo,
 
   ];
 
@@ -3158,7 +3192,7 @@ class _FuncionesDestacadas extends StatelessWidget {
                         child: Text(
                           items[i].$4,
                           textAlign: TextAlign.center,
-                          style: const TextStyle(fontSize: 10.5, height: 1.3, color: Color(0xCCFFFFFF)),
+                          style: const TextStyle(fontSize: 12, height: 1.3, color: Color(0xCCFFFFFF)),
                         ),
                       ),
                     ],
@@ -4314,6 +4348,9 @@ class _CrearSalaScreenState extends State<CrearSalaScreen> {
 
   final _rolController = TextEditingController();
 
+  /// En true desde el primer intento de continuar: recién ahí se marcan los campos que faltan.
+  bool _intentado = false;
+
   bool _procesando = false;
 
 
@@ -4322,15 +4359,9 @@ class _CrearSalaScreenState extends State<CrearSalaScreen> {
 
     final nombre = _nameController.text.trim();
 
-    if (nombre.isEmpty || _procesando) return;
+    setState(() => _intentado = true);
 
-    if (_rolController.text.trim().isEmpty) {
-
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(context.l10n.escribiTuRol)));
-
-      return;
-
-    }
+    if (nombre.isEmpty || _rolController.text.trim().isEmpty || _procesando) return;
 
 
 
@@ -4400,7 +4431,10 @@ class _CrearSalaScreenState extends State<CrearSalaScreen> {
 
       setState(() => _procesando = false);
 
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(context.l10n.errorAlIngresar(e))));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(context.l10n.errorAlIngresar(mensajeError(context.l10n, e))),
+        action: SnackBarAction(label: context.l10n.reintentar, onPressed: _crearYEntrar),
+      ));
 
     }
 
@@ -4446,7 +4480,7 @@ class _CrearSalaScreenState extends State<CrearSalaScreen> {
 
                 subtitle: Text(_pin, textAlign: TextAlign.center, style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: context.acento)),
 
-                trailing: IconButton(icon: const Icon(Icons.copy), onPressed: () {
+                trailing: IconButton(icon: const Icon(Icons.copy), tooltip: context.l10n.copiar, onPressed: () {
 
                   Clipboard.setData(ClipboardData(text: _pin));
 
@@ -4460,11 +4494,31 @@ class _CrearSalaScreenState extends State<CrearSalaScreen> {
 
             const SizedBox(height: 24),
 
-            TextField(controller: _nameController, decoration: InputDecoration(labelText: context.l10n.tuNombre2, border: OutlineInputBorder())),
+            TextField(
+              controller: _nameController,
+              textInputAction: TextInputAction.next,
+              onChanged: (_) { if (_intentado) setState(() {}); },
+              decoration: InputDecoration(
+                labelText: context.l10n.tuNombre2,
+                errorText: _intentado && _nameController.text.trim().isEmpty ? context.l10n.escribiTuNombre : null,
+                border: OutlineInputBorder(),
+              ),
+            ),
 
             const SizedBox(height: 16),
 
-            TextField(controller: _rolController, textCapitalization: TextCapitalization.sentences, decoration: InputDecoration(labelText: context.l10n.tuRolEjSonidistaGuitarrista, border: OutlineInputBorder())),
+            TextField(
+              controller: _rolController,
+              textCapitalization: TextCapitalization.sentences,
+              textInputAction: TextInputAction.done,
+              onChanged: (_) { if (_intentado) setState(() {}); },
+              onSubmitted: (_) => _crearYEntrar(),
+              decoration: InputDecoration(
+                labelText: context.l10n.tuRolEjSonidistaGuitarrista,
+                errorText: _intentado && _rolController.text.trim().isEmpty ? context.l10n.escribiTuRol : null,
+                border: OutlineInputBorder(),
+              ),
+            ),
 
             const SizedBox(height: 24),
 
@@ -4520,6 +4574,9 @@ class _UnirmeSalaScreenState extends State<UnirmeSalaScreen> {
 
   final _rolController = TextEditingController();
 
+  /// En true desde el primer intento de continuar: recién ahí se marcan los campos que faltan.
+  bool _intentado = false;
+
   bool _procesando = false;
 
 
@@ -4532,15 +4589,9 @@ class _UnirmeSalaScreenState extends State<UnirmeSalaScreen> {
 
 
 
-    if (nombre.isEmpty || pin.length != 8 || _procesando) return;
+    setState(() => _intentado = true);
 
-    if (_rolController.text.trim().isEmpty) {
-
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(context.l10n.escribiTuRol)));
-
-      return;
-
-    }
+    if (nombre.isEmpty || pin.length != 8 || _rolController.text.trim().isEmpty || _procesando) return;
 
 
 
@@ -4610,7 +4661,10 @@ class _UnirmeSalaScreenState extends State<UnirmeSalaScreen> {
 
       setState(() => _procesando = false);
 
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(context.l10n.errorAlIngresar(e))));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(context.l10n.errorAlIngresar(mensajeError(context.l10n, e))),
+        action: SnackBarAction(label: context.l10n.reintentar, onPressed: _unirmeASala),
+      ));
 
     }
 
@@ -4656,17 +4710,45 @@ class _UnirmeSalaScreenState extends State<UnirmeSalaScreen> {
 
               textCapitalization: TextCapitalization.characters,
 
-              decoration: InputDecoration(labelText: context.l10n.codigoDeSala8Caracteres, border: OutlineInputBorder()),
+              textInputAction: TextInputAction.next,
+
+              onChanged: (_) { if (_intentado) setState(() {}); },
+
+              decoration: InputDecoration(
+                labelText: context.l10n.codigoDeSala8Caracteres,
+                errorText: _intentado && _pinController.text.trim().length != 8 ? context.l10n.pinDe8Caracteres : null,
+                border: OutlineInputBorder(),
+              ),
 
             ),
 
             const SizedBox(height: 16),
 
-            TextField(controller: _nameController, decoration: InputDecoration(labelText: context.l10n.tuNombre2, border: OutlineInputBorder())),
+            TextField(
+              controller: _nameController,
+              textInputAction: TextInputAction.next,
+              onChanged: (_) { if (_intentado) setState(() {}); },
+              decoration: InputDecoration(
+                labelText: context.l10n.tuNombre2,
+                errorText: _intentado && _nameController.text.trim().isEmpty ? context.l10n.escribiTuNombre : null,
+                border: OutlineInputBorder(),
+              ),
+            ),
 
             const SizedBox(height: 16),
 
-            TextField(controller: _rolController, textCapitalization: TextCapitalization.sentences, decoration: InputDecoration(labelText: context.l10n.tuRolEjSonidistaGuitarrista, border: OutlineInputBorder())),
+            TextField(
+              controller: _rolController,
+              textCapitalization: TextCapitalization.sentences,
+              textInputAction: TextInputAction.done,
+              onChanged: (_) { if (_intentado) setState(() {}); },
+              onSubmitted: (_) => _unirmeASala(),
+              decoration: InputDecoration(
+                labelText: context.l10n.tuRolEjSonidistaGuitarrista,
+                errorText: _intentado && _rolController.text.trim().isEmpty ? context.l10n.escribiTuRol : null,
+                border: OutlineInputBorder(),
+              ),
+            ),
 
             const SizedBox(height: 24),
 
@@ -5203,7 +5285,7 @@ class _RequestScreenState extends State<RequestScreen> with TickerProviderStateM
 
               textAlign: TextAlign.center,
 
-              style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w500)),
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
 
         );
 
@@ -5232,11 +5314,11 @@ class _RequestScreenState extends State<RequestScreen> with TickerProviderStateM
 
         leading: IconButton(
 
-          icon: const Icon(Icons.logout),
-
-          tooltip: context.l10n.cerrarSesion,
-
-          onPressed: () => _cerrarSesion(context),
+          icon: const Icon(Icons.exit_to_app),
+          tooltip: context.l10n.salirDeLaSala,
+          onPressed: () async {
+            if (await confirmarSalidaSala(context) && context.mounted) _cerrarSesion(context);
+          },
 
         ),
 
@@ -5270,7 +5352,7 @@ class _RequestScreenState extends State<RequestScreen> with TickerProviderStateM
 
                   child: Text(context.l10n.sala(widget.codigoSala),
 
-                      style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.white)),
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white)),
 
                 ),
 
@@ -5440,7 +5522,7 @@ class _RequestScreenState extends State<RequestScreen> with TickerProviderStateM
 
               padding: EdgeInsets.symmetric(vertical: 6),
 
-              child: Text(context.l10n.misUltimosPedidos, style: TextStyle(fontSize: 9, color: Colors.grey, letterSpacing: 1.1))
+              child: Text(context.l10n.misUltimosPedidos, style: TextStyle(fontSize: 12, color: Colors.grey, letterSpacing: 1.1))
 
           ),
 
@@ -5470,7 +5552,7 @@ class _RequestScreenState extends State<RequestScreen> with TickerProviderStateM
 
               builder: (context, snapshot) {
 
-                if (snapshot.hasError) return Center(child: Text(context.l10n.error('${snapshot.error}'), style: const TextStyle(fontSize: 10)));
+                if (snapshot.hasError) return Center(child: Text(context.l10n.error(mensajeError(context.l10n, snapshot.error)), style: const TextStyle(fontSize: 14)));
 
                 if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
 
@@ -5478,7 +5560,7 @@ class _RequestScreenState extends State<RequestScreen> with TickerProviderStateM
 
                 final docs = snapshot.data!.docs;
 
-                if (docs.isEmpty) return Center(child: Text(context.l10n.sinPedidosPropios, style: TextStyle(color: Colors.grey, fontSize: 11)));
+                if (docs.isEmpty) return Center(child: Text(context.l10n.sinPedidosPropios, style: TextStyle(color: Colors.grey, fontSize: 14)));
 
 
 
@@ -5564,7 +5646,7 @@ class _RequestScreenState extends State<RequestScreen> with TickerProviderStateM
 
                           context.l10n.consola(respuestaTecnico),
 
-                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: context.acento),
+                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: context.acento),
 
                         )
 
@@ -6280,7 +6362,7 @@ class SetlistTab extends StatelessWidget {
 
           if (snapshot.hasError) {
 
-            return Center(child: Text(context.l10n.error('${snapshot.error}')));
+            return Center(child: Text(context.l10n.error(mensajeError(context.l10n, snapshot.error))));
 
           }
 
@@ -6444,7 +6526,7 @@ class SetlistTab extends StatelessWidget {
 
                           pausado ? context.l10n.pausado : context.l10n.proximo,
 
-                          style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.white),
+                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
 
                         ),
 
@@ -6551,6 +6633,8 @@ class SetlistTab extends StatelessWidget {
                       IconButton(
 
                         icon: const Icon(Icons.delete_outline, color: Colors.red),
+
+                        tooltip: context.l10n.eliminar,
 
                         onPressed: () => SetlistService.eliminarDelSetlist(codigoSala, doc.id),
 
@@ -7274,7 +7358,7 @@ class FrasesAdminScreen extends StatelessWidget {
 
                 if (snapshot.hasError) {
 
-                  return Center(child: Text(context.l10n.error('${snapshot.error}')));
+                  return Center(child: Text(context.l10n.error(mensajeError(context.l10n, snapshot.error))));
 
                 }
 
@@ -7349,6 +7433,8 @@ class FrasesAdminScreen extends StatelessWidget {
                           IconButton(
 
                             icon: const Icon(Icons.delete, color: Colors.red),
+
+                            tooltip: context.l10n.eliminar,
 
                             onPressed: () => FrasesService.eliminarFrase(user.uid, doc.id),
 
@@ -7831,7 +7917,7 @@ class _MiRepertorioScreenState extends State<MiRepertorioScreen> {
 
                             onPressed: () => _mostrarUpsellPro(context),
 
-                            child: Text(context.l10n.masInfo, style: TextStyle(fontSize: 12)),
+                            child: Text(context.l10n.masInfo, style: TextStyle(fontSize: 14)),
 
                           ),
 
@@ -7877,6 +7963,8 @@ class _MiRepertorioScreenState extends State<MiRepertorioScreen> {
 
                                     icon: const Icon(Icons.clear, size: 18),
 
+                                    tooltip: context.l10n.borrarBusqueda,
+
                                     onPressed: () => setState(() => _busquedaTituloController.clear()),
 
                                   ),
@@ -7917,6 +8005,8 @@ class _MiRepertorioScreenState extends State<MiRepertorioScreen> {
 
                                     icon: const Icon(Icons.clear, size: 18),
 
+                                    tooltip: context.l10n.borrarBusqueda,
+
                                     onPressed: () => setState(() => _busquedaTonalidadController.clear()),
 
                                   ),
@@ -7947,7 +8037,7 @@ class _MiRepertorioScreenState extends State<MiRepertorioScreen> {
 
                 if (snapshot.hasError) {
 
-                  return Center(child: Text(context.l10n.error('${snapshot.error}')));
+                  return Center(child: Text(context.l10n.error(mensajeError(context.l10n, snapshot.error))));
 
                 }
 
@@ -8060,6 +8150,8 @@ class _MiRepertorioScreenState extends State<MiRepertorioScreen> {
                           IconButton(
 
                             icon: const Icon(Icons.delete, color: Colors.red),
+
+                            tooltip: context.l10n.eliminar,
 
                             onPressed: () => _confirmarEliminar(user.uid, id, data['storagePath'] as String?),
 
@@ -9080,6 +9172,8 @@ class _SonidistaPinScreenState extends State<SonidistaPinScreen> {
 
   final _pinController = TextEditingController();
 
+  bool _intentado = false;
+
   bool _procesando = false;
 
 
@@ -9087,6 +9181,8 @@ class _SonidistaPinScreenState extends State<SonidistaPinScreen> {
   Future<void> _ingresarComoSonidista() async {
 
     final pin = _pinController.text.trim().toUpperCase();
+
+    setState(() => _intentado = true);
 
     if (pin.isEmpty || _procesando) return;
 
@@ -9126,7 +9222,10 @@ class _SonidistaPinScreenState extends State<SonidistaPinScreen> {
 
       setState(() => _procesando = false);
 
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(context.l10n.errorAlIngresarAlPanel(e))));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(context.l10n.errorAlIngresarAlPanel(mensajeError(context.l10n, e))),
+        action: SnackBarAction(label: context.l10n.reintentar, onPressed: _ingresarComoSonidista),
+      ));
 
     }
 
@@ -9162,7 +9261,18 @@ class _SonidistaPinScreenState extends State<SonidistaPinScreen> {
 
           children: [
 
-            TextField(controller: _pinController, textCapitalization: TextCapitalization.characters, decoration: InputDecoration(labelText: context.l10n.pinDeSalaOCrear, border: OutlineInputBorder())),
+            TextField(
+              controller: _pinController,
+              textCapitalization: TextCapitalization.characters,
+              textInputAction: TextInputAction.done,
+              onChanged: (_) { if (_intentado) setState(() {}); },
+              onSubmitted: (_) => _ingresarComoSonidista(),
+              decoration: InputDecoration(
+                labelText: context.l10n.pinDeSalaOCrear,
+                errorText: _intentado && _pinController.text.trim().isEmpty ? context.l10n.escribiElPin : null,
+                border: OutlineInputBorder(),
+              ),
+            ),
 
             const SizedBox(height: 24),
 
@@ -9589,14 +9699,29 @@ class _SonidistaPageState extends State<SonidistaPage> with TickerProviderStateM
           ),
 
           IconButton(
-
             icon: Icon(isAtendido ? Icons.check_circle : Icons.radio_button_unchecked, color: isAtendido ? Colors.green : Colors.grey),
-
+            tooltip: context.l10n.marcarAtendido,
             onPressed: () => d.reference.update({'atendido': !isAtendido}),
-
           ),
-
-          IconButton(icon: const Icon(Icons.delete_outline, color: Colors.red), onPressed: () => d.reference.delete()),
+          const SizedBox(width: 16),
+          IconButton(
+            icon: const Icon(Icons.delete_outline, color: Colors.red),
+            tooltip: context.l10n.eliminar,
+            onPressed: () {
+              // Se borra enseguida pero se puede deshacer: se vuelve a crear el mismo documento.
+              final ref = d.reference;
+              final messenger = ScaffoldMessenger.of(context);
+              final deshacer = context.l10n.deshacer;
+              final aviso = context.l10n.pedidoEliminado;
+              ref.delete();
+              messenger.hideCurrentSnackBar();
+              messenger.showSnackBar(SnackBar(
+                content: Text(aviso),
+                duration: const Duration(seconds: 6),
+                action: SnackBarAction(label: deshacer, onPressed: () => ref.set(data)),
+              ));
+            },
+          ),
 
         ],
 
@@ -9694,11 +9819,11 @@ class _SonidistaPageState extends State<SonidistaPage> with TickerProviderStateM
 
         leading: IconButton(
 
-          icon: const Icon(Icons.logout),
-
-          tooltip: context.l10n.cerrarSesion,
-
-          onPressed: () => _cerrarSesion(context),
+          icon: const Icon(Icons.exit_to_app),
+          tooltip: context.l10n.salirDeLaSala,
+          onPressed: () async {
+            if (await confirmarSalidaSala(context) && context.mounted) _cerrarSesion(context);
+          },
 
         ),
 
@@ -9707,6 +9832,8 @@ class _SonidistaPageState extends State<SonidistaPage> with TickerProviderStateM
           IconButton(
 
               icon: const Icon(Icons.delete_sweep, color: Colors.redAccent),
+
+              tooltip: context.l10n.borrarTodosLosPedidos,
 
               onPressed: () async {
 
