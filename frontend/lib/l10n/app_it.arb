@@ -299,5 +299,18 @@
   "fraseMasVolumen": "Più volume",
   "fraseMenosVolumen": "Meno volume",
   "borrarBusqueda": "Cancella la ricerca",
-  "borrarTodosLosPedidos": "Elimina tutte le richieste"
+  "borrarTodosLosPedidos": "Elimina tutte le richieste",
+  "entrarComoSonidistaPregunta": "Entrare come fonico?",
+  "entrarComoSonidistaDetalle": "Il tuo ruolo parla di audio. Puoi entrare nel pannello del fonico o nella schermata delle richieste.",
+  "panelDelSonidista": "Pannello del fonico",
+  "pantallaDePedidos": "Schermata delle richieste",
+  "pedidoYaNoExiste": "Quella richiesta non esiste più.",
+  "noHayAcordesParaTransponer": "Nessun accordo da trasporre.",
+  "ajustadoPor": "Regolato da {persona}",
+  "sinConexionAviso": "Nessuna connessione. Le richieste verranno inviate al ritorno della rete.",
+  "pedidoPendienteSinConexion": "Nessuna connessione: la richiesta verrà inviata al ritorno della rete. Non chiudere l’app.",
+  "noSePudoEnviarPedido": "Impossibile inviare la richiesta.",
+  "versionApp": "Versione {version}",
+  "compartirEnlaceSala": "Condividi il link della sala",
+  "enlaceSalaTexto": "Unisciti alla mia sala su Sound Check Pro: {enlace}"
 }

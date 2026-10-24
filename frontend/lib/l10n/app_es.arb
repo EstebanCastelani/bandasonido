@@ -660,5 +660,39 @@
   "fraseMasVolumen": "Más volumen",
   "fraseMenosVolumen": "Menos volumen",
   "borrarBusqueda": "Borrar búsqueda",
-  "borrarTodosLosPedidos": "Borrar todos los pedidos"
+  "borrarTodosLosPedidos": "Borrar todos los pedidos",
+  "entrarComoSonidistaPregunta": "¿Entrar como sonidista?",
+  "entrarComoSonidistaDetalle": "Tu rol menciona sonido. Podés entrar al panel del sonidista o a la pantalla de pedidos.",
+  "panelDelSonidista": "Panel del sonidista",
+  "pantallaDePedidos": "Pantalla de pedidos",
+  "pedidoYaNoExiste": "Ese pedido ya no existe.",
+  "noHayAcordesParaTransponer": "No se encontraron acordes para transponer.",
+  "ajustadoPor": "Ajustado por {persona}",
+  "@ajustadoPor": {
+    "placeholders": {
+      "persona": {
+        "type": "String"
+      }
+    }
+  },
+  "sinConexionAviso": "Sin conexión. Los pedidos se enviarán cuando vuelva la red.",
+  "pedidoPendienteSinConexion": "Sin conexión: el pedido se enviará cuando vuelva la red. No cierres la app.",
+  "noSePudoEnviarPedido": "No se pudo enviar el pedido.",
+  "versionApp": "Versión {version}",
+  "compartirEnlaceSala": "Compartir enlace de la sala",
+  "enlaceSalaTexto": "Unite a mi sala en Sound Check Pro: {enlace}",
+  "@versionApp": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "@enlaceSalaTexto": {
+    "placeholders": {
+      "enlace": {
+        "type": "String"
+      }
+    }
+  }
 }

@@ -299,5 +299,18 @@
   "fraseMasVolumen": "Plus de volume",
   "fraseMenosVolumen": "Moins de volume",
   "borrarBusqueda": "Effacer la recherche",
-  "borrarTodosLosPedidos": "Supprimer toutes les demandes"
+  "borrarTodosLosPedidos": "Supprimer toutes les demandes",
+  "entrarComoSonidistaPregunta": "Entrer en tant qu’ingénieur du son ?",
+  "entrarComoSonidistaDetalle": "Votre rôle mentionne le son. Vous pouvez entrer dans le panneau de l’ingénieur du son ou sur l’écran des demandes.",
+  "panelDelSonidista": "Panneau de l’ingénieur du son",
+  "pantallaDePedidos": "Écran des demandes",
+  "pedidoYaNoExiste": "Cette demande n’existe plus.",
+  "noHayAcordesParaTransponer": "Aucun accord à transposer.",
+  "ajustadoPor": "Réglé par {persona}",
+  "sinConexionAviso": "Pas de connexion. Les demandes seront envoyées au retour du réseau.",
+  "pedidoPendienteSinConexion": "Pas de connexion : la demande sera envoyée au retour du réseau. Ne fermez pas l’app.",
+  "noSePudoEnviarPedido": "La demande n’a pas pu être envoyée.",
+  "versionApp": "Version {version}",
+  "compartirEnlaceSala": "Partager le lien de la salle",
+  "enlaceSalaTexto": "Rejoignez ma salle sur Sound Check Pro : {enlace}"
 }

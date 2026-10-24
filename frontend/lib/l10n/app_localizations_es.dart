@@ -1062,4 +1062,53 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get borrarTodosLosPedidos => 'Borrar todos los pedidos';
+
+  @override
+  String get entrarComoSonidistaPregunta => '¿Entrar como sonidista?';
+
+  @override
+  String get entrarComoSonidistaDetalle =>
+      'Tu rol menciona sonido. Podés entrar al panel del sonidista o a la pantalla de pedidos.';
+
+  @override
+  String get panelDelSonidista => 'Panel del sonidista';
+
+  @override
+  String get pantallaDePedidos => 'Pantalla de pedidos';
+
+  @override
+  String get pedidoYaNoExiste => 'Ese pedido ya no existe.';
+
+  @override
+  String get noHayAcordesParaTransponer =>
+      'No se encontraron acordes para transponer.';
+
+  @override
+  String ajustadoPor(String persona) {
+    return 'Ajustado por $persona';
+  }
+
+  @override
+  String get sinConexionAviso =>
+      'Sin conexión. Los pedidos se enviarán cuando vuelva la red.';
+
+  @override
+  String get pedidoPendienteSinConexion =>
+      'Sin conexión: el pedido se enviará cuando vuelva la red. No cierres la app.';
+
+  @override
+  String get noSePudoEnviarPedido => 'No se pudo enviar el pedido.';
+
+  @override
+  String versionApp(String version) {
+    return 'Versión $version';
+  }
+
+  @override
+  String get compartirEnlaceSala => 'Compartir enlace de la sala';
+
+  @override
+  String enlaceSalaTexto(String enlace) {
+    return 'Unite a mi sala en Sound Check Pro: $enlace';
+  }
 }

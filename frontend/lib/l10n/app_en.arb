@@ -299,5 +299,18 @@
   "fraseMasVolumen": "More volume",
   "fraseMenosVolumen": "Less volume",
   "borrarBusqueda": "Clear search",
-  "borrarTodosLosPedidos": "Delete all requests"
+  "borrarTodosLosPedidos": "Delete all requests",
+  "entrarComoSonidistaPregunta": "Enter as sound engineer?",
+  "entrarComoSonidistaDetalle": "Your role mentions sound. You can enter the sound engineer panel or the requests screen.",
+  "panelDelSonidista": "Sound engineer panel",
+  "pantallaDePedidos": "Requests screen",
+  "pedidoYaNoExiste": "That request no longer exists.",
+  "noHayAcordesParaTransponer": "No chords found to transpose.",
+  "ajustadoPor": "Adjusted by {persona}",
+  "sinConexionAviso": "No connection. Requests will be sent when the network is back.",
+  "pedidoPendienteSinConexion": "No connection: the request will be sent when the network is back. Don’t close the app.",
+  "noSePudoEnviarPedido": "The request could not be sent.",
+  "versionApp": "Version {version}",
+  "compartirEnlaceSala": "Share room link",
+  "enlaceSalaTexto": "Join my room in Sound Check Pro: {enlace}"
 }

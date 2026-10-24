@@ -36,10 +36,11 @@
   <!-- Requerido por syncfusion_flutter_pdfviewer para renderizar PDFs en
        Web (SfPdfViewer.network/.memory no funcionan sin esto — ver
        CONTEXTO_PARA_IA.md, sección de deuda de Storage/Supabase). -->
-  <script src="//cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.min.js"></script>
-  <script type="text/javascript">
-    pdfjsLib.GlobalWorkerOptions.workerSrc = "//cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.worker.min.js";
-  </script>
+  <!-- async: si cdnjs tarda o no responde, la app arranca igual (solo los PDFs
+       esperan). El worker se configura cuando el script termina de cargar. -->
+  <script async
+          src="//cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.min.js"
+          onload="pdfjsLib.GlobalWorkerOptions.workerSrc = '//cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.worker.min.js';"></script>
 
   <!-- Conversión a MP3 de las secuencias que pasan el límite de Supabase
        (usa lame.min.js desde conversor_mp3_worker.js — ver

@@ -1058,4 +1058,52 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get borrarTodosLosPedidos => 'Delete all requests';
+
+  @override
+  String get entrarComoSonidistaPregunta => 'Enter as sound engineer?';
+
+  @override
+  String get entrarComoSonidistaDetalle =>
+      'Your role mentions sound. You can enter the sound engineer panel or the requests screen.';
+
+  @override
+  String get panelDelSonidista => 'Sound engineer panel';
+
+  @override
+  String get pantallaDePedidos => 'Requests screen';
+
+  @override
+  String get pedidoYaNoExiste => 'That request no longer exists.';
+
+  @override
+  String get noHayAcordesParaTransponer => 'No chords found to transpose.';
+
+  @override
+  String ajustadoPor(String persona) {
+    return 'Adjusted by $persona';
+  }
+
+  @override
+  String get sinConexionAviso =>
+      'No connection. Requests will be sent when the network is back.';
+
+  @override
+  String get pedidoPendienteSinConexion =>
+      'No connection: the request will be sent when the network is back. Don’t close the app.';
+
+  @override
+  String get noSePudoEnviarPedido => 'The request could not be sent.';
+
+  @override
+  String versionApp(String version) {
+    return 'Version $version';
+  }
+
+  @override
+  String get compartirEnlaceSala => 'Share room link';
+
+  @override
+  String enlaceSalaTexto(String enlace) {
+    return 'Join my room in Sound Check Pro: $enlace';
+  }
 }

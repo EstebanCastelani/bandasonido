@@ -1903,6 +1903,84 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'Borrar todos los pedidos'**
   String get borrarTodosLosPedidos;
+
+  /// No description provided for @entrarComoSonidistaPregunta.
+  ///
+  /// In es, this message translates to:
+  /// **'¿Entrar como sonidista?'**
+  String get entrarComoSonidistaPregunta;
+
+  /// No description provided for @entrarComoSonidistaDetalle.
+  ///
+  /// In es, this message translates to:
+  /// **'Tu rol menciona sonido. Podés entrar al panel del sonidista o a la pantalla de pedidos.'**
+  String get entrarComoSonidistaDetalle;
+
+  /// No description provided for @panelDelSonidista.
+  ///
+  /// In es, this message translates to:
+  /// **'Panel del sonidista'**
+  String get panelDelSonidista;
+
+  /// No description provided for @pantallaDePedidos.
+  ///
+  /// In es, this message translates to:
+  /// **'Pantalla de pedidos'**
+  String get pantallaDePedidos;
+
+  /// No description provided for @pedidoYaNoExiste.
+  ///
+  /// In es, this message translates to:
+  /// **'Ese pedido ya no existe.'**
+  String get pedidoYaNoExiste;
+
+  /// No description provided for @noHayAcordesParaTransponer.
+  ///
+  /// In es, this message translates to:
+  /// **'No se encontraron acordes para transponer.'**
+  String get noHayAcordesParaTransponer;
+
+  /// No description provided for @ajustadoPor.
+  ///
+  /// In es, this message translates to:
+  /// **'Ajustado por {persona}'**
+  String ajustadoPor(String persona);
+
+  /// No description provided for @sinConexionAviso.
+  ///
+  /// In es, this message translates to:
+  /// **'Sin conexión. Los pedidos se enviarán cuando vuelva la red.'**
+  String get sinConexionAviso;
+
+  /// No description provided for @pedidoPendienteSinConexion.
+  ///
+  /// In es, this message translates to:
+  /// **'Sin conexión: el pedido se enviará cuando vuelva la red. No cierres la app.'**
+  String get pedidoPendienteSinConexion;
+
+  /// No description provided for @noSePudoEnviarPedido.
+  ///
+  /// In es, this message translates to:
+  /// **'No se pudo enviar el pedido.'**
+  String get noSePudoEnviarPedido;
+
+  /// No description provided for @versionApp.
+  ///
+  /// In es, this message translates to:
+  /// **'Versión {version}'**
+  String versionApp(String version);
+
+  /// No description provided for @compartirEnlaceSala.
+  ///
+  /// In es, this message translates to:
+  /// **'Compartir enlace de la sala'**
+  String get compartirEnlaceSala;
+
+  /// No description provided for @enlaceSalaTexto.
+  ///
+  /// In es, this message translates to:
+  /// **'Unite a mi sala en Sound Check Pro: {enlace}'**
+  String enlaceSalaTexto(String enlace);
 }
 
 class _AppLocalizationsDelegate

@@ -199,38 +199,81 @@ String rolParaMostrar(AppLocalizations l, String guardado) {
   return guardado;
 }
 
-/// true si el rol escrito es el de sonido (sonidista, "sonido", técnico de
-/// sonido, sound engineer...): esa persona entra directo al panel del
-/// sonidista en vez de a la pantalla de pedidos.
+/// Tope de pedidos que se muestran por sala (D-08 de REQUISITOS.md).
+const int kMaximoPedidosVisibles = 200;
+
+/// Palabras COMPLETAS que indican un rol de sonido: sonidista, sonido, FOH,
+/// monitorista, audio, sound (sound engineer), som (portugués), fónico
+/// (italiano), Tontechniker (alemán), "du son" (francés) y "del suono"
+/// (italiano). Se busca por palabra entera para que "Somos Mil" no cuente.
+final RegExp _palabrasSonido = RegExp(
+  r'\b(?:sonidista|sonido|foh|monitorista|sound|audio|som|fonico|tontechniker|du son|del suono)\b',
+);
+
+/// Funciones musicales: si el rol nombra alguna junto con una de sonido
+/// ("músico y sonidista") es ambiguo y se le pregunta a la persona.
+final RegExp _palabrasMusica = RegExp(
+  r'\b(?:musico|cantante|vocalista|corista|guitarrista|bajista|baterista|tecladista|pianista|percusionista|violinista|saxofonista|trompetista|director|musician|singer|guitarist|bassist|drummer|keyboardist|pianist|vocalist|musicien|chanteur|musicista)\b',
+);
+
+String _normalizarRol(String rol) {
+  const de = 'áàäâéèëêíìïîóòöôúùüûñç';
+  const a = 'aaaaeeeeiiiioooouuuunc';
+  final t = StringBuffer();
+  for (final c in rol.toLowerCase().trim().split('')) {
+    final i = de.indexOf(c);
+    t.write(i >= 0 ? a[i] : c);
+  }
+  return t.toString();
+}
+
+/// true si el rol escrito es SOLO de sonido (sonidista, técnico de sonido,
+/// FOH, sound engineer...): esa persona entra directo al panel del sonidista.
 bool esRolSonidista(String rol) {
-  const claves = [
-    'sonid',
-    'sound',
-    'tontechnik',
-    'ingé son',
-    'inge son',
-    'ingenieur du son',
-    'ingénieur du son',
-    'fonico',
-    'fonico',
-    'de som',
-    'звук',
-    '音响',
-    '音響',
-    '음향',
-    'مهندس صوت',
-    'साउंड',
-  ];
-  final t = rol.toLowerCase().trim();
-  return claves.any(t.contains);
+  final t = _normalizarRol(rol);
+  return _palabrasSonido.hasMatch(t) && !_palabrasMusica.hasMatch(t);
+}
+
+/// true si el rol menciona sonido Y otra función ("Músico y sonidista"):
+/// hay que preguntar a dónde quiere entrar.
+bool esRolSonidoAmbiguo(String rol) {
+  final t = _normalizarRol(rol);
+  return _palabrasSonido.hasMatch(t) && _palabrasMusica.hasMatch(t);
+}
+
+/// A dónde entra la persona según su rol: true = panel del sonidista, false =
+/// pantalla de pedidos, null = canceló el diálogo (se queda donde está).
+Future<bool?> decidirEntradaSonidista(BuildContext context, String rol) async {
+  if (esRolSonidista(rol)) return true;
+  if (!esRolSonidoAmbiguo(rol)) return false;
+  final l = context.l10n;
+  return showDialog<bool>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: Text(l.entrarComoSonidistaPregunta),
+      content: Text(l.entrarComoSonidistaDetalle),
+      actions: [
+        TextButton(
+            onPressed: () => Navigator.pop(ctx), child: Text(l.cancelar)),
+        TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(l.pantallaDePedidos)),
+        TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(l.panelDelSonidista)),
+      ],
+    ),
+  );
 }
 
 /// Texto entendible para un error técnico (excepción de Firebase, red...):
 /// al usuario no se le muestra el código interno, solo qué pasó y qué hacer.
 String mensajeError(AppLocalizations l, Object? e) {
   final t = '$e'.toLowerCase();
-  if (t.contains('permission-denied') || t.contains('insufficient permissions'))
+  if (t.contains('permission-denied') ||
+      t.contains('insufficient permissions')) {
     return l.errorSinPermiso;
+  }
   if (t.contains('network') ||
       t.contains('channel-error') ||
       t.contains('unavailable') ||
@@ -262,6 +305,51 @@ Future<bool> confirmarSalidaSala(BuildContext context) async {
   );
   return salir ?? false;
 }
+
+/// Versión de la app que se muestra en Configuración. Tiene que coincidir
+/// con `version:` de pubspec.yaml (lo verifica una prueba).
+const String kVersionApp = '1.1.0';
+
+/// Dirección pública de la versión web (para armar el enlace de una sala).
+const String kUrlWeb = 'https://estebancastelani.github.io/bandasonido/';
+
+/// Largo máximo de un pedido escrito a mano (también se debería exigir en las reglas).
+const int kMaxCaracteresPedido = 200;
+
+/// Cómo terminó el intento de enviar un pedido.
+enum ResultadoEnvio { enviado, pendiente, fallo }
+
+/// Espera la confirmación de un envío hasta [espera]. Sin red, Firestore deja
+/// el envío en cola (no falla ni termina): ahí se devuelve [pendiente] para
+/// avisar a la persona en vez de mostrarle un "Enviado" que todavía no es cierto.
+Future<ResultadoEnvio> esperarEnvio(Future<void> envio,
+    {Duration espera = const Duration(seconds: 4)}) async {
+  try {
+    await envio.timeout(espera);
+    return ResultadoEnvio.enviado;
+  } on TimeoutException {
+    return ResultadoEnvio.pendiente;
+  } catch (_) {
+    return ResultadoEnvio.fallo;
+  }
+}
+
+/// Hay que avisar "sin conexión" solo si alguna vez llegaron datos reales del
+/// servidor y ahora lo que se ve viene de la memoria (la primera carga también
+/// puede venir del caché y no es una caída).
+bool mostrarAvisoSinConexion(
+        {required bool vioServidor, required bool desdeCache}) =>
+    vioServidor && desdeCache;
+
+/// Código de sala de un enlace del tipo `.../?sala=ABCD2345` (null si no hay o no es válido).
+String? codigoDeSalaDesdeUri(Uri uri) {
+  final codigo = uri.queryParameters['sala']?.trim().toUpperCase();
+  if (codigo == null || !RegExp(r'^[A-Z0-9]{8}$').hasMatch(codigo)) return null;
+  return codigo;
+}
+
+/// Enlace para unirse a una sala desde el navegador.
+String enlaceDeSala(String codigo) => '$kUrlWeb?sala=$codigo';
 
 /// Entra al panel del sonidista de la sala [codigo] (lo mismo que "Acceso
 /// sonidista"), y lo deja guardado para volver a abrirlo al reabrir la app.
@@ -326,7 +414,6 @@ class AppConstants {
         l.fraseVolumenTalkback,
         l.fraseVolumenPista,
         l.fraseVolumenClick,
-        l.fraseVolumenRetorno,
         l.fraseVolumenCoordinador,
         l.fraseVolumenGeneral,
         l.fraseMasVolumen,
@@ -969,6 +1056,39 @@ class ChordTransposer {
 
   static final RegExp _entreCorchetes = RegExp(r'\[([^\]]+)\]');
 
+  // Notación latina (Do Re Mi Fa Sol La Si): se transpone conservando esa notación.
+  static const List<String> _latinosSostenidos = [
+    'Do',
+    'Do#',
+    'Re',
+    'Re#',
+    'Mi',
+    'Fa',
+    'Fa#',
+    'Sol',
+    'Sol#',
+    'La',
+    'La#',
+    'Si',
+  ];
+  static const List<String> _latinosBemoles = [
+    'Do',
+    'Reb',
+    'Re',
+    'Mib',
+    'Mi',
+    'Fa',
+    'Solb',
+    'Sol',
+    'Lab',
+    'La',
+    'Sib',
+    'Si',
+  ];
+  static final RegExp _tokenLatino = RegExp(
+    r'^(Do|Re|Mi|Fa|Sol|La|Si)(#|b)?((?:maj|min|dim|aug|sus|add|m)?[0-9⁰¹²³⁴⁵⁶⁷⁸⁹]*(?:[#b][0-9]+)?\+?)?(?:/(Do|Re|Mi|Fa|Sol|La|Si)(#|b)?)?$',
+  );
+
   static String transponerTexto(String texto, int semitonos) {
     if (semitonos == 0) return texto;
     return texto
@@ -1014,25 +1134,69 @@ class ChordTransposer {
     final palabras =
         linea.trim().split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
     if (palabras.isEmpty) return false;
-    final acordes = palabras.where((w) => _tokenAcorde.hasMatch(w)).length;
+    // "Si", "Mi", "La" o "Sol" solos son palabras comunes: la notación latina
+    // solo cuenta como acorde en una línea con al menos dos elementos.
+    final acordes = palabras
+        .where((w) =>
+            _tokenAcorde.hasMatch(w) ||
+            (palabras.length >= 2 && _tokenLatino.hasMatch(w)))
+        .length;
     return acordes / palabras.length >= 0.6;
+  }
+
+  /// true si el texto tiene al menos un acorde que se pueda transponer
+  /// (entre corchetes o en una línea de acordes).
+  static bool hayAcordes(String texto) {
+    for (final linea in texto.split('\n')) {
+      if (_entreCorchetes.hasMatch(linea)) {
+        if (_entreCorchetes
+            .allMatches(linea)
+            .any((m) => _transponerToken(m.group(1)!, 1) != null)) {
+          return true;
+        }
+      } else if (_esLineaDeAcordes(linea)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   static String? _transponerToken(String token, int semitonos) {
     final match = _tokenAcorde.firstMatch(token);
-    if (match == null) return null;
-
-    final raiz = match.group(1)!;
-    final alteracion = match.group(2) ?? '';
-    final sufijo = match.group(3) ?? '';
-    final bajoRaiz = match.group(4);
-    final bajoAlteracion = match.group(5) ?? '';
-
-    var resultado = _transponerNota(raiz + alteracion, semitonos) + sufijo;
-    if (bajoRaiz != null) {
-      resultado += '/${_transponerNota(bajoRaiz + bajoAlteracion, semitonos)}';
+    if (match != null) {
+      final raiz = match.group(1)!;
+      final alteracion = match.group(2) ?? '';
+      final sufijo = match.group(3) ?? '';
+      final bajoRaiz = match.group(4);
+      final bajoAlteracion = match.group(5) ?? '';
+      var resultado = _transponerNota(raiz + alteracion, semitonos) + sufijo;
+      if (bajoRaiz != null) {
+        resultado +=
+            '/${_transponerNota(bajoRaiz + bajoAlteracion, semitonos)}';
+      }
+      return resultado;
+    }
+    final latino = _tokenLatino.firstMatch(token);
+    if (latino == null) return null;
+    final sufijo = latino.group(3) ?? '';
+    var resultado = _transponerNotaLatina(
+            (latino.group(1)!) + (latino.group(2) ?? ''), semitonos) +
+        sufijo;
+    final bajo = latino.group(4);
+    if (bajo != null) {
+      resultado +=
+          '/${_transponerNotaLatina(bajo + (latino.group(5) ?? ''), semitonos)}';
     }
     return resultado;
+  }
+
+  static String _transponerNotaLatina(String nota, int semitonos) {
+    final tabla = nota.endsWith('b') ? _latinosBemoles : _latinosSostenidos;
+    final indice = tabla.indexOf(nota);
+    if (indice == -1) return nota;
+    var nuevo = (indice + semitonos) % 12;
+    if (nuevo < 0) nuevo += 12;
+    return tabla[nuevo];
   }
 
   static String _transponerNota(String nota, int semitonos) {
@@ -2099,11 +2263,15 @@ class SecuenciasService {
     required int semitonos,
     required int tempoPorcentaje,
     required int volumenPorcentaje,
+    String? ajustadoPor,
   }) async {
     await _refSala(codigoSala).doc(id).update({
       'semitonos': semitonos,
       'tempoPorcentaje': tempoPorcentaje,
       'volumenPorcentaje': volumenPorcentaje,
+      // Gana el último en escribir (D-06): se muestra quién fue.
+      if (ajustadoPor != null && ajustadoPor.isNotEmpty)
+        'ajustadoPor': ajustadoPor,
     });
   }
 }
@@ -2324,7 +2492,9 @@ class ReproductorSecuencias extends ChangeNotifier {
     if (idActual != id) return;
     if (this.tempo == tempo &&
         this.semitonos == semitonos &&
-        this.volumen == volumen) return;
+        this.volumen == volumen) {
+      return;
+    }
     final cambioTempo = this.tempo != tempo;
     final cambioTono = this.semitonos != semitonos;
     final cambioVolumen = this.volumen != volumen;
@@ -2353,8 +2523,9 @@ class ReproductorSecuencias extends ChangeNotifier {
     enFadeOut = true;
     notifyListeners();
     if (_web) {
-      if (_duenoWeb == this)
+      if (_duenoWeb == this) {
         puente.rwFadeOut(duracionFadeOut.inMilliseconds / 1000);
+      }
       return;
     }
     const pasos = 40;
@@ -2699,8 +2870,9 @@ class _SoundCheckProAppState extends State<SoundCheckProApp> {
       setState(() {
         if (clave != null) _paleta = AppPalette.porClave(clave);
 
-        if (oscuro != null)
+        if (oscuro != null) {
           _themeMode = oscuro ? ThemeMode.dark : ThemeMode.light;
+        }
       });
     }
   }
@@ -2832,6 +3004,14 @@ class _SplashScreenState extends State<SplashScreen> {
       context,
       MaterialPageRoute(builder: (_) => destino),
     );
+    // Enlace del tipo .../?sala=ABCD2345: lleva directo a "Unirme a sala" con el código cargado.
+    final codigoEnlace = codigoDeSalaDesdeUri(Uri.base);
+    if (codigoEnlace != null && mounted) {
+      Navigator.push(
+          context,
+          MaterialPageRoute(
+              builder: (_) => UnirmeSalaScreen(codigoInicial: codigoEnlace)));
+    }
   }
 
   @override
@@ -3912,7 +4092,18 @@ class _ItemConfiguracionState extends State<_ItemConfiguracion> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     opcion('colores', l.colores),
-                    opcion('idioma', l.idioma)
+                    opcion('idioma', l.idioma),
+                    Padding(
+                      padding: const EdgeInsetsDirectional.only(
+                          start: 28, top: 8, bottom: 8, end: 12),
+                      child: Text(
+                        l.versionApp(kVersionApp),
+                        style: TextStyle(
+                            fontSize: 12,
+                            color:
+                                Theme.of(context).colorScheme.onSurfaceVariant),
+                      ),
+                    ),
                   ],
                 )
               : const SizedBox(width: double.infinity),
@@ -4160,15 +4351,25 @@ class _CrearSalaScreenState extends State<CrearSalaScreen> {
 
     setState(() => _intentado = true);
 
-    if (nombre.isEmpty || _rolController.text.trim().isEmpty || _procesando)
+    if (nombre.isEmpty || _rolController.text.trim().isEmpty || _procesando) {
       return;
+    }
 
     setState(() => _procesando = true);
 
     try {
       await AuthService.asegurarSesion();
 
-      if (esRolSonidista(_rolController.text)) {
+      final comoSonidista =
+          await decidirEntradaSonidista(context, _rolController.text);
+
+      if (comoSonidista == null) {
+        if (mounted) setState(() => _procesando = false);
+
+        return;
+      }
+
+      if (comoSonidista) {
         await entrarComoSonidista(context, _pin);
 
         return;
@@ -4242,15 +4443,26 @@ class _CrearSalaScreenState extends State<CrearSalaScreen> {
                         fontSize: 32,
                         fontWeight: FontWeight.bold,
                         color: context.acento)),
-                trailing: IconButton(
-                    icon: const Icon(Icons.copy),
-                    tooltip: context.l10n.copiar,
-                    onPressed: () {
-                      Clipboard.setData(ClipboardData(text: _pin));
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.share),
+                      tooltip: context.l10n.compartirEnlaceSala,
+                      onPressed: () => Share.share(
+                          context.l10n.enlaceSalaTexto(enlaceDeSala(_pin))),
+                    ),
+                    IconButton(
+                        icon: const Icon(Icons.copy),
+                        tooltip: context.l10n.copiar,
+                        onPressed: () {
+                          Clipboard.setData(ClipboardData(text: _pin));
 
-                      ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text(context.l10n.pinCopiado)));
-                    }),
+                          ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text(context.l10n.pinCopiado)));
+                        }),
+                  ],
+                ),
               ),
             ),
             const SizedBox(height: 24),
@@ -4340,14 +4552,25 @@ class _UnirmeSalaScreenState extends State<UnirmeSalaScreen> {
     if (nombre.isEmpty ||
         pin.length != 8 ||
         _rolController.text.trim().isEmpty ||
-        _procesando) return;
+        _procesando) {
+      return;
+    }
 
     setState(() => _procesando = true);
 
     try {
       await AuthService.asegurarSesion();
 
-      if (esRolSonidista(_rolController.text)) {
+      final comoSonidista =
+          await decidirEntradaSonidista(context, _rolController.text);
+
+      if (comoSonidista == null) {
+        if (mounted) setState(() => _procesando = false);
+
+        return;
+      }
+
+      if (comoSonidista) {
         await entrarComoSonidista(context, pin);
 
         return;
@@ -4585,8 +4808,9 @@ class MisSalasScreen extends StatelessWidget {
                 return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
                   stream: MisSalasService.streamMisSalas(user.uid),
                   builder: (context, snapshot) {
-                    if (!snapshot.hasData)
+                    if (!snapshot.hasData) {
                       return const Center(child: CircularProgressIndicator());
+                    }
                     final docs = snapshot.data!.docs;
                     if (docs.isEmpty) {
                       return Center(
@@ -4779,6 +5003,10 @@ class _RequestScreenState extends State<RequestScreen>
   bool _pantallaEncendida = true;
 
   bool _esUrgente = false;
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _conexionSub;
+  ScaffoldMessengerState? _messenger;
+  bool _vioServidor = false;
+  bool _avisoSinConexion = false;
 
   /// Se vuelve a crear cuando el usuario cambia las pestañas visibles (por
   /// eso TickerProviderStateMixin y no SingleTicker...).
@@ -4805,6 +5033,7 @@ class _RequestScreenState extends State<RequestScreen>
     super.initState();
 
     WakelockPlus.enable();
+    _vigilarConexion();
 
     MiembrosSalaService.registrarPresencia(widget.codigoSala).catchError(
         (e) => debugPrint('No se pudo registrar presencia en la sala: $e'));
@@ -4821,10 +5050,51 @@ class _RequestScreenState extends State<RequestScreen>
     WakelockPlus.disable();
 
     _customPedidoController.dispose();
+    _conexionSub?.cancel();
+    _messenger?.hideCurrentMaterialBanner();
 
     _tabController.dispose();
 
     super.dispose();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _messenger = ScaffoldMessenger.of(context);
+  }
+
+  /// Escucha si hay conexión con Firestore y muestra un aviso fijo cuando se
+  /// pierde: así nadie cree que un pedido llegó cuando no hay red.
+  void _vigilarConexion() {
+    _conexionSub = FirebaseFirestore.instance
+        .collection('salas')
+        .doc(widget.codigoSala)
+        .collection('pedidos')
+        .limit(1)
+        .snapshots(includeMetadataChanges: true)
+        .listen((s) {
+      final desdeCache = s.metadata.isFromCache;
+      if (!desdeCache) _vioServidor = true;
+      final sin = mostrarAvisoSinConexion(
+          vioServidor: _vioServidor, desdeCache: desdeCache);
+      if (sin == _avisoSinConexion || !mounted) return;
+      _avisoSinConexion = sin;
+      final messenger = ScaffoldMessenger.of(context);
+      if (sin) {
+        messenger.showMaterialBanner(MaterialBanner(
+          content: Text(context.l10n.sinConexionAviso),
+          leading: const Icon(Icons.wifi_off),
+          actions: [
+            TextButton(
+                onPressed: messenger.hideCurrentMaterialBanner,
+                child: Text(context.l10n.entendido))
+          ],
+        ));
+      } else {
+        messenger.hideCurrentMaterialBanner();
+      }
+    }, onError: (_) {});
   }
 
   /// Cambia las pestañas visibles quedándose, si sigue visible, en la que
@@ -4903,32 +5173,46 @@ class _RequestScreenState extends State<RequestScreen>
     );
   }
 
-  void _enviarMensaje(String texto) {
-    if (texto.trim().isEmpty) return;
-
-    final rolStr = widget.rol;
-
-    final urgente = _esUrgente;
-
-    FirestoreService.enviarPedido(
+  Future<void> _enviarMensaje(String texto, {bool? urgenteForzado}) async {
+    final limpio = texto.trim();
+    if (limpio.isEmpty) return;
+    final urgente = urgenteForzado ?? _esUrgente;
+    final l = context.l10n;
+    final messenger = ScaffoldMessenger.of(context);
+    if (_esUrgente) setState(() => _esUrgente = false);
+    // "Enviado" solo cuando de verdad llegó (o se avisa que quedó en cola / falló).
+    final resultado = await esperarEnvio(FirestoreService.enviarPedido(
       codigo: widget.codigoSala,
       nombre: widget.userName,
-      rol: rolStr,
-      pedido: texto.trim(),
+      rol: widget.rol,
+      pedido: limpio,
       urgente: urgente,
-    );
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(urgente
-            ? context.l10n.urgenteEnviado(texto.trim())
-            : context.l10n.enviado(texto.trim())),
-        duration: const Duration(milliseconds: 400),
-        backgroundColor: urgente ? Colors.redAccent : null,
-      ),
-    );
-
-    if (_esUrgente) setState(() => _esUrgente = false);
+    ));
+    if (!mounted) return;
+    messenger.hideCurrentSnackBar();
+    switch (resultado) {
+      case ResultadoEnvio.enviado:
+        messenger.showSnackBar(SnackBar(
+          content: Text(urgente ? l.urgenteEnviado(limpio) : l.enviado(limpio)),
+          duration: const Duration(milliseconds: 600),
+          backgroundColor: urgente ? Colors.redAccent : null,
+        ));
+      case ResultadoEnvio.pendiente:
+        messenger.showSnackBar(SnackBar(
+          content: Text(l.pedidoPendienteSinConexion),
+          duration: const Duration(seconds: 6),
+          backgroundColor: Colors.orange.shade800,
+        ));
+      case ResultadoEnvio.fallo:
+        messenger.showSnackBar(SnackBar(
+          content: Text(l.noSePudoEnviarPedido),
+          duration: const Duration(seconds: 8),
+          backgroundColor: Colors.redAccent,
+          action: SnackBarAction(
+              label: l.reintentar,
+              onPressed: () => _enviarMensaje(limpio, urgenteForzado: urgente)),
+        ));
+    }
   }
 
   Widget _construirGridFrases(List<String> pedidosRapidos) {
@@ -4975,8 +5259,9 @@ class _RequestScreenState extends State<RequestScreen>
           icon: const Icon(Icons.exit_to_app),
           tooltip: context.l10n.salirDeLaSala,
           onPressed: () async {
-            if (await confirmarSalidaSala(context) && context.mounted)
+            if (await confirmarSalidaSala(context) && context.mounted) {
               _cerrarSesion(context);
+            }
           },
         ),
 
@@ -5073,7 +5358,17 @@ class _RequestScreenState extends State<RequestScreen>
                       Expanded(
                         child: TextField(
                           controller: _customPedidoController,
-                          style: const TextStyle(fontSize: 13),
+                          style: const TextStyle(fontSize: 14),
+                          inputFormatters: [
+                            LengthLimitingTextInputFormatter(
+                                kMaxCaracteresPedido)
+                          ],
+                          textInputAction: TextInputAction.send,
+                          onSubmitted: (t) {
+                            _enviarMensaje(t);
+
+                            _customPedidoController.clear();
+                          },
                           decoration: InputDecoration(
                             hintText: context.l10n.escribirPedidoPersonalizado,
                             isDense: true,
@@ -5129,23 +5424,26 @@ class _RequestScreenState extends State<RequestScreen>
                         .limit(10)
                         .snapshots(),
                     builder: (context, snapshot) {
-                      if (snapshot.hasError)
+                      if (snapshot.hasError) {
                         return Center(
                             child: Text(
                                 context.l10n.error(
                                     mensajeError(context.l10n, snapshot.error)),
                                 style: const TextStyle(fontSize: 14)));
+                      }
 
-                      if (!snapshot.hasData)
+                      if (!snapshot.hasData) {
                         return const Center(child: CircularProgressIndicator());
+                      }
 
                       final docs = snapshot.data!.docs;
 
-                      if (docs.isEmpty)
+                      if (docs.isEmpty) {
                         return Center(
                             child: Text(context.l10n.sinPedidosPropios,
                                 style: const TextStyle(
                                     color: Colors.grey, fontSize: 14)));
+                      }
 
                       return ListView.builder(
                         itemCount: docs.length,
@@ -5327,15 +5625,17 @@ class SetlistTab extends StatelessWidget {
                 StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
               stream: RepertorioService.streamRepertorio(user.uid),
               builder: (context, snapshot) {
-                if (!snapshot.hasData)
+                if (!snapshot.hasData) {
                   return const Center(child: CircularProgressIndicator());
+                }
 
                 final docs =
                     RepertorioService.ordenarPorTitulo(snapshot.data!.docs);
 
-                if (docs.isEmpty)
+                if (docs.isEmpty) {
                   return Center(
                       child: Text(context.l10n.tuBibliotecaEstaVacia));
+                }
 
                 final canciones =
                     docs.map((d) => {...d.data(), 'id': d.id}).toList();
@@ -5983,8 +6283,9 @@ class _SecuenciasTabState extends State<SecuenciasTab>
               StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
             stream: SecuenciasService.streamMisSecuencias(user.uid),
             builder: (context, snapshot) {
-              if (!snapshot.hasData)
+              if (!snapshot.hasData) {
                 return const Center(child: CircularProgressIndicator());
+              }
               final docs =
                   RepertorioService.ordenarPorTitulo(snapshot.data!.docs);
               if (docs.isEmpty) {
@@ -6154,6 +6455,7 @@ class _SecuenciasTabState extends State<SecuenciasTab>
         semitonos: semitonos,
         tempoPorcentaje: tempo,
         volumenPorcentaje: volumen,
+        ajustadoPor: widget.nombreUsuario,
       ).catchError((e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -6374,8 +6676,9 @@ class _SecuenciasTabState extends State<SecuenciasTab>
             ),
           );
         }
-        if (!snapshot.hasData)
+        if (!snapshot.hasData) {
           return const Center(child: CircularProgressIndicator());
+        }
         final docs = snapshot.data!.docs;
         final urlsEnSala =
             docs.map((d) => d.data()['audioUrl'] as String? ?? '').toSet();
@@ -6409,6 +6712,9 @@ class _SecuenciasTabState extends State<SecuenciasTab>
             subtitulo: [
               context.l10n.cargadaPor(data['subidoPor'] ?? '—'),
               if (ajustes != null) ajustes,
+              if (ajustes != null &&
+                  (data['ajustadoPor'] as String? ?? '').isNotEmpty)
+                context.l10n.ajustadoPor(data['ajustadoPor'] as String),
             ].join(' · '),
             tempo: tempoPorcentaje / 100,
             semitonos: semitonos,
@@ -6936,10 +7242,12 @@ class _MiRepertorioScreenState extends State<MiRepertorioScreen> {
     Navigator.of(context, rootNavigator: true).pop();
 
     final partes = <String>[context.l10n.actualizadas(resultado.actualizadas)];
-    if (resultado.sinTexto > 0)
+    if (resultado.sinTexto > 0) {
       partes.add(context.l10n.sinTextoEnElPdf(resultado.sinTexto));
-    if (resultado.fallidas > 0)
+    }
+    if (resultado.fallidas > 0) {
       partes.add(context.l10n.conError(resultado.fallidas));
+    }
     ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(context.l10n.cifrados(partes.join(', ')))));
   }
@@ -6991,8 +7299,9 @@ class _MiRepertorioScreenState extends State<MiRepertorioScreen> {
                 StreamBuilder<bool>(
                   stream: UsuarioService.streamEsPro(user.uid),
                   builder: (context, snapshot) {
-                    if (kFuncionesProGratisPorAhora || snapshot.data == true)
+                    if (kFuncionesProGratisPorAhora || snapshot.data == true) {
                       return const SizedBox.shrink();
+                    }
 
                     return Container(
                       width: double.infinity,
@@ -7313,9 +7622,10 @@ class _MisSecuenciasScreenState extends State<MisSecuenciasScreen> {
               bytes,
               SecuenciasService.tamanoObjetivoMp3Bytes,
               (p) {
-                if (mounted)
+                if (mounted) {
                   setState(() => _progresoSubida = context.l10n
                       .convirtiendoAMp32((p * 100).round(), contador));
+                }
               },
             );
             bytes = mp3.bytes;
@@ -7452,8 +7762,9 @@ class _MisSecuenciasScreenState extends State<MisSecuenciasScreen> {
                             child: Text(context.l10n
                                 .errorAlCargar('${snapshot.error}')));
                       }
-                      if (!snapshot.hasData)
+                      if (!snapshot.hasData) {
                         return const Center(child: CircularProgressIndicator());
+                      }
                       final docs = RepertorioService.ordenarPorTitulo(
                           snapshot.data!.docs);
                       if (docs.isEmpty) {
@@ -7475,8 +7786,9 @@ class _MisSecuenciasScreenState extends State<MisSecuenciasScreen> {
                         titulo: _busquedaController.text,
                         tonalidad: '',
                       );
-                      if (filtradas.isEmpty)
+                      if (filtradas.isEmpty) {
                         return Center(child: Text(context.l10n.sinResultados));
+                      }
                       return ListView.separated(
                         padding: const EdgeInsets.only(bottom: 88),
                         itemCount: filtradas.length,
@@ -7736,7 +8048,9 @@ class _CifradoViewerScreenState extends State<CifradoViewerScreen> {
     if (delta.dx.abs() > delta.dy.abs()) {
       if (delta.dx.abs() < umbral ||
           widget.setlistItems == null ||
-          widget.indiceEnSetlist == null) return;
+          widget.indiceEnSetlist == null) {
+        return;
+      }
 
       final nuevoIndice = widget.indiceEnSetlist! + (delta.dx < 0 ? 1 : -1);
 
@@ -7830,16 +8144,32 @@ class _CifradoViewerScreenState extends State<CifradoViewerScreen> {
               child: SingleChildScrollView(
                 controller: _scrollVertical,
                 padding: const EdgeInsets.all(16),
-                child: SingleChildScrollView(
-                  controller: _scrollHorizontal,
-                  scrollDirection: Axis.horizontal,
-                  child: SelectableText(
-                    texto,
-                    style: TextStyle(
-                        fontFamily: 'RobotoMono',
-                        fontSize: tamano,
-                        height: 1.6),
-                  ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (widget.puedeTransponer &&
+                        !ChordTransposer.hayAcordes(texto))
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: Text(
+                          context.l10n.noHayAcordesParaTransponer,
+                          style: TextStyle(
+                              color: context.acento,
+                              fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                    SingleChildScrollView(
+                      controller: _scrollHorizontal,
+                      scrollDirection: Axis.horizontal,
+                      child: SelectableText(
+                        texto,
+                        style: TextStyle(
+                            fontFamily: 'RobotoMono',
+                            fontSize: tamano,
+                            height: 1.6),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             );
@@ -7968,7 +8298,9 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
     if (delta.dx.abs() > delta.dy.abs()) {
       if (delta.dx.abs() < umbral ||
           widget.setlistItems == null ||
-          widget.indiceEnSetlist == null) return;
+          widget.indiceEnSetlist == null) {
+        return;
+      }
 
       final nuevoIndice = widget.indiceEnSetlist! + (delta.dx < 0 ? 1 : -1);
 
@@ -8316,6 +8648,7 @@ class _SonidistaPageState extends State<SonidistaPage>
         .doc(widget.codigoSala)
         .collection('pedidos')
         .orderBy('createdAt', descending: true)
+        .limit(kMaximoPedidosVisibles)
         .snapshots()
         .listen((snapshot) {
       if (_primerSnapshotPedidos) {
@@ -8455,25 +8788,57 @@ class _SonidistaPageState extends State<SonidistaPage>
                 isAtendido ? Icons.check_circle : Icons.radio_button_unchecked,
                 color: isAtendido ? Colors.green : Colors.grey),
             tooltip: context.l10n.marcarAtendido,
-            onPressed: () => d.reference.update({'atendido': !isAtendido}),
+            onPressed: () async {
+              try {
+                await d.reference.update({'atendido': !isAtendido});
+              } catch (e) {
+                if (!mounted) return;
+                final yaNoExiste = '$e'.contains('not-found');
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                  content: Text(yaNoExiste
+                      ? context.l10n.pedidoYaNoExiste
+                      : mensajeError(context.l10n, e)),
+                ));
+              }
+            },
           ),
           const SizedBox(width: 16),
           IconButton(
             icon: const Icon(Icons.delete_outline, color: Colors.red),
             tooltip: context.l10n.eliminar,
-            onPressed: () {
-              // Se borra enseguida pero se puede deshacer: se vuelve a crear el mismo documento.
+            onPressed: () async {
+              // Se borra enseguida pero se puede deshacer. El pedido se vuelve a
+              // leer ANTES de borrarlo: la copia de la pantalla puede estar vieja
+              // si otro sonidista lo cambió (ver D-07 en REQUISITOS.md).
               final ref = d.reference;
               final messenger = ScaffoldMessenger.of(context);
-              final deshacer = context.l10n.deshacer;
-              final aviso = context.l10n.pedidoEliminado;
-              ref.delete();
+              final l = context.l10n;
+              Map<String, dynamic> actual = data;
+              try {
+                final snap = await ref.get();
+                if (!snap.exists) {
+                  messenger.showSnackBar(
+                      SnackBar(content: Text(l.pedidoYaNoExiste)));
+                  return;
+                }
+                actual = (snap.data() as Map<String, dynamic>?) ?? data;
+                await ref.delete();
+              } catch (e) {
+                messenger
+                    .showSnackBar(SnackBar(content: Text(mensajeError(l, e))));
+                return;
+              }
               messenger.hideCurrentSnackBar();
               messenger.showSnackBar(SnackBar(
-                content: Text(aviso),
+                content: Text(l.pedidoEliminado),
                 duration: const Duration(seconds: 6),
                 action: SnackBarAction(
-                    label: deshacer, onPressed: () => ref.set(data)),
+                  label: l.deshacer,
+                  onPressed: () async {
+                    // Si otro sonidista ya lo volvió a crear, no se pisa.
+                    if (!(await ref.get()).exists) await ref.set(actual);
+                  },
+                ),
               ));
             },
           ),
@@ -8542,8 +8907,9 @@ class _SonidistaPageState extends State<SonidistaPage>
           icon: const Icon(Icons.exit_to_app),
           tooltip: context.l10n.salirDeLaSala,
           onPressed: () async {
-            if (await confirmarSalidaSala(context) && context.mounted)
+            if (await confirmarSalidaSala(context) && context.mounted) {
               _cerrarSesion(context);
+            }
           },
         ),
 
@@ -8565,8 +8931,9 @@ class _SonidistaPageState extends State<SonidistaPage>
                                   child: Text(context.l10n.si)),
                             ]));
 
-                if (confirm == true)
+                if (confirm == true) {
                   await FirestoreService.borrarTodo(widget.codigoSala);
+                }
               }),
           IconButton(
             icon: Icon(
@@ -8617,20 +8984,24 @@ class _SonidistaPageState extends State<SonidistaPage>
                   .doc(widget.codigoSala)
                   .collection('pedidos')
                   .orderBy('createdAt', descending: true)
+                  .limit(kMaximoPedidosVisibles)
                   .snapshots(),
               builder: (context, snapshot) {
-                if (snapshot.hasError)
+                if (snapshot.hasError) {
                   return Center(
                       child: Text(
                           context.l10n.errorDeConexion('${snapshot.error}')));
+                }
 
-                if (!snapshot.hasData)
+                if (!snapshot.hasData) {
                   return const Center(child: CircularProgressIndicator());
+                }
 
                 final docs = snapshot.data!.docs;
 
-                if (docs.isEmpty)
+                if (docs.isEmpty) {
                   return Center(child: Text(context.l10n.esperandoPedidos));
+                }
 
                 if (!_agruparPorRol) {
                   return ListView.separated(
@@ -8683,13 +9054,15 @@ class _SonidistaPageState extends State<SonidistaPage>
                 .where('atendido', isEqualTo: true)
                 .snapshots(),
             builder: (context, snapshot) {
-              if (snapshot.hasError)
+              if (snapshot.hasError) {
                 return Center(
                     child: Text(
                         context.l10n.errorDeConexion('${snapshot.error}')));
+              }
 
-              if (!snapshot.hasData)
+              if (!snapshot.hasData) {
                 return const Center(child: CircularProgressIndicator());
+              }
 
               // Se ordena en el cliente (en vez de .orderBy en la query) para
 
@@ -8710,10 +9083,11 @@ class _SonidistaPageState extends State<SonidistaPage>
                   return tb.compareTo(ta);
                 });
 
-              if (docs.isEmpty)
+              if (docs.isEmpty) {
                 return Center(
                     child: Text(context.l10n.todaviaNoAtendisteNingunPedido,
                         style: const TextStyle(color: Colors.grey)));
+              }
 
               return ListView.separated(
                 itemCount: docs.length,
