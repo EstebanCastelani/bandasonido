@@ -1,7 +1,12 @@
-name: Deploy to GitHub Pages
+name: Test and deploy to GitHub Pages
 
 on:
   push:
+    branches: [main]
+    paths:
+      - "frontend/**"
+      - ".github/workflows/deploy.yml"
+  pull_request:
     branches: [main]
     paths:
       - "frontend/**"
@@ -14,11 +19,38 @@ permissions:
   id-token: write
 
 concurrency:
-  group: pages
+  group: pages-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
+  # Control de calidad previo a publicar (QA): si algo de esto falla, no se
+  # construye ni se publica nada. Ver AUDITORIA_TESTING.md y REQUISITOS.md.
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: flutter pub get
+
+      # Falla ante errores y warnings; los avisos informativos (infos) no
+      # bloquean por ahora (hay ~68 de estilo, ver AUDITORIA_TESTING.md).
+      - name: Analyze
+        working-directory: frontend
+        run: flutter analyze --no-fatal-infos
+
+      - name: Test
+        working-directory: frontend
+        run: flutter test
+
   build:
+    needs: test
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -46,6 +78,7 @@ jobs:
 
   deploy:
     needs: build
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     environment:
       name: github-pages

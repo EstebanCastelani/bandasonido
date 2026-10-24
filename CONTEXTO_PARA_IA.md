@@ -645,6 +645,17 @@ registrada sin chequear `esPro` — ver §8 para cómo revertir esto.
       cómoda de provocarlo), Android/celular, textos a 150 % de escala.
       Pendiente de limpiar: `AppConstants.pedidosRapidos` repite "Volumen
       retorno" (primera y tercera fila).
+31. **Testing y calidad: Etapas 0 y 1 (oct-2026)**: documentos en la raíz:
+    `AUDITORIA_TESTING.md` (reglas de la clase, hallazgos, 35 casos de prueba,
+    plan por etapas), `REQUISITOS.md` (RQ-xx con criterios de aceptación,
+    decisiones D-03…D-08 **propuestas y sin confirmar** y definición de
+    "hecho") y `DEFECTOS.md` (DF-xx). Pruebas: `frontend/test/logica_pura_test.dart`
+    (43 pasan, 6 `skip` = defectos conocidos; no "arreglar" un skip tocando el
+    test sino corrigiendo el código). Se puede importar `main.dart` desde
+    `flutter test` para probar funciones puras sin refactorizar. **CI**: antes de
+    construir/publicar corre `flutter analyze --no-fatal-infos` y `flutter
+    test`; si falla, no se publica. Para sumar pruebas de pantallas con Firebase
+    hacen falta costuras/fakes (Etapa 3 del plan).
 
 ## 6. Modelo de seguridad de las salas — trade-off consciente, no bug
 
