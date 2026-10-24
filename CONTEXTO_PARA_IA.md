@@ -569,6 +569,17 @@ registrada sin chequear `esPro` — ver §8 para cómo revertir esto.
       hablantes nativos; conviene que alguien las repase (sobre todo
       términos de audio: "retorno", "pista", "secuencia").
 
+26. **Rol escrito a mano (oct-2026)**: al crear o unirse a una sala ya no hay
+    casillas Músico/Cantante (se quitó `SelectorRoles`): hay un campo de
+    texto libre "Tu rol" (obligatorio, clave `escribiTuRol` si falta).
+    Lo escrito se guarda tal cual en prefs (`rol`) y en Firestore, y
+    `RequestScreen` recibe `rol` (String) en vez de `roles`. Para mostrar
+    se usa `rolParaMostrar`, que traduce solo los valores antiguos exactos
+    ("Músico", "Cantante", "Músico y Cantante", "Sonidista", "Otro") y deja
+    el resto como lo escribió la persona; por eso siguen existiendo
+    `UserRole`/`textoRoles`. El agrupado por rol del sonidista agrupa por
+    ese texto, así que "Guitarrista" y "guitarrista" son grupos distintos.
+
 ## 6. Modelo de seguridad de las salas — trade-off consciente, no bug
 
 `salas/{codigoSala}/pedidos` y `.../setlist` se leen/escriben con

@@ -1004,4 +1004,7 @@ class AppLocalizationsRu extends AppLocalizations {
   @override
   String get idiomaDescripcion =>
       'Выберите язык приложения. Он сохранится на этом устройстве.';
+
+  @override
+  String get escribiTuRol => 'Укажите свою роль.';
 }

@@ -279,5 +279,6 @@
   "secuenciasParaHoy": "{cantidad, plural, other{今日 {cantidad} 个音轨}}",
   "idioma": "语言",
   "idiomaAutomatico": "自动（设备语言）",
-  "idiomaDescripcion": "选择应用的语言，将保存在此设备上。"
+  "idiomaDescripcion": "选择应用的语言，将保存在此设备上。",
+  "escribiTuRol": "请输入你的角色。"
 }

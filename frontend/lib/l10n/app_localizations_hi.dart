@@ -994,4 +994,7 @@ class AppLocalizationsHi extends AppLocalizations {
   @override
   String get idiomaDescripcion =>
       'ऐप की भाषा चुनें। यह इस डिवाइस पर सहेजी जाती है।';
+
+  @override
+  String get escribiTuRol => 'अपनी भूमिका लिखें।';
 }

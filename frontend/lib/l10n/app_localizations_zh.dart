@@ -959,4 +959,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get idiomaDescripcion => '选择应用的语言，将保存在此设备上。';
+
+  @override
+  String get escribiTuRol => '请输入你的角色。';
 }

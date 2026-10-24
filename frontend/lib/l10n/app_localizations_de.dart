@@ -1000,4 +1000,7 @@ class AppLocalizationsDe extends AppLocalizations {
   @override
   String get idiomaDescripcion =>
       'Wähle die Sprache der App. Sie wird auf diesem Gerät gespeichert.';
+
+  @override
+  String get escribiTuRol => 'Gib deine Rolle ein.';
 }

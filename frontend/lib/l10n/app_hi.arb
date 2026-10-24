@@ -279,5 +279,6 @@
   "secuenciasParaHoy": "{cantidad, plural, =1{आज के लिए 1 सीक्वेंस} other{आज के लिए {cantidad} सीक्वेंस}}",
   "idioma": "भाषा",
   "idiomaAutomatico": "स्वचालित (डिवाइस की भाषा)",
-  "idiomaDescripcion": "ऐप की भाषा चुनें। यह इस डिवाइस पर सहेजी जाती है।"
+  "idiomaDescripcion": "ऐप की भाषा चुनें। यह इस डिवाइस पर सहेजी जाती है।",
+  "escribiTuRol": "अपनी भूमिका लिखें।"
 }

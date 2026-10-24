@@ -997,4 +997,7 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get idiomaDescripcion =>
       'Choose the app language. It is saved on this device.';
+
+  @override
+  String get escribiTuRol => 'Enter your role.';
 }

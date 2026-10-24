@@ -279,5 +279,6 @@
   "secuenciasParaHoy": "{cantidad, plural, =1{1 Sequenz für heute} other{{cantidad} Sequenzen für heute}}",
   "idioma": "Sprache",
   "idiomaAutomatico": "Automatisch (Gerätesprache)",
-  "idiomaDescripcion": "Wähle die Sprache der App. Sie wird auf diesem Gerät gespeichert."
+  "idiomaDescripcion": "Wähle die Sprache der App. Sie wird auf diesem Gerät gespeichert.",
+  "escribiTuRol": "Gib deine Rolle ein."
 }

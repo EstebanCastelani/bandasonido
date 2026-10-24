@@ -1797,6 +1797,12 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'Elegí el idioma de la app. Se guarda en este dispositivo.'**
   String get idiomaDescripcion;
+
+  /// No description provided for @escribiTuRol.
+  ///
+  /// In es, this message translates to:
+  /// **'Escribí tu rol.'**
+  String get escribiTuRol;
 }
 
 class _AppLocalizationsDelegate

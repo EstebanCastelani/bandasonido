@@ -964,4 +964,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get idiomaDescripcion => 'アプリの言語を選択してください。この端末に保存されます。';
+
+  @override
+  String get escribiTuRol => '役割を入力してください。';
 }

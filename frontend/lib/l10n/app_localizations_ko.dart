@@ -964,4 +964,7 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get idiomaDescripcion => '앱 언어를 선택하세요. 이 기기에 저장됩니다.';
+
+  @override
+  String get escribiTuRol => '역할을 입력하세요.';
 }

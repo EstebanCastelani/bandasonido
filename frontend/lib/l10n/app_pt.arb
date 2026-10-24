@@ -279,5 +279,6 @@
   "secuenciasParaHoy": "{cantidad, plural, =1{1 sequência para hoje} other{{cantidad} sequências para hoje}}",
   "idioma": "Idioma",
   "idiomaAutomatico": "Automático (idioma do dispositivo)",
-  "idiomaDescripcion": "Escolha o idioma do app. Fica salvo neste dispositivo."
+  "idiomaDescripcion": "Escolha o idioma do app. Fica salvo neste dispositivo.",
+  "escribiTuRol": "Escreva sua função."
 }

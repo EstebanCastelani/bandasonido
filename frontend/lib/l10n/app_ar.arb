@@ -279,5 +279,6 @@
   "secuenciasParaHoy": "{cantidad, plural, =1{تسلسل واحد لليوم} two{تسلسلان لليوم} few{{cantidad} تسلسلات لليوم} many{{cantidad} تسلسلًا لليوم} other{{cantidad} تسلسل لليوم}}",
   "idioma": "اللغة",
   "idiomaAutomatico": "تلقائي (لغة الجهاز)",
-  "idiomaDescripcion": "اختر لغة التطبيق. تُحفظ على هذا الجهاز."
+  "idiomaDescripcion": "اختر لغة التطبيق. تُحفظ على هذا الجهاز.",
+  "escribiTuRol": "اكتب دورك."
 }

@@ -277,36 +277,6 @@ Set<UserRole> rolesDesdeEtiqueta(String? texto) {
   return roles.isEmpty ? {UserRole.musico} : roles;
 }
 
-/// Casillas para elegir uno o más roles al crear o unirse a una sala.
-class SelectorRoles extends StatelessWidget {
-  final Set<UserRole> seleccionados;
-  final ValueChanged<Set<UserRole>> alCambiar;
-
-  const SelectorRoles({super.key, required this.seleccionados, required this.alCambiar});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: EdgeInsets.only(left: 16, bottom: 4),
-          child: Text(context.l10n.tuRolPodesMarcarMas),
-        ),
-        for (final rol in UserRole.values)
-          CheckboxListTile(
-            title: Text(rol.nombre(context.l10n)),
-            value: seleccionados.contains(rol),
-            controlAffinity: ListTileControlAffinity.leading,
-            onChanged: (marcado) => alCambiar(
-              marcado == true ? {...seleccionados, rol} : ({...seleccionados}..remove(rol)),
-            ),
-          ),
-      ],
-    );
-  }
-}
-
 
 
 class AppConstants {
@@ -2744,7 +2714,6 @@ class _SplashScreenState extends State<SplashScreen> {
 
           final rolStr = prefs.getString('rol') ?? 'Músico';
 
-          final roles = rolesDesdeEtiqueta(rolStr);
 
 
 
@@ -2758,7 +2727,7 @@ class _SplashScreenState extends State<SplashScreen> {
 
                 userName: nombre,
 
-                roles: roles,
+                rol: rolStr,
 
                 codigoSala: salaId,
 
@@ -4297,7 +4266,7 @@ class _CrearSalaScreenState extends State<CrearSalaScreen> {
 
   final String _pin = generarCodigoSala();
 
-  Set<UserRole> _roles = {UserRole.musico};
+  final _rolController = TextEditingController();
 
   bool _procesando = false;
 
@@ -4309,9 +4278,9 @@ class _CrearSalaScreenState extends State<CrearSalaScreen> {
 
     if (nombre.isEmpty || _procesando) return;
 
-    if (_roles.isEmpty) {
+    if (_rolController.text.trim().isEmpty) {
 
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(context.l10n.marcaAlMenosUnRol)));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(context.l10n.escribiTuRol)));
 
       return;
 
@@ -4333,13 +4302,13 @@ class _CrearSalaScreenState extends State<CrearSalaScreen> {
 
       await prefs.setString('nombre', nombre);
 
-      await prefs.setString('rol', etiquetaRoles(_roles));
+      await prefs.setString('rol', _rolController.text.trim());
 
       await _registrarSalaSiCorresponde(
 
         codigoSala: _pin,
 
-        rolUsado: etiquetaRoles(_roles),
+        rolUsado: _rolController.text.trim(),
 
         nombre: nombre,
 
@@ -4361,7 +4330,7 @@ class _CrearSalaScreenState extends State<CrearSalaScreen> {
 
             userName: nombre,
 
-            roles: _roles,
+            rol: _rolController.text.trim(),
 
             codigoSala: _pin,
 
@@ -4390,6 +4359,8 @@ class _CrearSalaScreenState extends State<CrearSalaScreen> {
   void dispose() {
 
     _nameController.dispose();
+
+    _rolController.dispose();
 
     super.dispose();
 
@@ -4439,7 +4410,7 @@ class _CrearSalaScreenState extends State<CrearSalaScreen> {
 
             const SizedBox(height: 16),
 
-            SelectorRoles(seleccionados: _roles, alCambiar: (roles) => setState(() => _roles = roles)),
+            TextField(controller: _rolController, textCapitalization: TextCapitalization.sentences, decoration: InputDecoration(labelText: context.l10n.tuRolEjSonidistaGuitarrista, border: OutlineInputBorder())),
 
             const SizedBox(height: 24),
 
@@ -4493,7 +4464,7 @@ class _UnirmeSalaScreenState extends State<UnirmeSalaScreen> {
 
   late final _pinController = TextEditingController(text: widget.codigoInicial ?? '');
 
-  Set<UserRole> _roles = {UserRole.musico};
+  final _rolController = TextEditingController();
 
   bool _procesando = false;
 
@@ -4509,9 +4480,9 @@ class _UnirmeSalaScreenState extends State<UnirmeSalaScreen> {
 
     if (nombre.isEmpty || pin.length != 8 || _procesando) return;
 
-    if (_roles.isEmpty) {
+    if (_rolController.text.trim().isEmpty) {
 
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(context.l10n.marcaAlMenosUnRol)));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(context.l10n.escribiTuRol)));
 
       return;
 
@@ -4533,13 +4504,13 @@ class _UnirmeSalaScreenState extends State<UnirmeSalaScreen> {
 
       await prefs.setString('nombre', nombre);
 
-      await prefs.setString('rol', etiquetaRoles(_roles));
+      await prefs.setString('rol', _rolController.text.trim());
 
       await _registrarSalaSiCorresponde(
 
         codigoSala: pin,
 
-        rolUsado: etiquetaRoles(_roles),
+        rolUsado: _rolController.text.trim(),
 
         nombre: nombre,
 
@@ -4561,7 +4532,7 @@ class _UnirmeSalaScreenState extends State<UnirmeSalaScreen> {
 
             userName: nombre,
 
-            roles: _roles,
+            rol: _rolController.text.trim(),
 
             codigoSala: pin,
 
@@ -4590,6 +4561,8 @@ class _UnirmeSalaScreenState extends State<UnirmeSalaScreen> {
   void dispose() {
 
     _nameController.dispose();
+
+    _rolController.dispose();
 
     _pinController.dispose();
 
@@ -4631,7 +4604,7 @@ class _UnirmeSalaScreenState extends State<UnirmeSalaScreen> {
 
             const SizedBox(height: 16),
 
-            SelectorRoles(seleccionados: _roles, alCambiar: (roles) => setState(() => _roles = roles)),
+            TextField(controller: _rolController, textCapitalization: TextCapitalization.sentences, decoration: InputDecoration(labelText: context.l10n.tuRolEjSonidistaGuitarrista, border: OutlineInputBorder())),
 
             const SizedBox(height: 24),
 
@@ -4693,7 +4666,7 @@ class MisSalasScreen extends StatelessWidget {
         MaterialPageRoute(
           builder: (_) => RequestScreen(
             userName: nombre,
-            roles: rolesDesdeEtiqueta(rol),
+            rol: rol,
             codigoSala: codigoSala,
           ),
         ),
@@ -4911,11 +4884,11 @@ class RequestScreen extends StatefulWidget {
 
   final String userName;
 
-  final Set<UserRole> roles;
+  final String rol;
 
   final String codigoSala;
 
-  const RequestScreen({super.key, required this.userName, required this.roles, required this.codigoSala});
+  const RequestScreen({super.key, required this.userName, required this.rol, required this.codigoSala});
 
 
 
@@ -5080,7 +5053,7 @@ class _RequestScreenState extends State<RequestScreen> with TickerProviderStateM
 
     if (texto.trim().isEmpty) return;
 
-    final rolStr = etiquetaRoles(widget.roles);
+    final rolStr = widget.rol;
 
     final urgente = _esUrgente;
 
@@ -5191,7 +5164,7 @@ class _RequestScreenState extends State<RequestScreen> with TickerProviderStateM
 
       appBar: AppBar(
 
-        title: Text('${widget.userName} (${textoRoles(context.l10n, widget.roles)})'),
+        title: Text('${widget.userName} (${rolParaMostrar(context.l10n, widget.rol)})'),
 
         centerTitle: true,
 

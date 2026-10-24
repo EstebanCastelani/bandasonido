@@ -994,4 +994,7 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get idiomaDescripcion => 'اختر لغة التطبيق. تُحفظ على هذا الجهاز.';
+
+  @override
+  String get escribiTuRol => 'اكتب دورك.';
 }

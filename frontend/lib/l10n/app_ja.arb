@@ -279,5 +279,6 @@
   "secuenciasParaHoy": "{cantidad, plural, other{今日のシーケンス {cantidad}件}}",
   "idioma": "言語",
   "idiomaAutomatico": "自動（端末の言語）",
-  "idiomaDescripcion": "アプリの言語を選択してください。この端末に保存されます。"
+  "idiomaDescripcion": "アプリの言語を選択してください。この端末に保存されます。",
+  "escribiTuRol": "役割を入力してください。"
 }

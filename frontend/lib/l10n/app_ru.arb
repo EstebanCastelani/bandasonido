@@ -279,5 +279,6 @@
   "secuenciasParaHoy": "{cantidad, plural, one{{cantidad} секвенция на сегодня} few{{cantidad} секвенции на сегодня} many{{cantidad} секвенций на сегодня} other{{cantidad} секвенции на сегодня}}",
   "idioma": "Язык",
   "idiomaAutomatico": "Автоматически (язык устройства)",
-  "idiomaDescripcion": "Выберите язык приложения. Он сохранится на этом устройстве."
+  "idiomaDescripcion": "Выберите язык приложения. Он сохранится на этом устройстве.",
+  "escribiTuRol": "Укажите свою роль."
 }

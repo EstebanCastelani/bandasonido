@@ -998,4 +998,7 @@ class AppLocalizationsPt extends AppLocalizations {
   @override
   String get idiomaDescripcion =>
       'Escolha o idioma do app. Fica salvo neste dispositivo.';
+
+  @override
+  String get escribiTuRol => 'Escreva sua função.';
 }

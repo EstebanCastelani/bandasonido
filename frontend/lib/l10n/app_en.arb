@@ -279,5 +279,6 @@
   "secuenciasParaHoy": "{cantidad, plural, =1{1 track for today} other{{cantidad} tracks for today}}",
   "idioma": "Language",
   "idiomaAutomatico": "Automatic (device language)",
-  "idiomaDescripcion": "Choose the app language. It is saved on this device."
+  "idiomaDescripcion": "Choose the app language. It is saved on this device.",
+  "escribiTuRol": "Enter your role."
 }
