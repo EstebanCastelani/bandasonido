@@ -639,7 +639,6 @@
     }
   },
   "idioma": "Idioma",
-  "idiomaAutomatico": "Automático (idioma del dispositivo)",
   "idiomaDescripcion": "Elegí el idioma de la app. Se guarda en este dispositivo.",
   "escribiTuRol": "Escribí tu rol.",
   "configuracion": "Configuración",

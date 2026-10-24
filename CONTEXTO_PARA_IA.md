@@ -590,12 +590,34 @@ registrada sin chequear `esPro` — ver §8 para cómo revertir esto.
     persistencia al recargar).
 28. **Barra superior y Configuración (oct-2026)**: en `BienvenidaScreen` y
     `IngressMenuScreen` el botón sol/luna va a la izquierda y a la derecha
-    hay un menú hamburguesa (`MenuHamburguesa`, un `PopupMenuButton`) con
-    "Configuración" → `ConfiguracionScreen`, que lista con palabras
-    "Colores" (`PaletaPickerScreen`) e "Idioma" (`IdiomaPickerScreen`).
-    Se sacaron los iconos sueltos de paleta y globo. Claves nuevas:
-    `configuracion`, `colores`. Para sumar más ajustes, agregar tiles en
-    `ConfiguracionScreen`.
+    hay un menú hamburguesa (`MenuHamburguesa`, un `PopupMenuButton`). Su
+    ítem "Configuración" (`_ItemConfiguracion`, un `PopupMenuEntry`
+    propio) es un **desplegable dentro del menú**: al tocarlo se expande con
+    animación (flecha ▾/▴) y muestra "Colores" (`PaletaPickerScreen`) e
+    "Idioma" (`IdiomaPickerScreen`); elegir una cierra el menú y abre el
+    selector. `ConfiguracionScreen` ya no existe. Claves nuevas:
+    `configuracion`, `colores`. Para sumar más ajustes, agregar opciones en
+    `_ItemConfiguracion`. Con cuenta registrada el menú trae, en orden: Mis
+    frases, Mi repertorio, Mis secuencias (ya no son botones del cuerpo del
+    menú principal), Configuración y Cerrar sesión (el icono de logout de la
+    barra se quitó; el de login para invitados sigue). Sin cuenta: solo
+    Configuración. Se sacaron los iconos sueltos de paleta y globo.
+    Verificado en web con sesión registrada (orden, desplegar/contraer,
+    abrir Idioma).
+29. **Idiomas reducidos a 5 (oct-2026)**: la app queda en es, en, pt, fr, it
+    (se borraron los ARB y archivos generados de de/ru/zh/ja/ko/ar/hi: están
+    en el historial de git, commit 2d11dc1 y siguientes, por si se quieren
+    recuperar; ya no se declaran compatibles). Cambios respecto del punto 25:
+    el idioma de respaldo cuando el del dispositivo no está soportado es
+    **español** (`IdiomasApp.respaldo`), y el selector **ya no tiene la
+    opción "Automático"**: muestra solo los 5 idiomas y marca el elegido a
+    mano o, si nunca se eligió, el que está en uso (el del dispositivo).
+    Elegir uno lo guarda en `idioma_app` y se respeta hasta que se cambie.
+    Quien tenía guardado un idioma ya eliminado vuelve a seguir al
+    dispositivo. Clave `idiomaAutomatico` eliminada. Verificado en web:
+    selector con 5 opciones, cambio a italiano y persistencia al recargar.
+    **No verificado**: el respaldo a español con un dispositivo en otro
+    idioma (solo se revisó el código), ni Android.
 
 ## 6. Modelo de seguridad de las salas — trade-off consciente, no bug
 

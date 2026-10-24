@@ -817,20 +817,13 @@ class IdiomasApp {
     (Locale('pt'), 'Português'),
     (Locale('fr'), 'Français'),
     (Locale('it'), 'Italiano'),
-    (Locale('de'), 'Deutsch'),
-    (Locale('ru'), 'Русский'),
-    (Locale('zh'), '中文'),
-    (Locale('ja'), '日本語'),
-    (Locale('ko'), '한국어'),
-    (Locale('ar'), 'العربية'),
-    (Locale('hi'), 'हिन्दी'),
   ];
 
-  /// Si el idioma del dispositivo no está entre los de la app, se usa inglés.
-  static const Locale respaldo = Locale('en');
+  /// Si el idioma del dispositivo no está entre los de la app, se usa español.
+  static const Locale respaldo = Locale('es');
 
   /// Elige el idioma de la app para el idioma del dispositivo (o el que haya
-  /// pedido el sistema): el mismo idioma si existe, si no el inglés.
+  /// pedido el sistema): el mismo idioma si existe, si no el español.
   static Locale resolver(List<Locale>? pedidos, Iterable<Locale> soportados) {
     for (final pedido in pedidos ?? const <Locale>[]) {
       for (final s in soportados) {
@@ -3770,19 +3763,7 @@ class IngressMenuScreen extends StatelessWidget {
 
         actions: [
 
-          if (registrado)
-
-            IconButton(
-
-              icon: const Icon(Icons.logout),
-
-              tooltip: context.l10n.cerrarSesionDeCuenta,
-
-              onPressed: () => _cerrarSesionCuenta(context),
-
-            )
-
-          else
+          if (!registrado)
 
             IconButton(
 
@@ -3794,7 +3775,10 @@ class IngressMenuScreen extends StatelessWidget {
 
             ),
 
-          const MenuHamburguesa(),
+          MenuHamburguesa(
+            conCuenta: registrado,
+            alSalir: () => _cerrarSesionCuenta(context),
+          ),
 
         ],
 
@@ -3894,43 +3878,6 @@ class IngressMenuScreen extends StatelessWidget {
 
               ),
 
-              const SizedBox(height: 12),
-
-              OutlinedButton.icon(
-
-                icon: const Icon(Icons.edit_note),
-
-                label: Text(context.l10n.misFrases),
-
-                onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const FrasesAdminScreen())),
-
-                style: OutlinedButton.styleFrom(padding: const EdgeInsets.all(16)),
-
-              ),
-
-              const SizedBox(height: 12),
-
-              OutlinedButton.icon(
-
-                icon: const Icon(Icons.library_music),
-
-                label: Text(context.l10n.miRepertorio),
-
-                onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MiRepertorioScreen())),
-
-                style: OutlinedButton.styleFrom(padding: const EdgeInsets.all(16)),
-
-              ),
-
-              const SizedBox(height: 12),
-
-              OutlinedButton.icon(
-                icon: const Icon(Icons.graphic_eq),
-                label: Text(context.l10n.misSecuencias),
-                onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MisSecuenciasScreen())),
-                style: OutlinedButton.styleFrom(padding: const EdgeInsets.all(16)),
-              ),
-
             ],
 
             const SizedBox(height: 12),
@@ -3967,53 +3914,118 @@ class IngressMenuScreen extends StatelessWidget {
 
 // --- SELECTOR DE IDENTIDAD DE COLOR ---
 
-/// Menú hamburguesa de la barra superior: por ahora solo tiene
-/// "Configuración".
+/// Menú hamburguesa de la barra superior. Con cuenta registrada: Mis frases,
+/// Mi repertorio, Mis secuencias, Configuración y Cerrar sesión (en ese
+/// orden). Sin cuenta: solo Configuración.
 class MenuHamburguesa extends StatelessWidget {
   final Color? colorIcono;
+  final bool conCuenta;
+  final VoidCallback? alSalir;
 
-  const MenuHamburguesa({super.key, this.colorIcono});
+  const MenuHamburguesa({super.key, this.colorIcono, this.conCuenta = false, this.alSalir});
 
   @override
   Widget build(BuildContext context) {
     return PopupMenuButton<String>(
       icon: Icon(Icons.menu, color: colorIcono),
       onSelected: (valor) {
-        if (valor == 'configuracion') {
-          Navigator.push(context, MaterialPageRoute(builder: (_) => const ConfiguracionScreen()));
+        Widget? pantalla = switch (valor) {
+          'frases' => const FrasesAdminScreen(),
+          'repertorio' => const MiRepertorioScreen(),
+          'secuencias' => const MisSecuenciasScreen(),
+          'colores' => const PaletaPickerScreen(),
+          'idioma' => const IdiomaPickerScreen(),
+          _ => null,
+        };
+        if (pantalla != null) {
+          Navigator.push(context, MaterialPageRoute(builder: (_) => pantalla));
+        } else if (valor == 'salir') {
+          alSalir?.call();
         }
       },
       itemBuilder: (context) => [
-        PopupMenuItem(value: 'configuracion', child: Text(context.l10n.configuracion)),
+        if (conCuenta) ...[
+          PopupMenuItem(value: 'frases', child: Text(context.l10n.misFrases2)),
+          PopupMenuItem(value: 'repertorio', child: Text(context.l10n.miRepertorio2)),
+          PopupMenuItem(value: 'secuencias', child: Text(context.l10n.misSecuencias2)),
+        ],
+        const _ItemConfiguracion(),
+        if (conCuenta) PopupMenuItem(value: 'salir', child: Text(context.l10n.cerrarSesion)),
       ],
     );
   }
 }
 
-/// Configuración: "Colores" (paleta de la app) e "Idioma", con palabras en
-/// vez de iconos.
-class ConfiguracionScreen extends StatelessWidget {
-  const ConfiguracionScreen({super.key});
+/// "Configuración" dentro del menú hamburguesa: al tocarla se despliegan
+/// debajo "Colores" e "Idioma" (con animación y una flecha que indica si
+/// está abierta). Al elegir una, el menú se cierra devolviendo 'colores' o
+/// 'idioma' (lo resuelve MenuHamburguesa.onSelected).
+class _ItemConfiguracion extends PopupMenuEntry<String> {
+  const _ItemConfiguracion();
+
+  @override
+  double get height => kMinInteractiveDimension;
+
+  @override
+  bool represents(String? value) => false;
+
+  @override
+  State<_ItemConfiguracion> createState() => _ItemConfiguracionState();
+}
+
+class _ItemConfiguracionState extends State<_ItemConfiguracion> {
+  bool _abierto = false;
 
   @override
   Widget build(BuildContext context) {
     final l = context.l10n;
-    return Scaffold(
-      appBar: AppBar(title: Text(l.configuracion)),
-      body: ListView(
-        children: [
-          ListTile(
-            title: Text(l.colores),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PaletaPickerScreen())),
+    final color = Theme.of(context).colorScheme.primary;
+    Widget opcion(String valor, String texto) => InkWell(
+          onTap: () => Navigator.pop(context, valor),
+          child: Container(
+            height: kMinInteractiveDimension,
+            alignment: AlignmentDirectional.centerStart,
+            padding: const EdgeInsetsDirectional.only(start: 28, end: 12),
+            decoration: BoxDecoration(
+              border: BorderDirectional(start: BorderSide(color: color.withValues(alpha: 0.5), width: 2)),
+            ),
+            child: Text(texto),
           ),
-          ListTile(
-            title: Text(l.idioma),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const IdiomaPickerScreen())),
+        );
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        InkWell(
+          onTap: () => setState(() => _abierto = !_abierto),
+          child: Container(
+            height: kMinInteractiveDimension,
+            padding: const EdgeInsetsDirectional.only(start: 12, end: 8),
+            child: Row(
+              children: [
+                Expanded(child: Text(l.configuracion)),
+                AnimatedRotation(
+                  turns: _abierto ? 0.5 : 0,
+                  duration: const Duration(milliseconds: 200),
+                  child: Icon(Icons.keyboard_arrow_down, color: color),
+                ),
+              ],
+            ),
           ),
-        ],
-      ),
+        ),
+        AnimatedSize(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeInOut,
+          alignment: Alignment.topCenter,
+          child: _abierto
+              ? Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [opcion('colores', l.colores), opcion('idioma', l.idioma)],
+                )
+              : const SizedBox(width: double.infinity),
+        ),
+      ],
     );
   }
 }
@@ -4080,8 +4092,9 @@ class PaletaPickerScreen extends StatelessWidget {
 
 // --- SELECTOR DE IDIOMA ---
 
-/// Elegir el idioma de la app a mano, o dejarlo en automático (el del
-/// dispositivo). Cada idioma aparece con su nombre en su propio idioma, así
+/// Elegir el idioma de la app a mano. Mientras no se elija ninguno se usa el
+/// del dispositivo (o español si no es uno de los de la app) y es el que
+/// aparece marcado. Cada idioma aparece con su nombre en su propio idioma, así
 /// se puede encontrar el propio aunque la app esté en otro. Se guarda en este
 /// dispositivo (ver _SoundCheckProAppState.setIdioma).
 class IdiomaPickerScreen extends StatelessWidget {
@@ -4091,7 +4104,8 @@ class IdiomaPickerScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final l = context.l10n;
     final app = SoundCheckProApp.of(context);
-    final elegido = app.idiomaElegido;
+    // El elegido a mano o, si nunca se eligió, el que está en uso.
+    final elegido = app.idiomaElegido ?? Localizations.localeOf(context);
     final acento = context.acento;
 
     Widget opcion({required String titulo, String? detalle, required bool seleccionada, required VoidCallback onTap}) {
@@ -4135,13 +4149,6 @@ class IdiomaPickerScreen extends StatelessWidget {
       );
     }
 
-    // Idioma que se usaría en automático, para mostrarlo en esa opción.
-    final automatico = IdiomasApp.resolver(
-      WidgetsBinding.instance.platformDispatcher.locales,
-      AppLocalizations.supportedLocales,
-    );
-    final nombreAutomatico = IdiomasApp.todos.firstWhere((i) => i.$1.languageCode == automatico.languageCode).$2;
-
     return Scaffold(
       appBar: AppBar(title: Text(l.idioma)),
       body: ListView(
@@ -4151,16 +4158,10 @@ class IdiomaPickerScreen extends StatelessWidget {
             padding: const EdgeInsets.only(bottom: 16),
             child: Text(l.idiomaDescripcion),
           ),
-          opcion(
-            titulo: l.idiomaAutomatico,
-            detalle: nombreAutomatico,
-            seleccionada: elegido == null,
-            onTap: () => app.setIdioma(null),
-          ),
           for (final (locale, nombre) in IdiomasApp.todos)
             opcion(
               titulo: nombre,
-              seleccionada: elegido?.languageCode == locale.languageCode,
+              seleccionada: elegido.languageCode == locale.languageCode,
               onTap: () => app.setIdioma(locale),
             ),
         ],

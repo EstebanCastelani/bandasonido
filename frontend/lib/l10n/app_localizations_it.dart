@@ -995,9 +995,6 @@ class AppLocalizationsIt extends AppLocalizations {
   String get idioma => 'Lingua';
 
   @override
-  String get idiomaAutomatico => 'Automatica (lingua del dispositivo)';
-
-  @override
   String get idiomaDescripcion =>
       'Scegli la lingua dell’app. Viene salvata su questo dispositivo.';
 
