@@ -77,7 +77,8 @@ void rwDesbloquear() => _reproductor.desbloquear();
 /// Empieza a reproducir la pista apenas hay datos (no la baja entera) y
 /// devuelve la duración en segundos, o -1 si mientras tanto se pidió otra.
 /// Aplicar tempo/semitonos/repetir antes de llamarla.
-Future<double> rwCargar(String url) async => (await _reproductor.cargar(url.toJS).toDart).toDartDouble;
+Future<double> rwCargar(String url) async =>
+    (await _reproductor.cargar(url.toJS).toDart).toDartDouble;
 
 void rwReproducir() => _reproductor.reproducir();
 void rwPausar() => _reproductor.pausar();
