@@ -280,5 +280,7 @@
   "idioma": "اللغة",
   "idiomaAutomatico": "تلقائي (لغة الجهاز)",
   "idiomaDescripcion": "اختر لغة التطبيق. تُحفظ على هذا الجهاز.",
-  "escribiTuRol": "اكتب دورك."
+  "escribiTuRol": "اكتب دورك.",
+  "configuracion": "الإعدادات",
+  "colores": "الألوان"
 }

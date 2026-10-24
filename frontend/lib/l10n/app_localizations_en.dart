@@ -1000,4 +1000,10 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get escribiTuRol => 'Enter your role.';
+
+  @override
+  String get configuracion => 'Settings';
+
+  @override
+  String get colores => 'Colors';
 }

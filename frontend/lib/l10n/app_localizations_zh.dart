@@ -962,4 +962,10 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get escribiTuRol => '请输入你的角色。';
+
+  @override
+  String get configuracion => '设置';
+
+  @override
+  String get colores => '颜色';
 }

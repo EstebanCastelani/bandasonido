@@ -997,4 +997,10 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get escribiTuRol => 'اكتب دورك.';
+
+  @override
+  String get configuracion => 'الإعدادات';
+
+  @override
+  String get colores => 'الألوان';
 }

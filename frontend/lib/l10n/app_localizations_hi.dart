@@ -997,4 +997,10 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String get escribiTuRol => 'अपनी भूमिका लिखें।';
+
+  @override
+  String get configuracion => 'सेटिंग्स';
+
+  @override
+  String get colores => 'रंग';
 }

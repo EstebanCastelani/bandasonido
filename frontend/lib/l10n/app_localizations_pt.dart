@@ -1001,4 +1001,10 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String get escribiTuRol => 'Escreva sua função.';
+
+  @override
+  String get configuracion => 'Configurações';
+
+  @override
+  String get colores => 'Cores';
 }

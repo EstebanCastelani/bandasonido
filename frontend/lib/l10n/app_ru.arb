@@ -280,5 +280,7 @@
   "idioma": "Язык",
   "idiomaAutomatico": "Автоматически (язык устройства)",
   "idiomaDescripcion": "Выберите язык приложения. Он сохранится на этом устройстве.",
-  "escribiTuRol": "Укажите свою роль."
+  "escribiTuRol": "Укажите свою роль.",
+  "configuracion": "Настройки",
+  "colores": "Цвета"
 }

@@ -967,4 +967,10 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get escribiTuRol => '역할을 입력하세요.';
+
+  @override
+  String get configuracion => '설정';
+
+  @override
+  String get colores => '색상';
 }

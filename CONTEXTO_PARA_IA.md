@@ -588,6 +588,14 @@ registrada sin chequear `esPro` — ver §8 para cómo revertir esto.
     es heurística: un rol como "ayudante de sonido" también entra al panel.
     Verificado en web (crear con "Sonido", unirse con "Técnico de sonido",
     persistencia al recargar).
+28. **Barra superior y Configuración (oct-2026)**: en `BienvenidaScreen` y
+    `IngressMenuScreen` el botón sol/luna va a la izquierda y a la derecha
+    hay un menú hamburguesa (`MenuHamburguesa`, un `PopupMenuButton`) con
+    "Configuración" → `ConfiguracionScreen`, que lista con palabras
+    "Colores" (`PaletaPickerScreen`) e "Idioma" (`IdiomaPickerScreen`).
+    Se sacaron los iconos sueltos de paleta y globo. Claves nuevas:
+    `configuracion`, `colores`. Para sumar más ajustes, agregar tiles en
+    `ConfiguracionScreen`.
 
 ## 6. Modelo de seguridad de las salas — trade-off consciente, no bug
 

@@ -967,4 +967,10 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get escribiTuRol => '役割を入力してください。';
+
+  @override
+  String get configuracion => '設定';
+
+  @override
+  String get colores => '色';
 }

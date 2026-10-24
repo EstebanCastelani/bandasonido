@@ -280,5 +280,7 @@
   "idioma": "Language",
   "idiomaAutomatico": "Automatic (device language)",
   "idiomaDescripcion": "Choose the app language. It is saved on this device.",
-  "escribiTuRol": "Enter your role."
+  "escribiTuRol": "Enter your role.",
+  "configuracion": "Settings",
+  "colores": "Colors"
 }

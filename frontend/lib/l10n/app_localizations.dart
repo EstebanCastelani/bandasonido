@@ -1803,6 +1803,18 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'Escribí tu rol.'**
   String get escribiTuRol;
+
+  /// No description provided for @configuracion.
+  ///
+  /// In es, this message translates to:
+  /// **'Configuración'**
+  String get configuracion;
+
+  /// No description provided for @colores.
+  ///
+  /// In es, this message translates to:
+  /// **'Colores'**
+  String get colores;
 }
 
 class _AppLocalizationsDelegate

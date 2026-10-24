@@ -2871,34 +2871,16 @@ class BienvenidaScreen extends StatelessWidget {
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Align(
-                                alignment: AlignmentDirectional.centerEnd,
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    IconButton(
-                                      icon: const Icon(Icons.wb_sunny_outlined, color: Colors.white),
-                                      tooltip: context.l10n.modoClaroOscuroParaEl,
-                                      onPressed: () => SoundCheckProApp.of(context).toggleTheme(),
-                                    ),
-                                    IconButton(
-                                      icon: const Icon(Icons.palette_outlined, color: Colors.white),
-                                      tooltip: context.l10n.colorDeLaApp,
-                                      onPressed: () => Navigator.push(
-                                        context,
-                                        MaterialPageRoute(builder: (_) => const PaletaPickerScreen()),
-                                      ),
-                                    ),
-                                    IconButton(
-                                      icon: const Icon(Icons.language, color: Colors.white),
-                                      tooltip: context.l10n.idioma,
-                                      onPressed: () => Navigator.push(
-                                        context,
-                                        MaterialPageRoute(builder: (_) => const IdiomaPickerScreen()),
-                                      ),
-                                    ),
-                                  ],
-                                ),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  IconButton(
+                                    icon: const Icon(Icons.wb_sunny_outlined, color: Colors.white),
+                                    tooltip: context.l10n.modoClaroOscuroParaEl,
+                                    onPressed: () => SoundCheckProApp.of(context).toggleTheme(),
+                                  ),
+                                  const MenuHamburguesa(colorIcono: Colors.white),
+                                ],
                               ),
                               const SizedBox(height: 8),
                               const _LogoOnda(),
@@ -3776,35 +3758,17 @@ class IngressMenuScreen extends StatelessWidget {
 
         backgroundColor: Colors.transparent,
 
+        leading: IconButton(
+
+          icon: Icon(isLight ? Icons.wb_sunny : Icons.nightlight_round),
+
+          tooltip: context.l10n.modoClaroOscuroParaEl,
+
+          onPressed: () => SoundCheckProApp.of(context).toggleTheme(),
+
+        ),
+
         actions: [
-
-          IconButton(
-
-            icon: Icon(isLight ? Icons.wb_sunny : Icons.nightlight_round),
-
-            onPressed: () => SoundCheckProApp.of(context).toggleTheme(),
-
-          ),
-
-          IconButton(
-
-            icon: const Icon(Icons.palette_outlined),
-
-            tooltip: context.l10n.colorDeLaApp,
-
-            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PaletaPickerScreen())),
-
-          ),
-
-          IconButton(
-
-            icon: const Icon(Icons.language),
-
-            tooltip: context.l10n.idioma,
-
-            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const IdiomaPickerScreen())),
-
-          ),
 
           if (registrado)
 
@@ -3829,6 +3793,8 @@ class IngressMenuScreen extends StatelessWidget {
               onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AuthScreen())),
 
             ),
+
+          const MenuHamburguesa(),
 
         ],
 
@@ -4000,6 +3966,57 @@ class IngressMenuScreen extends StatelessWidget {
 }
 
 // --- SELECTOR DE IDENTIDAD DE COLOR ---
+
+/// Menú hamburguesa de la barra superior: por ahora solo tiene
+/// "Configuración".
+class MenuHamburguesa extends StatelessWidget {
+  final Color? colorIcono;
+
+  const MenuHamburguesa({super.key, this.colorIcono});
+
+  @override
+  Widget build(BuildContext context) {
+    return PopupMenuButton<String>(
+      icon: Icon(Icons.menu, color: colorIcono),
+      onSelected: (valor) {
+        if (valor == 'configuracion') {
+          Navigator.push(context, MaterialPageRoute(builder: (_) => const ConfiguracionScreen()));
+        }
+      },
+      itemBuilder: (context) => [
+        PopupMenuItem(value: 'configuracion', child: Text(context.l10n.configuracion)),
+      ],
+    );
+  }
+}
+
+/// Configuración: "Colores" (paleta de la app) e "Idioma", con palabras en
+/// vez de iconos.
+class ConfiguracionScreen extends StatelessWidget {
+  const ConfiguracionScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final l = context.l10n;
+    return Scaffold(
+      appBar: AppBar(title: Text(l.configuracion)),
+      body: ListView(
+        children: [
+          ListTile(
+            title: Text(l.colores),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PaletaPickerScreen())),
+          ),
+          ListTile(
+            title: Text(l.idioma),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const IdiomaPickerScreen())),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
 class PaletaPickerScreen extends StatelessWidget {
 

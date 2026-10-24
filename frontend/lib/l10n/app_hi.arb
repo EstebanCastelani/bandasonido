@@ -280,5 +280,7 @@
   "idioma": "भाषा",
   "idiomaAutomatico": "स्वचालित (डिवाइस की भाषा)",
   "idiomaDescripcion": "ऐप की भाषा चुनें। यह इस डिवाइस पर सहेजी जाती है।",
-  "escribiTuRol": "अपनी भूमिका लिखें।"
+  "escribiTuRol": "अपनी भूमिका लिखें।",
+  "configuracion": "सेटिंग्स",
+  "colores": "रंग"
 }

@@ -1007,4 +1007,10 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get escribiTuRol => 'Укажите свою роль.';
+
+  @override
+  String get configuracion => 'Настройки';
+
+  @override
+  String get colores => 'Цвета';
 }

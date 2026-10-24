@@ -1003,4 +1003,10 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get escribiTuRol => 'Escribí tu rol.';
+
+  @override
+  String get configuracion => 'Configuración';
+
+  @override
+  String get colores => 'Colores';
 }

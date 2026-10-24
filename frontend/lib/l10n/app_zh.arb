@@ -280,5 +280,7 @@
   "idioma": "语言",
   "idiomaAutomatico": "自动（设备语言）",
   "idiomaDescripcion": "选择应用的语言，将保存在此设备上。",
-  "escribiTuRol": "请输入你的角色。"
+  "escribiTuRol": "请输入你的角色。",
+  "configuracion": "设置",
+  "colores": "颜色"
 }

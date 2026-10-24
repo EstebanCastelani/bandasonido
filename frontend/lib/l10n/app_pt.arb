@@ -280,5 +280,7 @@
   "idioma": "Idioma",
   "idiomaAutomatico": "Automático (idioma do dispositivo)",
   "idiomaDescripcion": "Escolha o idioma do app. Fica salvo neste dispositivo.",
-  "escribiTuRol": "Escreva sua função."
+  "escribiTuRol": "Escreva sua função.",
+  "configuracion": "Configurações",
+  "colores": "Cores"
 }
