@@ -12,6 +12,11 @@ on:
       - "frontend/**"
       - ".github/workflows/deploy.yml"
   workflow_dispatch:
+    inputs:
+      ref:
+        description: "Tag o rama a publicar. Para VOLVER A UNA VERSIÓN ANTERIOR poné su tag (ej. v1.1.0). Vacío = main"
+        required: false
+        default: ""
 
 permissions:
   contents: read
@@ -29,6 +34,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
 
       - uses: subosito/flutter-action@v2
         with:
@@ -38,8 +45,14 @@ jobs:
         working-directory: frontend
         run: flutter pub get
 
+      # Formato uniforme (evita diferencias de estilo y ediciones frágiles).
+      # No incluye lib/l10n: ahí hay archivos generados por flutter gen-l10n.
+      - name: Check formatting
+        working-directory: frontend
+        run: dart format --output=none --set-exit-if-changed lib/main.dart lib/puente_web.dart test
+
       # Falla ante errores y warnings; los avisos informativos (infos) no
-      # bloquean por ahora (hay ~68 de estilo, ver AUDITORIA_TESTING.md).
+      # bloquean por ahora (ver AUDITORIA_TESTING.md).
       - name: Analyze
         working-directory: frontend
         run: flutter analyze --no-fatal-infos
@@ -54,6 +67,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
 
       - uses: subosito/flutter-action@v2
         with:
@@ -86,3 +101,43 @@ jobs:
     steps:
       - id: deployment
         uses: actions/deploy-pages@v4
+
+  # APAGADO por defecto. Para activarlo: en GitHub → Settings → Secrets and
+  # variables → Actions, crear el secreto GOOGLE_SERVICES_JSON (contenido de
+  # frontend/android/app/google-services.json) y la variable ANDROID_BUILD=true.
+  # Genera un APK de depuración como artefacto (no está firmado para publicar).
+  android:
+    needs: test
+    if: ${{ vars.ANDROID_BUILD == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: google-services.json
+        env:
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
+        run: echo "$GOOGLE_SERVICES_JSON" > frontend/android/app/google-services.json
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: flutter pub get
+
+      - name: Build APK (debug)
+        working-directory: frontend
+        run: flutter build apk --debug
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sound-check-pro-debug-apk
+          path: frontend/build/app/outputs/flutter-apk/app-debug.apk

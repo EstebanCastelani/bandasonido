@@ -650,12 +650,65 @@ registrada sin chequear `esPro` — ver §8 para cómo revertir esto.
     plan por etapas), `REQUISITOS.md` (RQ-xx con criterios de aceptación,
     decisiones D-03…D-08 **propuestas y sin confirmar** y definición de
     "hecho") y `DEFECTOS.md` (DF-xx). Pruebas: `frontend/test/logica_pura_test.dart`
-    (43 pasan, 6 `skip` = defectos conocidos; no "arreglar" un skip tocando el
-    test sino corrigiendo el código). Se puede importar `main.dart` desde
+    (82 pasan, sin `skip`; si se agrega un defecto conocido con `skip`, no
+    "arreglarlo" tocando el test sino corrigiendo el código). Se puede importar `main.dart` desde
     `flutter test` para probar funciones puras sin refactorizar. **CI**: antes de
     construir/publicar corre `flutter analyze --no-fatal-infos` y `flutter
     test`; si falla, no se publica. Para sumar pruebas de pantallas con Firebase
     hacen falta costuras/fakes (Etapa 3 del plan).
+32. **Correcciones de la Etapa 2 del plan de testing (oct-2026)**:
+    - *Rol de sonido* (`esRolSonidista`, `esRolSonidoAmbiguo`,
+      `decidirEntradaSonidista`): palabras completas (sonidista, sonido, FOH,
+      monitorista, audio, sound, som, fónico, Tontechniker, "du son", "del
+      suono"); si además nombra una función musical se pregunta con un diálogo
+      (Cancelar / Pantalla de pedidos / Panel del sonidista).
+    - *Transposición*: soporta notación latina; `ChordTransposer.hayAcordes`
+      alimenta el aviso "No se encontraron acordes para transponer".
+    - *Pedidos del sonidista*: borrar relee el documento antes de borrar,
+      "Deshacer" no pisa un pedido ya recreado, y atender/borrar uno inexistente
+      avisa en lugar de fallar en silencio. Las dos listas en vivo tienen tope
+      `kMaximoPedidosVisibles = 200` (el Historial y la retención de 24 h
+      quedaron sin hacer).
+    - *Secuencias*: se guarda `ajustadoPor` en el documento y se muestra
+      "Ajustado por X" junto a los ajustes (gana el último en escribir).
+    - *Lista de frases rápidas*: sin "Volumen retorno" repetido.
+    - **No se hizo D-03** (validar que la sala exista al unirse): cambia reglas de
+      producción y deja afuera a las salas existentes; ver `REQUISITOS.md`.
+    - Verificado en navegador: diálogo de rol ambiguo (Cancelar y Pantalla de
+      pedidos), "Vocalista de Somos Mil" → pedidos, borrar + deshacer. **No
+      verificado en navegador**: el aviso de "sin acordes" y "Ajustado por"
+      (necesitan una canción y una secuencia cargadas); el primero está cubierto
+      por pruebas unitarias de `hayAcordes`, el segundo solo por compilación.
+33. **Calidad de producto y de proceso (oct-2026, versión 1.1.0)**: ver
+    `AUDITORIA_CALIDAD_ESTANDARES.md` (atributos ISO 25000, escenarios con
+    criterio de éxito, estado por etapa). Documentos nuevos en la raíz:
+    `OPERACION.md` (publicar, rollback por tag, dependencias externas,
+    *runbook*, seguridad pendiente, línea base de rendimiento), `PROCESO.md`
+    (ramas + PR, cadencia, retrospectiva, autoevaluación CMMI nivel 2),
+    `BACKLOG.md` (única lista de pendientes) y `CHANGELOG.md`.
+    - *Envío de pedidos*: `esperarEnvio` devuelve enviado / pendiente (sin red,
+      Firestore lo deja en cola) / fallo; "Enviado" solo cuando el servidor
+      confirmó. `_vigilarConexion` muestra un `MaterialBanner` fijo cuando una
+      consulta con `includeMetadataChanges` pasa a venir del caché tras haber
+      visto el servidor. **No se pudo probar con la red cortada en el navegador
+      de pruebas**: solo están probadas las funciones puras.
+    - *Versión*: `kVersionApp` debe coincidir con `version:` de `pubspec.yaml`
+      (una prueba lo verifica); se muestra en Configuración.
+    - *Enlace de sala*: `?sala=CÓDIGO` (`codigoDeSalaDesdeUri`, `enlaceDeSala`);
+      al crear una sala se puede compartir con el ícono de compartir.
+    - *Formato*: el código propio se formatea con `dart format lib/main.dart
+      lib/puente_web.dart test` y la CI lo exige (los archivos generados de
+      `lib/l10n` quedan excluidos). `main.dart` quedó en ~9 100 líneas.
+    - *Repositorio*: `frontend/.agents/` (material de herramientas de IA) ya no
+      está versionado (sigue en el disco y en `.gitignore`).
+    - *CI*: `deploy.yml` ahora tiene `test` (formato + análisis + pruebas) →
+      `build` → `deploy`; `workflow_dispatch` acepta un `ref` (tag) para volver a
+      una versión; el trabajo `android` está apagado hasta definir el secreto
+      `GOOGLE_SERVICES_JSON` y la variable `ANDROID_BUILD`. Dependabot propone
+      actualizaciones mensuales.
+    - **Pendiente de tu decisión o de tus claves** (ver `BACKLOG.md`): App Check,
+      publicar reglas con validación, D-03, planes de Firebase/Supabase, keystore
+      de Android, protección de la rama, dividir `main.dart`.
 
 ## 6. Modelo de seguridad de las salas — trade-off consciente, no bug
 

@@ -30,3 +30,10 @@ flutter run -d chrome
 ## Seguridad
 
 El acceso a una sala es "conocer el PIN alcanza" (con sesión de Firebase, aunque sea anónima). Ver `CONTEXTO_PARA_IA.md` §6 para el detalle y los trade-offs.
+
+## Documentación de calidad y operación
+
+- [`REQUISITOS.md`](REQUISITOS.md) · [`DEFECTOS.md`](DEFECTOS.md) · [`BACKLOG.md`](BACKLOG.md) — qué debe hacer la app, defectos conocidos y pendientes.
+- [`OPERACION.md`](OPERACION.md) — publicar, volver a una versión anterior, dependencias externas y qué hacer si algo se cae.
+- [`PROCESO.md`](PROCESO.md) · [`CHANGELOG.md`](CHANGELOG.md) — cómo se trabaja y qué cambió en cada versión.
+- Auditorías: [usabilidad](AUDITORIA_USABILIDAD.md), [testing](AUDITORIA_TESTING.md), [calidad y estándares](AUDITORIA_CALIDAD_ESTANDARES.md).

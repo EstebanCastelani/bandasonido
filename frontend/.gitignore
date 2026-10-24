@@ -57,3 +57,6 @@ app.*.map.json
 *.pem
 .env
 .env.*
+
+# Material de herramientas de IA (skills, referencias): no es parte del producto
+.agents/
