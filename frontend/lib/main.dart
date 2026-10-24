@@ -432,11 +432,11 @@ class AppPalette {
     nombre: 'Escenario',
     tag: 'Neón celeste y violeta',
     accentDark: Color(0xFF22D3EE),
-    accentLight: Color(0xFF22D3EE),
+    accentLight: Color(0xFF0891B2),
     bgDark: Color(0xFF07060F),
-    bgLight: Color(0xFF07060F),
+    bgLight: Color(0xFFF3F6FC),
     surfaceDark: Color(0xFF0F0D1F),
-    surfaceLight: Color(0xFF0F0D1F),
+    surfaceLight: Color(0xFFFFFFFF),
   );
 
   /// Nombre y descripción para MOSTRAR, en el idioma de la app (los campos
@@ -626,10 +626,168 @@ ThemeData _temaEscenario() {
   );
 }
 
+/// Versión clara de "Escenario": mismas formas (bordes celestes finos,
+/// esquinas redondeadas) sobre fondo claro, con el celeste oscurecido para
+/// que tenga contraste y el violeta como secundario.
+ThemeData _temaEscenarioClaro() {
+  const celeste = Color(0xFF0891B2);
+  const violeta = Color(0xFF7C3AED);
+  const fondo = Color(0xFFF3F6FC);
+  const superficie = Colors.white;
+  const texto = Color(0xFF0B1220);
+  const bordeSutil = Color(0x4D0891B2);
+  final esquinas = RoundedRectangleBorder(borderRadius: BorderRadius.circular(14));
+
+  final esquema = ColorScheme.fromSeed(
+    seedColor: celeste,
+    brightness: Brightness.light,
+  ).copyWith(
+    primary: celeste,
+    onPrimary: Colors.white,
+    secondary: violeta,
+    onSecondary: Colors.white,
+    tertiary: violeta,
+    surface: superficie,
+    onSurface: texto,
+    surfaceContainerLowest: Colors.white,
+    surfaceContainerLow: const Color(0xFFF8FAFE),
+    surfaceContainer: const Color(0xFFEEF2FA),
+    surfaceContainerHigh: const Color(0xFFE6ECF7),
+    surfaceContainerHighest: const Color(0xFFDDE5F3),
+    outline: const Color(0x990891B2),
+    outlineVariant: bordeSutil,
+  );
+
+  return ThemeData(
+    useMaterial3: true,
+    brightness: Brightness.light,
+    colorScheme: esquema,
+    scaffoldBackgroundColor: fondo,
+    canvasColor: fondo,
+    dividerColor: Colors.black12,
+    appBarTheme: const AppBarTheme(
+      backgroundColor: Colors.white,
+      foregroundColor: texto,
+      elevation: 0,
+      scrolledUnderElevation: 0,
+      surfaceTintColor: Colors.transparent,
+      shape: Border(bottom: BorderSide(color: bordeSutil)),
+    ),
+    cardTheme: CardThemeData(
+      color: superficie,
+      surfaceTintColor: Colors.transparent,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: const BorderSide(color: bordeSutil),
+      ),
+    ),
+    filledButtonTheme: FilledButtonThemeData(
+      style: FilledButton.styleFrom(
+        backgroundColor: celeste,
+        foregroundColor: Colors.white,
+        shape: esquinas,
+        textStyle: const TextStyle(fontWeight: FontWeight.w700),
+      ),
+    ),
+    outlinedButtonTheme: OutlinedButtonThemeData(
+      style: OutlinedButton.styleFrom(
+        foregroundColor: texto,
+        backgroundColor: Colors.white,
+        side: const BorderSide(color: Color(0xB30891B2), width: 1.3),
+        shape: esquinas,
+        textStyle: const TextStyle(fontWeight: FontWeight.w600),
+      ),
+    ),
+    textButtonTheme: TextButtonThemeData(
+      style: TextButton.styleFrom(foregroundColor: celeste),
+    ),
+    iconButtonTheme: IconButtonThemeData(
+      style: IconButton.styleFrom(foregroundColor: texto),
+    ),
+    floatingActionButtonTheme: FloatingActionButtonThemeData(
+      backgroundColor: celeste,
+      foregroundColor: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+    ),
+    inputDecorationTheme: InputDecorationTheme(
+      filled: true,
+      fillColor: Colors.white,
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: const BorderSide(color: Color(0x800891B2)),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: const BorderSide(color: Color(0x800891B2)),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: const BorderSide(color: celeste, width: 1.6),
+      ),
+      labelStyle: const TextStyle(color: Color(0xCC0B1220)),
+    ),
+    tabBarTheme: const TabBarThemeData(
+      labelColor: celeste,
+      unselectedLabelColor: Color(0x990B1220),
+      indicatorColor: celeste,
+      dividerColor: bordeSutil,
+    ),
+    dialogTheme: DialogThemeData(
+      backgroundColor: superficie,
+      surfaceTintColor: Colors.transparent,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+        side: const BorderSide(color: bordeSutil),
+      ),
+    ),
+    bottomSheetTheme: const BottomSheetThemeData(
+      backgroundColor: superficie,
+      surfaceTintColor: Colors.transparent,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+        side: BorderSide(color: bordeSutil),
+      ),
+    ),
+    snackBarTheme: SnackBarThemeData(
+      backgroundColor: const Color(0xFF1B2540),
+      contentTextStyle: const TextStyle(color: Colors.white),
+      behavior: SnackBarBehavior.floating,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    ),
+    sliderTheme: const SliderThemeData(
+      activeTrackColor: celeste,
+      thumbColor: celeste,
+      inactiveTrackColor: Color(0x330891B2),
+    ),
+    chipTheme: ChipThemeData(
+      backgroundColor: const Color(0xFFEEF2FA),
+      selectedColor: const Color(0x330891B2),
+      side: const BorderSide(color: bordeSutil),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    ),
+    listTileTheme: const ListTileThemeData(iconColor: celeste),
+    checkboxTheme: CheckboxThemeData(
+      fillColor: WidgetStateProperty.resolveWith(
+        (estados) => estados.contains(WidgetState.selected) ? celeste : null,
+      ),
+    ),
+    switchTheme: SwitchThemeData(
+      thumbColor: WidgetStateProperty.resolveWith(
+        (estados) => estados.contains(WidgetState.selected) ? Colors.white : null,
+      ),
+      trackColor: WidgetStateProperty.resolveWith(
+        (estados) => estados.contains(WidgetState.selected) ? celeste : null,
+      ),
+    ),
+    progressIndicatorTheme: const ProgressIndicatorThemeData(color: celeste),
+  );
+}
+
 /// Construye el ThemeData de Material 3 para una paleta y un brillo dados.
 ThemeData construirTema(AppPalette paleta, Brightness brightness) {
-  // "Escenario" es siempre oscuro, también si el sistema/usuario pide claro.
-  if (paleta.key == AppPalette.escenario.key) return _temaEscenario();
+  if (paleta.key == AppPalette.escenario.key) {
+    return brightness == Brightness.dark ? _temaEscenario() : _temaEscenarioClaro();
+  }
   final esOscuro = brightness == Brightness.dark;
   return ThemeData(
     useMaterial3: true,
@@ -2381,7 +2539,10 @@ class SoundCheckProApp extends StatefulWidget {
 
 class _SoundCheckProAppState extends State<SoundCheckProApp> {
 
-  ThemeMode _themeMode = ThemeMode.light;
+  /// Oscuro por defecto (la paleta por defecto, Escenario, es oscura). El
+  /// modo elegido se guarda en 'modo_oscuro' y NO cambia al cambiar de
+  /// paleta: solo cambia si el usuario toca el botón claro/oscuro.
+  ThemeMode _themeMode = ThemeMode.dark;
 
   AppPalette _paleta = AppPalette.porDefecto;
 
@@ -2428,21 +2589,31 @@ class _SoundCheckProAppState extends State<SoundCheckProApp> {
 
     final clave = prefs.getString('paleta_app');
 
-    if (clave != null && mounted) {
+    final oscuro = prefs.getBool('modo_oscuro');
 
-      setState(() => _paleta = AppPalette.porClave(clave));
+    if (mounted) {
+
+      setState(() {
+
+        if (clave != null) _paleta = AppPalette.porClave(clave);
+
+        if (oscuro != null) _themeMode = oscuro ? ThemeMode.dark : ThemeMode.light;
+
+      });
 
     }
 
   }
 
-  void toggleTheme() {
+  Future<void> toggleTheme() async {
 
-    setState(() {
+    final nuevo = _themeMode == ThemeMode.light ? ThemeMode.dark : ThemeMode.light;
 
-      _themeMode = _themeMode == ThemeMode.light ? ThemeMode.dark : ThemeMode.light;
+    setState(() => _themeMode = nuevo);
 
-    });
+    final prefs = await SharedPreferences.getInstance();
+
+    await prefs.setBool('modo_oscuro', nuevo == ThemeMode.dark);
 
   }
 

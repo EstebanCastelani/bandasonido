@@ -504,8 +504,13 @@ registrada sin chequear `esPro` — ver §8 para cómo revertir esto.
     (`_temaEscenario()`, que `construirTema` devuelve para esta paleta): app
     bars, botones, tarjetas, campos de texto, pestañas, diálogos, bottom
     sheets, snackbars, sliders, chips, checkbox/switch, FAB. No se tocó
-    ninguna pantalla una por una. Es **siempre oscura**: el botón de modo
-    claro/oscuro no hace nada con esta paleta. Para volver a lo de antes:
+    ninguna pantalla una por una. **Actualización:** ahora tiene versión
+    clara (`_temaEscenarioClaro`, celeste oscurecido `0xFF0891B2` sobre
+    fondo `0xFFF3F6FC`); `construirTema` elige según el brillo. El modo
+    claro/oscuro es independiente de la paleta: arranca **oscuro** por
+    defecto, se guarda en `modo_oscuro` y solo lo cambia el botón sol/luna
+    (cambiar de paleta no lo toca). La pantalla de bienvenida es siempre
+    oscura (tiene su propio fondo). Para volver a lo de antes:
     cambiar `porDefecto` a `consola` (o elegir otra en "Color de la app").
     Verificado en web como invitado: menú, crear sala, la sala (pedidos,
     pestañas), el selector de pestañas y el selector de colores. **No se
