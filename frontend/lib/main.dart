@@ -250,6 +250,34 @@ String rolParaMostrar(AppLocalizations l, String guardado) {
   return guardado;
 }
 
+/// true si el rol escrito es el de sonido (sonidista, "sonido", técnico de
+/// sonido, sound engineer...): esa persona entra directo al panel del
+/// sonidista en vez de a la pantalla de pedidos.
+bool esRolSonidista(String rol) {
+  const claves = [
+    'sonid', 'sound', 'tontechnik', 'ingé son', 'inge son', 'ingenieur du son',
+    'ingénieur du son', 'fonico', 'fonico', 'de som', 'звук', '音响', '音響',
+    '음향', 'مهندس صوت', 'साउंड',
+  ];
+  final t = rol.toLowerCase().trim();
+  return claves.any(t.contains);
+}
+
+/// Entra al panel del sonidista de la sala [codigo] (lo mismo que "Acceso
+/// sonidista"), y lo deja guardado para volver a abrirlo al reabrir la app.
+Future<void> entrarComoSonidista(BuildContext context, String codigo) async {
+  final prefs = await SharedPreferences.getInstance();
+  await prefs.setString('tipo_login', 'sonidista');
+  await prefs.setString('sala_id', codigo);
+  await _registrarSalaSiCorresponde(codigoSala: codigo, rolUsado: 'Sonidista');
+  if (!context.mounted) return;
+  Navigator.pushAndRemoveUntil(
+    context,
+    MaterialPageRoute(builder: (_) => SonidistaPage(codigoSala: codigo)),
+    (route) => false,
+  );
+}
+
 /// Roles unidos para MOSTRAR ("Músico y Cantante" en el idioma de la app).
 String textoRoles(AppLocalizations l, Set<UserRole> roles) {
   final nombres = [for (final r in UserRole.values) if (roles.contains(r)) r.nombre(l)];
@@ -4294,6 +4322,14 @@ class _CrearSalaScreenState extends State<CrearSalaScreen> {
 
       await AuthService.asegurarSesion();
 
+      if (esRolSonidista(_rolController.text)) {
+
+        await entrarComoSonidista(context, _pin);
+
+        return;
+
+      }
+
       final prefs = await SharedPreferences.getInstance();
 
       await prefs.setString('tipo_login', 'usuario');
@@ -4495,6 +4531,14 @@ class _UnirmeSalaScreenState extends State<UnirmeSalaScreen> {
     try {
 
       await AuthService.asegurarSesion();
+
+      if (esRolSonidista(_rolController.text)) {
+
+        await entrarComoSonidista(context, pin);
+
+        return;
+
+      }
 
       final prefs = await SharedPreferences.getInstance();
 

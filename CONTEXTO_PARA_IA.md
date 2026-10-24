@@ -579,6 +579,15 @@ registrada sin chequear `esPro` — ver §8 para cómo revertir esto.
     el resto como lo escribió la persona; por eso siguen existiendo
     `UserRole`/`textoRoles`. El agrupado por rol del sonidista agrupa por
     ese texto, así que "Guitarrista" y "guitarrista" son grupos distintos.
+27. **Rol "sonido" entra directo al panel (oct-2026)**: si el rol escrito
+    al crear o unirse a una sala contiene "sonid"/"sound" (o equivalentes en
+    otros idiomas; ver `esRolSonidista`), se llama a
+    `entrarComoSonidista`: igual que "Acceso sonidista" (guarda
+    `tipo_login = sonidista`, registra la sala con rol 'Sonidista' y abre
+    `SonidistaPage`), sin pasar por `RequestScreen`. La lista de palabras
+    es heurística: un rol como "ayudante de sonido" también entra al panel.
+    Verificado en web (crear con "Sonido", unirse con "Técnico de sonido",
+    persistencia al recargar).
 
 ## 6. Modelo de seguridad de las salas — trade-off consciente, no bug
 
