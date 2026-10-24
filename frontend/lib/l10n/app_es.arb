@@ -1,0 +1,644 @@
+{
+  "@@locale": "es",
+  "tuRolPodesMarcarMas": "Tu rol (podés marcar más de uno)",
+  "inicioDeSesionConGoogle": "Inicio de sesión con Google cancelado.",
+  "elEmailNoEsValido": "El email no es válido.",
+  "estaCuentaFueDeshabilitada": "Esta cuenta fue deshabilitada.",
+  "noExisteUnaCuentaCon": "No existe una cuenta con ese email.",
+  "emailOContrasenaIncorrectos": "Email o contraseña incorrectos.",
+  "yaExisteUnaCuentaCon": "Ya existe una cuenta con ese email.",
+  "laContrasenaDebeTenerAl": "La contraseña debe tener al menos 6 caracteres.",
+  "errorDeAutenticacion": "Error de autenticación.",
+  "pausar": "Pausar",
+  "reproducir": "Reproducir",
+  "noSePudoReproducir": "No se pudo reproducir: {error}",
+  "@noSePudoReproducir": {
+    "placeholders": {
+      "error": {
+        "type": "Object"
+      }
+    }
+  },
+  "bajandoElVolumen": "Bajando el volumen...",
+  "fadeOutS": "Fade out ({segundos} s)",
+  "@fadeOutS": {
+    "placeholders": {
+      "segundos": {
+        "type": "Object"
+      }
+    }
+  },
+  "detener": "Detener",
+  "modoClaroOscuroParaEl": "Modo claro/oscuro (para el resto de la app)",
+  "colorDeLaApp": "Color de la app",
+  "comunicacionEnVivoEntreMusicos": "Comunicación en vivo\nentre músicos y sonidistas",
+  "iniciarSesion": "Iniciar sesión",
+  "crearCuenta": "Crear cuenta",
+  "entrarComoInvitado": "Entrar como invitado",
+  "tiempoReal": "Tiempo real",
+  "sincronizacionInstantanea": "Sincronización\ninstantánea",
+  "urgente": "Urgente",
+  "alertasVisualesYSonoras": "Alertas visuales\ny sonoras",
+  "multiSala": "Multi-sala",
+  "manejaVariasBandasYShows": "Manejá varias\nbandas y shows",
+  "setlistEnVivo": "Setlist en vivo",
+  "listaDeTemasCompartida": "Lista de temas\ncompartida",
+  "completaEmailYContrasena": "Completá email y contraseña.",
+  "completaTuPerfil": "Completá tu perfil",
+  "tuNombre": "Tu nombre",
+  "requerido": "Requerido",
+  "tuRolEjSonidistaGuitarrista": "Tu rol (ej: sonidista, guitarrista)",
+  "guardar": "Guardar",
+  "recuperarContrasena": "Recuperar contraseña",
+  "tuEmail": "Tu email",
+  "cancelar": "Cancelar",
+  "enviarEmail": "Enviar email",
+  "teEnviamosUnEmailPara": "Te enviamos un email para restablecer tu contraseña.",
+  "tuRolEjSonidistaGuitarrista2": "Tu rol (ej: sonidista, guitarrista, corista)",
+  "email": "Email",
+  "emailInvalido": "Email inválido",
+  "contrasena": "Contraseña",
+  "minimo6Caracteres": "Mínimo 6 caracteres",
+  "olvidasteTuContrasena": "¿Olvidaste tu contraseña?",
+  "registrarme": "REGISTRARME",
+  "iniciarSesion2": "INICIAR SESIÓN",
+  "yaTenesCuentaIniciarSesion": "¿Ya tenés cuenta? Iniciar sesión",
+  "noTenesCuentaRegistrarme": "¿No tenés cuenta? Registrarme",
+  "continuarConGoogle": "Continuar con Google",
+  "continuarSinCuenta": "Continuar sin cuenta",
+  "cerrarSesionDeCuenta": "Cerrar sesión de cuenta",
+  "sesion": "Sesión: {usuario}",
+  "@sesion": {
+    "placeholders": {
+      "usuario": {
+        "type": "Object"
+      }
+    }
+  },
+  "crearNuevaSala": "CREAR NUEVA SALA",
+  "unirmeASala": "UNIRME A SALA",
+  "misSalas": "MIS SALAS",
+  "misFrases": "MIS FRASES",
+  "miRepertorio": "MI REPERTORIO",
+  "misSecuencias": "MIS SECUENCIAS",
+  "accesoSonidista": "ACCESO SONIDISTA",
+  "elegiLaIdentidadVisualDe": "Elegí la identidad visual de la app. Se guarda en este dispositivo.",
+  "marcaAlMenosUnRol": "Marcá al menos un rol.",
+  "errorAlIngresar": "Error al ingresar: {error}",
+  "@errorAlIngresar": {
+    "placeholders": {
+      "error": {
+        "type": "Object"
+      }
+    }
+  },
+  "configurarSala": "Configurar Sala",
+  "tuPinDeSala": "Tu PIN de Sala",
+  "pinCopiado": "PIN copiado",
+  "tuNombre2": "Tu Nombre",
+  "empezar": "EMPEZAR",
+  "unirseASala": "Unirse a Sala",
+  "codigoDeSala8Caracteres": "Código de sala (8 caracteres)",
+  "unirme": "UNIRME",
+  "nombreParaEstaSala": "Nombre para esta sala",
+  "ejBandaXEnsayoJueves": "Ej: Banda X - Ensayo jueves",
+  "misSalas2": "Mis salas",
+  "necesitasIniciarSesionParaTener": "Necesitás iniciar sesión para tener un historial de salas.",
+  "guardarUnHistorialDeVarias": "Guardar un historial de varias salas/bandas para volver a entrar con un toque es una función Pro.",
+  "todaviaNoEntrasteANinguna": "Todavía no entraste a ninguna sala con esta cuenta.",
+  "renombrar": "Renombrar",
+  "quitarDelHistorial": "Quitar del historial",
+  "queQueresVerEnLa": "¿Qué querés ver en la sala?",
+  "seGuardaEnEsteDispositivo": "Se guarda en este dispositivo. Tiene que quedar al menos una.",
+  "urgenteEnviado": "¡Urgente enviado!: {texto}",
+  "@urgenteEnviado": {
+    "placeholders": {
+      "texto": {
+        "type": "Object"
+      }
+    }
+  },
+  "enviado": "Enviado: {texto}",
+  "@enviado": {
+    "placeholders": {
+      "texto": {
+        "type": "Object"
+      }
+    }
+  },
+  "cerrarSesion": "Cerrar Sesión",
+  "codigoDeSalaCopiado": "Código de sala copiado",
+  "sala": "SALA: {codigoSala}",
+  "@sala": {
+    "placeholders": {
+      "codigoSala": {
+        "type": "Object"
+      }
+    }
+  },
+  "pantallaSiempreEncendidaActivado": "Pantalla siempre encendida: activado",
+  "pantallaSiempreEncendidaDesactivado": "Pantalla siempre encendida: desactivado",
+  "elegirQueVerEnLa": "Elegir qué ver en la sala",
+  "escribirPedidoPersonalizado": "Escribir pedido personalizado...",
+  "pedidoUrgenteActivado": "Pedido urgente: activado",
+  "marcarElProximoPedidoComo": "Marcar el próximo pedido como urgente",
+  "misUltimosPedidos": "MIS ÚLTIMOS PEDIDOS",
+  "error": "Error: {error}",
+  "@error": {
+    "placeholders": {
+      "error": {
+        "type": "Object"
+      }
+    }
+  },
+  "sinPedidosPropios": "Sin pedidos propios",
+  "eliminandoPedido": "Eliminando pedido: \"{pedido}\"",
+  "@eliminandoPedido": {
+    "placeholders": {
+      "pedido": {
+        "type": "Object"
+      }
+    }
+  },
+  "consola": "Consola: {respuesta}",
+  "@consola": {
+    "placeholders": {
+      "respuesta": {
+        "type": "Object"
+      }
+    }
+  },
+  "desdeMiBiblioteca": "Desde mi biblioteca",
+  "buscarEnBibliotecasDeLa": "Buscar en bibliotecas de la sala",
+  "necesitasIniciarSesionParaUsar": "Necesitás iniciar sesión para usar tu biblioteca.",
+  "tuBibliotecaEstaVacia": "Tu biblioteca está vacía.",
+  "titulo": "Título...",
+  "tonalidad": "Tonalidad...",
+  "sinResultados": "Sin resultados.",
+  "noSePudoBuscarIntenta": "No se pudo buscar. Intentá de nuevo en un momento.",
+  "todaviaNoHayBibliotecasPara": "Todavía no hay bibliotecas para buscar en esta sala.",
+  "de": "de {propietario}",
+  "@de": {
+    "placeholders": {
+      "propietario": {
+        "type": "Object"
+      }
+    }
+  },
+  "elSetlistEstaVacioNo": "El setlist está vacío, no hay nada para exportar.",
+  "setlistSala": "Setlist — Sala {codigoSala}\n\n",
+  "@setlistSala": {
+    "placeholders": {
+      "codigoSala": {
+        "type": "Object"
+      }
+    }
+  },
+  "exportarSetlist": "Exportar setlist",
+  "copiadoAlPortapapeles": "Copiado al portapapeles",
+  "copiar": "Copiar",
+  "setlistSala2": "Setlist - Sala {codigoSala}",
+  "@setlistSala2": {
+    "placeholders": {
+      "codigoSala": {
+        "type": "Object"
+      }
+    }
+  },
+  "compartir": "Compartir",
+  "cerrar": "Cerrar",
+  "agregado": "Agregado: {titulo}",
+  "@agregado": {
+    "placeholders": {
+      "titulo": {
+        "type": "Object"
+      }
+    }
+  },
+  "todaviaNoHayTemasEn": "Todavía no hay temas en la lista.",
+  "cambiarEstadoDelTema": "Cambiar estado del tema",
+  "pendiente": "Pendiente",
+  "pausadoCorteTecnico": "Pausado (corte técnico)",
+  "tocado": "Tocado",
+  "pausado": "PAUSADO",
+  "proximo": "PRÓXIMO",
+  "subidoPor": "Subido por {persona}",
+  "@subidoPor": {
+    "placeholders": {
+      "persona": {
+        "type": "Object"
+      }
+    }
+  },
+  "verCifradoTransponer": "Ver cifrado (transponer)",
+  "exportarCompartirSetlist": "Exportar / compartir setlist",
+  "agregarCancion": "Agregar canción",
+  "necesitasIniciarSesionParaUsar2": "Necesitás iniciar sesión para usar tus secuencias.",
+  "noTenesSecuenciasTodaviaSubilas": "No tenés secuencias todavía.\nSubilas desde \"Mis secuencias\" en el menú principal.",
+  "buscarSecuencia": "Buscar secuencia...",
+  "yaEstaEnLaSala": "Ya está en la sala",
+  "elegiLasSecuenciasDeHoy": "Elegí las secuencias de hoy",
+  "cargarALaSala": "CARGAR {cantidad} A LA SALA",
+  "@cargarALaSala": {
+    "placeholders": {
+      "cantidad": {
+        "type": "Object"
+      }
+    }
+  },
+  "noSePudieronCargar": "No se pudieron cargar: {error}",
+  "@noSePudieronCargar": {
+    "placeholders": {
+      "error": {
+        "type": "Object"
+      }
+    }
+  },
+  "quitarDeLaSala": "Quitar de la sala",
+  "quitarDeLasSecuenciasDe": "¿Quitar \"{titulo}\" de las secuencias de hoy? Sigue estando en la biblioteca de quien la subió.",
+  "@quitarDeLasSecuenciasDe": {
+    "placeholders": {
+      "titulo": {
+        "type": "Object"
+      }
+    }
+  },
+  "quitar": "Quitar",
+  "noSePudoGuardarEl": "No se pudo guardar el ajuste: {error}",
+  "@noSePudoGuardarEl": {
+    "placeholders": {
+      "error": {
+        "type": "Object"
+      }
+    }
+  },
+  "seGuardaParaTodaLa": "Se guarda para toda la sala. Tono, tempo y volumen se cambian por separado.",
+  "tono": "TONO",
+  "bajarUnSemitono": "Bajar un semitono",
+  "subirUnSemitono": "Subir un semitono",
+  "elCambioDeTonoPor": "El cambio de tono por ahora solo funciona en la versión web.",
+  "tempo": "TEMPO",
+  "masLento1": "Más lento (1%)",
+  "masRapido1": "Más rápido (1%)",
+  "volumen": "VOLUMEN",
+  "bajar5": "Bajar 5%",
+  "subir5": "Subir 5%",
+  "restablecerComoSeSubio": "Restablecer (como se subió)",
+  "noSePudieronCargarLas": "No se pudieron cargar las secuencias: {error}",
+  "@noSePudieronCargarLas": {
+    "placeholders": {
+      "error": {
+        "type": "Object"
+      }
+    }
+  },
+  "cargadaPor": "Cargada por {persona}",
+  "@cargadaPor": {
+    "placeholders": {
+      "persona": {
+        "type": "Object"
+      }
+    }
+  },
+  "tonoTempoYVolumen": "Tono, tempo y volumen",
+  "repetir": "Repetir",
+  "todaviaNoHaySecuenciasCargadas": "Todavía no hay secuencias cargadas para hoy.",
+  "todaviaNoHaySecuenciasCargadas2": "Todavía no hay secuencias cargadas para hoy.\nTocá + para elegirlas de \"Mis secuencias\".",
+  "cargarSecuenciasDeHoy": "Cargar secuencias de hoy",
+  "nuevaFrase": "Nueva frase",
+  "textoDeLaFrase": "Texto de la frase",
+  "agregar": "Agregar",
+  "editarFrase": "Editar frase",
+  "misFrases2": "Mis frases",
+  "necesitasIniciarSesionParaEditar": "Necesitás iniciar sesión para editar tus frases.",
+  "todaviaNoTenesFrasesPropias": "Todavía no tenés frases propias cargadas.",
+  "cargarFrasesPorDefecto": "Cargar frases por defecto",
+  "funcionPro": "Función Pro",
+  "subirTusPropiasPartiturasCifrados": "Subir tus propias partituras/cifrados en PDF es parte de Sound Check Pro. Activá tu cuenta Pro para usar esta función.",
+  "entendido": "Entendido",
+  "errorAlSubir": "Error al subir: {error}",
+  "@errorAlSubir": {
+    "placeholders": {
+      "error": {
+        "type": "Object"
+      }
+    }
+  },
+  "nuevaCancion": "Nueva canción",
+  "editarCancion": "Editar canción",
+  "titulo2": "Título",
+  "tonalidadOpcional": "Tonalidad (opcional)",
+  "cifradoEnTextoOpcionalPara": "Cifrado en texto (opcional, para transponer)",
+  "pegaLosAcordesAcaEj": "Pegá los acordes acá. Ej: [C]Amazing [G]grace...",
+  "regenerarCifrados": "Regenerar cifrados",
+  "seVaAVolverA": "Se va a volver a leer cada PDF de tu biblioteca para rearmar el cifrado con los acordes ubicados como en el PDF original.\n\nEsto reemplaza el cifrado en texto que tengas guardado en cada canción (incluido lo que hayas editado a mano). Las canciones cuyo PDF no tiene texto seleccionable no se tocan.",
+  "regenerar": "Regenerar",
+  "preparando": "Preparando...",
+  "procesandoDe": "Procesando {hechas} de {total}...",
+  "@procesandoDe": {
+    "placeholders": {
+      "hechas": {
+        "type": "Object"
+      },
+      "total": {
+        "type": "Object"
+      }
+    }
+  },
+  "actualizadas": "{cantidad} actualizadas",
+  "@actualizadas": {
+    "placeholders": {
+      "cantidad": {
+        "type": "Object"
+      }
+    }
+  },
+  "sinTextoEnElPdf": "{cantidad} sin texto en el PDF",
+  "@sinTextoEnElPdf": {
+    "placeholders": {
+      "cantidad": {
+        "type": "Object"
+      }
+    }
+  },
+  "conError": "{cantidad} con error",
+  "@conError": {
+    "placeholders": {
+      "cantidad": {
+        "type": "Object"
+      }
+    }
+  },
+  "cifrados": "Cifrados: {detalle}.",
+  "@cifrados": {
+    "placeholders": {
+      "detalle": {
+        "type": "Object"
+      }
+    }
+  },
+  "eliminarCancion": "¿Eliminar canción?",
+  "seBorraDeTuBiblioteca": "Se borra de tu biblioteca. Si está en el setlist de alguna sala, va a dejar de abrir.",
+  "eliminar": "Eliminar",
+  "miRepertorio2": "Mi repertorio",
+  "regenerarCifradosDesdeLosPdf": "Regenerar cifrados desde los PDF",
+  "necesitasIniciarSesionParaTener2": "Necesitás iniciar sesión para tener tu biblioteca.",
+  "subirTusPropiasPartiturasEs": "Subir tus propias partituras es una función Pro.",
+  "masInfo": "Más info",
+  "todaviaNoSubisteNingunaCancion": "Todavía no subiste ninguna canción.",
+  "tonalidad2": "Tonalidad: {tonalidad}",
+  "@tonalidad2": {
+    "placeholders": {
+      "tonalidad": {
+        "type": "Object"
+      }
+    }
+  },
+  "subirTusPropiasSecuenciasEs": "Subir tus propias secuencias es parte de Sound Check Pro. Activá tu cuenta Pro para usar esta función.",
+  "archivoDemasiadoGrande": "Archivo demasiado grande",
+  "archivosDemasiadoGrandes": "Archivos demasiado grandes",
+  "elMaximoPorArchivoEs": "{lista}\n\nEl máximo por archivo es {limite}. Convertilo a MP3 (a 320 kbps una canción entera ocupa unos 10-15 MB) y volvé a subirlo, o subilo desde la versión web, que lo convierte sola.",
+  "@elMaximoPorArchivoEs": {
+    "placeholders": {
+      "lista": {
+        "type": "Object"
+      },
+      "limite": {
+        "type": "Object"
+      }
+    }
+  },
+  "convirtiendoAMp3": "Convirtiendo a MP3{contador}",
+  "@convirtiendoAMp3": {
+    "placeholders": {
+      "contador": {
+        "type": "Object"
+      }
+    }
+  },
+  "convirtiendoAMp32": "Convirtiendo a MP3 {porcentaje}%{contador}",
+  "@convirtiendoAMp32": {
+    "placeholders": {
+      "porcentaje": {
+        "type": "Object"
+      },
+      "contador": {
+        "type": "Object"
+      }
+    }
+  },
+  "subiendo": "Subiendo{contador}",
+  "@subiendo": {
+    "placeholders": {
+      "contador": {
+        "type": "Object"
+      }
+    }
+  },
+  "secuenciasSubidas": "Secuencias subidas",
+  "algunasSecuenciasNoSeSubieron": "Algunas secuencias no se subieron",
+  "seConvirtieronAMp3Porque": "Se convirtieron a MP3 porque pasaban el máximo de {limite}:\n{lista}",
+  "@seConvirtieronAMp3Porque": {
+    "placeholders": {
+      "limite": {
+        "type": "Object"
+      },
+      "lista": {
+        "type": "Object"
+      }
+    }
+  },
+  "noSePudieronSubir": "No se pudieron subir:\n{lista}",
+  "@noSePudieronSubir": {
+    "placeholders": {
+      "lista": {
+        "type": "Object"
+      }
+    }
+  },
+  "renombrarSecuencia": "Renombrar secuencia",
+  "eliminarSecuencia": "Eliminar secuencia",
+  "eliminarDeTuBiblioteca": "¿Eliminar \"{titulo}\" de tu biblioteca?",
+  "@eliminarDeTuBiblioteca": {
+    "placeholders": {
+      "titulo": {
+        "type": "Object"
+      }
+    }
+  },
+  "misSecuencias2": "Mis secuencias",
+  "necesitasIniciarSesionParaTener3": "Necesitás iniciar sesión para tener tus secuencias.",
+  "errorAlCargar": "Error al cargar: {error}",
+  "@errorAlCargar": {
+    "placeholders": {
+      "error": {
+        "type": "Object"
+      }
+    }
+  },
+  "todaviaNoSubisteSecuenciasToca": "Todavía no subiste secuencias.\nTocá el botón de abajo para cargar tus pistas de audio (MP3, WAV, M4A...).",
+  "subirSecuencias": "Subir secuencias",
+  "restablecerTonoOriginal": "Restablecer tono original",
+  "sincronizadoConTodaLaSala": "Sincronizado con toda la sala (tocá para desincronizar)",
+  "desincronizadoCambiosSoloLocalesToca": "Desincronizado — cambios solo locales (tocá para volver a sincronizar)",
+  "noSePudoCargarEl": "No se pudo cargar el PDF.\n{error}",
+  "@noSePudoCargarEl": {
+    "placeholders": {
+      "error": {
+        "type": "Object"
+      }
+    }
+  },
+  "errorAlIngresarAlPanel": "Error al ingresar al panel: {error}",
+  "@errorAlIngresarAlPanel": {
+    "placeholders": {
+      "error": {
+        "type": "Object"
+      }
+    }
+  },
+  "accesoSonidista2": "Acceso Sonidista",
+  "pinDeSalaOCrear": "PIN de Sala o Crear Sala",
+  "accederAlPanel": "ACCEDER AL PANEL",
+  "tuRespuesta": "Tu respuesta: {respuesta}",
+  "@tuRespuesta": {
+    "placeholders": {
+      "respuesta": {
+        "type": "Object"
+      }
+    }
+  },
+  "responderPrivado": "Responder privado",
+  "responderA": "Responder a {musico}",
+  "@responderA": {
+    "placeholders": {
+      "musico": {
+        "type": "Object"
+      }
+    }
+  },
+  "pedido": "Pedido: \"{pedido}\"",
+  "@pedido": {
+    "placeholders": {
+      "pedido": {
+        "type": "Object"
+      }
+    }
+  },
+  "escribirRespuestaPrivada": "Escribir respuesta privada...",
+  "enviar": "Enviar",
+  "consola2": "Consola: {codigoSala}",
+  "@consola2": {
+    "placeholders": {
+      "codigoSala": {
+        "type": "Object"
+      }
+    }
+  },
+  "borrarTodo": "¿Borrar todo?",
+  "no": "No",
+  "si": "Sí",
+  "agrupadoPorRolActivado": "Agrupado por rol: activado",
+  "verAgrupadoPorRol": "Ver agrupado por rol",
+  "errorDeConexion": "Error de conexión: {error}",
+  "@errorDeConexion": {
+    "placeholders": {
+      "error": {
+        "type": "Object"
+      }
+    }
+  },
+  "esperandoPedidos": "Esperando pedidos...",
+  "todaviaNoAtendisteNingunPedido": "Todavía no atendiste ningún pedido",
+  "nombreApp": "Sound Check Pro",
+  "rolMusico": "Músico",
+  "rolCantante": "Cantante",
+  "rolSonidista": "Sonidista",
+  "rolOtro": "Otro",
+  "rolesYUltimo": "{lista} y {ultimo}",
+  "@rolesYUltimo": {
+    "placeholders": {
+      "lista": {
+        "type": "String"
+      },
+      "ultimo": {
+        "type": "String"
+      }
+    }
+  },
+  "paletaEscenarioNombre": "Escenario",
+  "paletaEscenarioTag": "Neón celeste y violeta",
+  "paletaConsolaNombre": "Consola",
+  "paletaConsolaTag": "Violeta, refinado",
+  "paletaPlacaNombre": "Placa",
+  "paletaPlacaTag": "Grafito + ámbar VU",
+  "paletaWashNombre": "Wash",
+  "paletaWashTag": "Teal de luz de escenario",
+  "paletaLuzDeTrabajoNombre": "Luz de trabajo",
+  "paletaLuzDeTrabajoTag": "Máximo contraste",
+  "paletaCamarinNombre": "Camarín",
+  "paletaCamarinTag": "Rosa pastel, suave",
+  "pestanaPedidos": "Pedidos",
+  "pestanaHistorial": "Historial",
+  "pestanaSetlist": "Setlist",
+  "pestanaSecuencias": "Secuencias",
+  "fraseVolumenRetorno": "Volumen retorno",
+  "fraseVolumenAl2": "Volumen al 2",
+  "fraseVolumenAl3": "Volumen al 3",
+  "fraseVolumenAl4": "Volumen al 4",
+  "fraseVolumenGuitarra": "Volumen guitarra",
+  "fraseVolumenTeclado": "Volumen teclado",
+  "fraseVolumenTalkback": "Volumen Talkback",
+  "fraseVolumenPista": "Volumen pista",
+  "fraseVolumenClick": "Volumen click",
+  "fraseVolumenCoordinador": "Volumen coordinador",
+  "fraseVolumenGeneral": "Volumen general",
+  "fraseListo": "Listo",
+  "tonoOriginal": "Original",
+  "semitonosConSigno": "{cantidad, plural, =1{{signo}{cantidad} semitono} other{{signo}{cantidad} semitonos}}",
+  "@semitonosConSigno": {
+    "placeholders": {
+      "signo": {
+        "type": "String"
+      },
+      "cantidad": {
+        "type": "int"
+      }
+    }
+  },
+  "ajusteTono": "Tono {valor}",
+  "@ajusteTono": {
+    "placeholders": {
+      "valor": {
+        "type": "String"
+      }
+    }
+  },
+  "ajusteTempo": "Tempo {valor}%",
+  "@ajusteTempo": {
+    "placeholders": {
+      "valor": {
+        "type": "int"
+      }
+    }
+  },
+  "ajusteVolumen": "Vol {valor}%",
+  "@ajusteVolumen": {
+    "placeholders": {
+      "valor": {
+        "type": "int"
+      }
+    }
+  },
+  "secuenciasParaHoy": "{cantidad, plural, =1{1 secuencia para hoy} other{{cantidad} secuencias para hoy}}",
+  "@secuenciasParaHoy": {
+    "placeholders": {
+      "cantidad": {
+        "type": "int"
+      }
+    }
+  },
+  "idioma": "Idioma",
+  "idiomaAutomatico": "Automático (idioma del dispositivo)",
+  "idiomaDescripcion": "Elegí el idioma de la app. Se guarda en este dispositivo."
+}

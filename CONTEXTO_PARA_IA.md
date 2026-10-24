@@ -516,6 +516,54 @@ registrada sin chequear `esPro` — ver §8 para cómo revertir esto.
     fondo transparente global porque durante las transiciones de pantalla se
     verían dos a la vez).
 
+25. **Idiomas / i18n (oct-2026)**: la app está traducida a 12 idiomas
+    (es, en, pt, fr, it, de, ru, zh, ja, ko, ar, hi) con el sistema estándar
+    de Flutter (`gen_l10n`). Piezas:
+    - `frontend/l10n.yaml` + `frontend/lib/l10n/app_XX.arb` (uno por idioma;
+      **`app_es.arb` es la plantilla** y la única con metadatos `@clave`
+      de los placeholders). Los `app_localizations*.dart` se **generan** con
+      `flutter gen-l10n` (también al compilar); están en el repo.
+    - En `main.dart` queda solo la lógica: `IdiomasApp` (lista de idiomas y
+      `resolver`), `L10n`, `context.l10n`, `IdiomaPickerScreen`.
+    - **Detección automática**: `localeListResolutionCallback` → mismo
+      código de idioma que el dispositivo; si no está soportado, inglés.
+    - **Cambio manual**: icono de globo (pantalla de bienvenida y menú
+      principal) → `IdiomaPickerScreen`, con "Automático" + los 12 idiomas.
+      Se guarda en SharedPreferences (`idioma_app`; ausente = automático) y
+      se aplica al instante vía `_SoundCheckProAppState.setIdioma`.
+    - **Dos formas de leer textos**: `context.l10n.clave` en widgets
+      (se reconstruyen solos al cambiar de idioma) y `L10n.t.clave` en código
+      sin `BuildContext` (mensajes de `AuthService`, frases base de
+      `FrasesService`). `L10n.t` se actualiza en el `builder` del
+      `MaterialApp`.
+    - **Valores guardados siguen en español** (roles "Músico"/"Cantante"/
+      "Sonidista"/"Otro" en prefs y Firestore, parseados por
+      `rolesDesdeEtiqueta`): solo se traduce lo que se **muestra**
+      (`rolParaMostrar`, `textoRoles`, `UserRole.nombre(l)`). No cambiar esos
+      valores canónicos.
+    - Las **frases rápidas** que se envían como pedido salen en el idioma de
+      quien las envía; el sonidista las ve tal cual. Las frases propias del
+      usuario no se traducen.
+    - Plurales con ICU en los ARB (`semitonosConSigno`, `secuenciasParaHoy`;
+      ru/ar con sus categorías extra). Árabe en RTL: usar `AlignmentDirectional`/
+      `EdgeInsetsDirectional`, no `Alignment.centerLeft`.
+    - **Para agregar un texto**: crear la clave en `app_es.arb` (con `@clave`
+      si lleva parámetros) **y en los otros 11 ARB**, `flutter gen-l10n`, y
+      usarla. Para **agregar un idioma**: nuevo `app_XX.arb` + entrada en
+      `IdiomasApp.todos`. Las claves son derivadas del texto en español
+      (`tuNombre`, `elegiLasSecuenciasDeHoy`…), no semánticas.
+    - **Dependencias**: `flutter_localizations` exige `intl 0.20.x`, lo que
+      obligó a subir `syncfusion_flutter_pdf` y `pdfviewer` de 27.x a
+      `^28.2.4` (el visor de PDF se verificó solo por análisis estático).
+    - En web, las fuentes CJK/árabe/hindi las baja CanvasKit bajo demanda
+      (Noto): la primera vez puede verse un instante con cuadrados.
+    - Verificado en web (build release): selector, cambio a japonés y árabe
+      (RTL correcto), persistencia al recargar. **No verificado**: el resto
+      de pantallas en cada idioma, desbordes de texto en alemán/ruso (textos
+      más largos), Android. Las traducciones son mías, sin revisión de
+      hablantes nativos; conviene que alguien las repase (sobre todo
+      términos de audio: "retorno", "pista", "secuencia").
+
 ## 6. Modelo de seguridad de las salas — trade-off consciente, no bug
 
 `salas/{codigoSala}/pedidos` y `.../setlist` se leen/escriben con

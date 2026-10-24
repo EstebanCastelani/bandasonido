@@ -1,0 +1,7 @@
+# Traducciones de la app (ver CONTEXTO_PARA_IA.md, "Idiomas"). La plantilla
+# es el español: cualquier texto nuevo se agrega primero en app_es.arb.
+arb-dir: lib/l10n
+template-arb-file: app_es.arb
+output-localization-file: app_localizations.dart
+output-class: AppLocalizations
+nullable-getter: false

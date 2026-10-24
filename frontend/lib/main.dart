@@ -18,6 +18,11 @@ import 'package:firebase_storage/firebase_storage.dart';
 
 import 'package:flutter/foundation.dart' show kIsWeb, listEquals;
 
+import 'package:flutter_localizations/flutter_localizations.dart';
+
+// Textos traducidos (los genera Flutter desde lib/l10n/*.arb; ver l10n.yaml).
+import 'l10n/app_localizations.dart';
+
 import 'package:flutter/material.dart';
 
 import 'package:flutter/services.dart';
@@ -212,15 +217,50 @@ void main() async {
 enum UserRole { musico, cantante }
 
 extension UserRoleTexto on UserRole {
+  /// Texto GUARDADO (prefs/Firestore) y que lee rolesDesdeEtiqueta: siempre
+  /// en español, sea cual sea el idioma de la app, para que lo que ya está
+  /// guardado siga funcionando. Para mostrarlo usar [nombre].
   String get etiqueta => switch (this) {
         UserRole.musico => 'Músico',
         UserRole.cantante => 'Cantante',
       };
+
+  /// Texto para MOSTRAR, en el idioma de la app.
+  String nombre(AppLocalizations l) => switch (this) {
+        UserRole.musico => l.rolMusico,
+        UserRole.cantante => l.rolCantante,
+      };
+}
+
+/// Un rol guardado ("Músico y Cantante", "Sonidista", o uno escrito a mano
+/// como "guitarrista") traducido al idioma de la app para mostrarlo. Lo que
+/// no reconoce lo devuelve igual: es un texto que escribió la persona.
+String rolParaMostrar(AppLocalizations l, String guardado) {
+  final t = guardado.toLowerCase().replaceAll('ú', 'u').trim();
+  if (t == 'sonidista') return l.rolSonidista;
+  if (t == 'otro') return l.rolOtro;
+  final roles = {
+    if (t.contains('musico')) UserRole.musico,
+    if (t.contains('cantante')) UserRole.cantante,
+  };
+  // Solo se traduce si el texto es exactamente lo que armaría etiquetaRoles.
+  if (roles.isNotEmpty && etiquetaRoles(roles).toLowerCase().replaceAll('ú', 'u') == t) {
+    return textoRoles(l, roles);
+  }
+  return guardado;
+}
+
+/// Roles unidos para MOSTRAR ("Músico y Cantante" en el idioma de la app).
+String textoRoles(AppLocalizations l, Set<UserRole> roles) {
+  final nombres = [for (final r in UserRole.values) if (roles.contains(r)) r.nombre(l)];
+  if (nombres.isEmpty) return UserRole.musico.nombre(l);
+  if (nombres.length == 1) return nombres.first;
+  return l.rolesYUltimo(nombres.sublist(0, nombres.length - 1).join(', '), nombres.last);
 }
 
 /// Una persona puede tener varios roles a la vez (ej: canta y toca). Se
 /// guardan en prefs/Firestore como un único texto legible ("Músico y
-/// Cantante"), que es también lo que ve el sonidista en los pedidos.
+/// Cantante", siempre en español); para mostrarlo ver rolParaMostrar.
 String etiquetaRoles(Set<UserRole> roles) {
   final nombres = [for (final r in UserRole.values) if (roles.contains(r)) r.etiqueta];
   if (nombres.isEmpty) return UserRole.musico.etiqueta;
@@ -249,13 +289,13 @@ class SelectorRoles extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Padding(
+        Padding(
           padding: EdgeInsets.only(left: 16, bottom: 4),
-          child: Text('Tu rol (podés marcar más de uno)'),
+          child: Text(context.l10n.tuRolPodesMarcarMas),
         ),
         for (final rol in UserRole.values)
           CheckboxListTile(
-            title: Text(rol.etiqueta),
+            title: Text(rol.nombre(context.l10n)),
             value: seleccionados.contains(rol),
             controlAffinity: ListTileControlAffinity.leading,
             onChanged: (marcado) => alCambiar(
@@ -271,13 +311,16 @@ class SelectorRoles extends StatelessWidget {
 
 class AppConstants {
 
-  static const List<String> pedidosRapidos = [
+  /// Frases rápidas por defecto, en el idioma de la app. Quien envía el pedido
+  /// manda este texto tal cual: el sonidista lo ve en el idioma de quien lo
+  /// envió.
+  static List<String> pedidosRapidos(AppLocalizations l) => [
 
-    'Volumen retorno', 'Volumen al 2', 'Volumen al 3', 'Volumen al 4',
+    l.fraseVolumenRetorno, l.fraseVolumenAl2, l.fraseVolumenAl3, l.fraseVolumenAl4,
 
-    'Volumen guitarra', 'Volumen teclado', 'Volumen Talkback', 'Volumen pista', 'Volumen click',
+    l.fraseVolumenGuitarra, l.fraseVolumenTeclado, l.fraseVolumenTalkback, l.fraseVolumenPista, l.fraseVolumenClick,
 
-    'Volumen retorno', 'Volumen coordinator', 'Volumen general', '+', '-', 'Listo',
+    l.fraseVolumenRetorno, l.fraseVolumenCoordinador, l.fraseVolumenGeneral, '+', '-', l.fraseListo,
 
   ];
 
@@ -395,6 +438,28 @@ class AppPalette {
     surfaceDark: Color(0xFF0F0D1F),
     surfaceLight: Color(0xFF0F0D1F),
   );
+
+  /// Nombre y descripción para MOSTRAR, en el idioma de la app (los campos
+  /// [nombre] y [tag] son la referencia en español).
+  String nombreMostrar(AppLocalizations l) => switch (key) {
+        'escenario' => l.paletaEscenarioNombre,
+        'consola' => l.paletaConsolaNombre,
+        'placa' => l.paletaPlacaNombre,
+        'wash' => l.paletaWashNombre,
+        'worklight' => l.paletaLuzDeTrabajoNombre,
+        'camarin' => l.paletaCamarinNombre,
+        _ => nombre,
+      };
+
+  String tagMostrar(AppLocalizations l) => switch (key) {
+        'escenario' => l.paletaEscenarioTag,
+        'consola' => l.paletaConsolaTag,
+        'placa' => l.paletaPlacaTag,
+        'wash' => l.paletaWashTag,
+        'worklight' => l.paletaLuzDeTrabajoTag,
+        'camarin' => l.paletaCamarinTag,
+        _ => tag,
+      };
 
   static const List<AppPalette> todas = [escenario, consola, placa, wash, worklight, camarin];
 
@@ -582,6 +647,54 @@ ThemeData construirTema(AppPalette paleta, Brightness brightness) {
 /// Acceso rápido al color de acento actual desde cualquier widget.
 extension AppColorX on BuildContext {
   Color get acento => Theme.of(this).colorScheme.primary;
+}
+
+// --- IDIOMAS ---
+
+/// Idiomas de la app, cada uno con su nombre en su propio idioma (para
+/// elegirlo aunque no se entienda el idioma actual). El primero es la
+/// plantilla (lib/l10n/app_es.arb); el orden es el de la lista de elegir.
+class IdiomasApp {
+  static const List<(Locale, String)> todos = [
+    (Locale('es'), 'Español'),
+    (Locale('en'), 'English'),
+    (Locale('pt'), 'Português'),
+    (Locale('fr'), 'Français'),
+    (Locale('it'), 'Italiano'),
+    (Locale('de'), 'Deutsch'),
+    (Locale('ru'), 'Русский'),
+    (Locale('zh'), '中文'),
+    (Locale('ja'), '日本語'),
+    (Locale('ko'), '한국어'),
+    (Locale('ar'), 'العربية'),
+    (Locale('hi'), 'हिन्दी'),
+  ];
+
+  /// Si el idioma del dispositivo no está entre los de la app, se usa inglés.
+  static const Locale respaldo = Locale('en');
+
+  /// Elige el idioma de la app para el idioma del dispositivo (o el que haya
+  /// pedido el sistema): el mismo idioma si existe, si no el inglés.
+  static Locale resolver(List<Locale>? pedidos, Iterable<Locale> soportados) {
+    for (final pedido in pedidos ?? const <Locale>[]) {
+      for (final s in soportados) {
+        if (s.languageCode == pedido.languageCode) return s;
+      }
+    }
+    return respaldo;
+  }
+}
+
+/// Las traducciones del idioma actual, para el código que no tiene un
+/// BuildContext a mano (por ejemplo los mensajes de error de AuthService).
+/// MaterialApp.builder la actualiza en cada cambio de idioma. En widgets
+/// usar siempre `context.l10n`: así se redibujan solos al cambiar el idioma.
+class L10n {
+  static late AppLocalizations t;
+}
+
+extension L10nContexto on BuildContext {
+  AppLocalizations get l10n => AppLocalizations.of(this);
 }
 
 /// Detecta swipes de UN solo dedo a partir de eventos crudos de puntero (se
@@ -1010,7 +1123,7 @@ class AuthService {
 
     final googleUser = await GoogleSignIn().signIn();
     if (googleUser == null) {
-      throw Exception('Inicio de sesión con Google cancelado.');
+      throw Exception(L10n.t.inicioDeSesionConGoogle);
     }
     final googleAuth = await googleUser.authentication;
     final credential = GoogleAuthProvider.credential(
@@ -1044,20 +1157,20 @@ class AuthService {
     if (error is FirebaseAuthException) {
       switch (error.code) {
         case 'invalid-email':
-          return 'El email no es válido.';
+          return L10n.t.elEmailNoEsValido;
         case 'user-disabled':
-          return 'Esta cuenta fue deshabilitada.';
+          return L10n.t.estaCuentaFueDeshabilitada;
         case 'user-not-found':
-          return 'No existe una cuenta con ese email.';
+          return L10n.t.noExisteUnaCuentaCon;
         case 'wrong-password':
         case 'invalid-credential':
-          return 'Email o contraseña incorrectos.';
+          return L10n.t.emailOContrasenaIncorrectos;
         case 'email-already-in-use':
-          return 'Ya existe una cuenta con ese email.';
+          return L10n.t.yaExisteUnaCuentaCon;
         case 'weak-password':
-          return 'La contraseña debe tener al menos 6 caracteres.';
+          return L10n.t.laContrasenaDebeTenerAl;
         default:
-          return error.message ?? 'Error de autenticación.';
+          return error.message ?? L10n.t.errorDeAutenticacion;
       }
     }
     return error.toString();
@@ -1187,13 +1300,15 @@ class FrasesService {
   }
 
   /// Copia el set base (AppConstants.pedidosRapidos) a la colección personal
-  /// del usuario. Se llama una sola vez, al registrarse.
+  /// del usuario, en el idioma que tenga la app en ese momento. Se llama una
+  /// sola vez, al registrarse.
   static Future<void> copiarFrasesBaseParaUsuario(String uid) async {
+    final frases = AppConstants.pedidosRapidos(L10n.t);
     final batch = FirebaseFirestore.instance.batch();
-    for (var i = 0; i < AppConstants.pedidosRapidos.length; i++) {
+    for (var i = 0; i < frases.length; i++) {
       final doc = _ref(uid).doc();
       batch.set(doc, {
-        'texto': AppConstants.pedidosRapidos[i],
+        'texto': frases[i],
         'orden': i,
         'createdAt': FieldValue.serverTimestamp(),
       });
@@ -2073,7 +2188,7 @@ class FilaSecuencia extends StatelessWidget {
                   icon: (esActual && reproductor.cargando)
                       ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2))
                       : Icon(sonando ? Icons.pause : Icons.play_arrow),
-                  tooltip: sonando ? 'Pausar' : 'Reproducir',
+                  tooltip: sonando ? context.l10n.pausar : context.l10n.reproducir,
                   onPressed: audioUrl.isEmpty
                       ? null
                       : () => reproductor
@@ -2081,7 +2196,7 @@ class FilaSecuencia extends StatelessWidget {
                               .catchError((e) {
                             if (context.mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text('No se pudo reproducir: $e'), backgroundColor: Colors.redAccent),
+                                SnackBar(content: Text(context.l10n.noSePudoReproducir(e)), backgroundColor: Colors.redAccent),
                               );
                             }
                           }),
@@ -2110,13 +2225,13 @@ class FilaSecuencia extends StatelessWidget {
                       IconButton(
                         icon: Icon(Icons.trending_down, color: reproductor.enFadeOut ? context.acento : null),
                         tooltip: reproductor.enFadeOut
-                            ? 'Bajando el volumen...'
-                            : 'Fade out (${ReproductorSecuencias.duracionFadeOut.inSeconds} s)',
+                            ? context.l10n.bajandoElVolumen
+                            : context.l10n.fadeOutS(ReproductorSecuencias.duracionFadeOut.inSeconds),
                         onPressed: sonando && !reproductor.enFadeOut ? reproductor.fadeOut : null,
                       ),
                       IconButton(
                         icon: const Icon(Icons.stop),
-                        tooltip: 'Detener',
+                        tooltip: context.l10n.detener,
                         onPressed: reproductor.detener,
                       ),
                     ],
@@ -2270,6 +2385,10 @@ class _SoundCheckProAppState extends State<SoundCheckProApp> {
 
   AppPalette _paleta = AppPalette.porDefecto;
 
+  /// Idioma elegido a mano. null = automático: el del dispositivo (ver
+  /// IdiomasApp.resolver). Se guarda en 'idioma_app'.
+  Locale? _idioma;
+
   @override
 
   void initState() {
@@ -2278,7 +2397,30 @@ class _SoundCheckProAppState extends State<SoundCheckProApp> {
 
     _cargarPaletaGuardada();
 
+    _cargarIdiomaGuardado();
+
   }
+
+  Future<void> _cargarIdiomaGuardado() async {
+    final prefs = await SharedPreferences.getInstance();
+    final codigo = prefs.getString('idioma_app');
+    final elegido = IdiomasApp.todos.where((i) => i.$1.languageCode == codigo).map((i) => i.$1).firstOrNull;
+    if (elegido != null && mounted) setState(() => _idioma = elegido);
+  }
+
+  /// Cambia el idioma de toda la app al instante. null = automático.
+  Future<void> setIdioma(Locale? idioma) async {
+    setState(() => _idioma = idioma);
+    final prefs = await SharedPreferences.getInstance();
+    if (idioma == null) {
+      await prefs.remove('idioma_app');
+    } else {
+      await prefs.setString('idioma_app', idioma.languageCode);
+    }
+  }
+
+  /// null si el idioma es automático.
+  Locale? get idiomaElegido => _idioma;
 
   Future<void> _cargarPaletaGuardada() async {
 
@@ -2333,6 +2475,23 @@ class _SoundCheckProAppState extends State<SoundCheckProApp> {
       darkTheme: construirTema(_paleta, Brightness.dark),
 
       themeMode: _themeMode,
+
+      // Idiomas: los textos salen de lib/l10n/*.arb. Con _idioma == null se
+      // sigue el del dispositivo y, si no es uno de los de la app, inglés.
+      localizationsDelegates: const [
+        AppLocalizations.delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      supportedLocales: AppLocalizations.supportedLocales,
+      locale: _idioma,
+      localeListResolutionCallback: IdiomasApp.resolver,
+      onGenerateTitle: (context) => context.l10n.nombreApp,
+      builder: (context, child) {
+        L10n.t = AppLocalizations.of(context);
+        return child ?? const SizedBox.shrink();
+      },
 
       home: const SplashScreen(),
 
@@ -2545,21 +2704,29 @@ class BienvenidaScreen extends StatelessWidget {
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Align(
-                                alignment: Alignment.centerRight,
+                                alignment: AlignmentDirectional.centerEnd,
                                 child: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
                                     IconButton(
                                       icon: const Icon(Icons.wb_sunny_outlined, color: Colors.white),
-                                      tooltip: 'Modo claro/oscuro (para el resto de la app)',
+                                      tooltip: context.l10n.modoClaroOscuroParaEl,
                                       onPressed: () => SoundCheckProApp.of(context).toggleTheme(),
                                     ),
                                     IconButton(
                                       icon: const Icon(Icons.palette_outlined, color: Colors.white),
-                                      tooltip: 'Color de la app',
+                                      tooltip: context.l10n.colorDeLaApp,
                                       onPressed: () => Navigator.push(
                                         context,
                                         MaterialPageRoute(builder: (_) => const PaletaPickerScreen()),
+                                      ),
+                                    ),
+                                    IconButton(
+                                      icon: const Icon(Icons.language, color: Colors.white),
+                                      tooltip: context.l10n.idioma,
+                                      onPressed: () => Navigator.push(
+                                        context,
+                                        MaterialPageRoute(builder: (_) => const IdiomaPickerScreen()),
                                       ),
                                     ),
                                   ],
@@ -2595,14 +2762,14 @@ class BienvenidaScreen extends StatelessWidget {
                                 ),
                               ),
                               const SizedBox(height: 18),
-                              const Text(
-                                'Comunicación en vivo\nentre músicos y sonidistas',
+                              Text(
+                                context.l10n.comunicacionEnVivoEntreMusicos,
                                 textAlign: TextAlign.center,
                                 style: TextStyle(fontSize: 17, height: 1.35, color: Colors.white),
                               ),
                               const SizedBox(height: 32),
                               _BotonBienvenida(
-                                texto: 'Iniciar sesión',
+                                texto: context.l10n.iniciarSesion,
                                 icono: Icons.monitor_heart_outlined,
                                 estilo: _EstiloBoton.principal,
                                 onPressed: () => Navigator.push(
@@ -2612,7 +2779,7 @@ class BienvenidaScreen extends StatelessWidget {
                               ),
                               const SizedBox(height: 14),
                               _BotonBienvenida(
-                                texto: 'Crear cuenta',
+                                texto: context.l10n.crearCuenta,
                                 icono: Icons.person_outline,
                                 estilo: _EstiloBoton.celeste,
                                 onPressed: () => Navigator.push(
@@ -2622,7 +2789,7 @@ class BienvenidaScreen extends StatelessWidget {
                               ),
                               const SizedBox(height: 14),
                               _BotonBienvenida(
-                                texto: 'Entrar como invitado',
+                                texto: context.l10n.entrarComoInvitado,
                                 icono: Icons.groups_outlined,
                                 estilo: _EstiloBoton.violeta,
                                 onPressed: () => Navigator.pushAndRemoveUntil(
@@ -2810,11 +2977,11 @@ class _FuncionesDestacadas extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const items = [
-      (Icons.bolt, BienvenidaScreen._celeste, 'Tiempo real', 'Sincronización\ninstantánea'),
-      (Icons.notifications_none, BienvenidaScreen._violeta, 'Urgente', 'Alertas visuales\ny sonoras'),
-      (Icons.groups_outlined, BienvenidaScreen._celeste, 'Multi-sala', 'Manejá varias\nbandas y shows'),
-      (Icons.music_note_outlined, BienvenidaScreen._violeta, 'Setlist en vivo', 'Lista de temas\ncompartida'),
+    final items = [
+      (Icons.bolt, BienvenidaScreen._celeste, context.l10n.tiempoReal, context.l10n.sincronizacionInstantanea),
+      (Icons.notifications_none, BienvenidaScreen._violeta, context.l10n.urgente, context.l10n.alertasVisualesYSonoras),
+      (Icons.groups_outlined, BienvenidaScreen._celeste, context.l10n.multiSala, context.l10n.manejaVariasBandasYShows),
+      (Icons.music_note_outlined, BienvenidaScreen._violeta, context.l10n.setlistEnVivo, context.l10n.listaDeTemasCompartida),
     ];
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 6),
@@ -2935,7 +3102,7 @@ class _AuthScreenState extends State<AuthScreen> {
 
     if (!_modoRegistro && (_emailController.text.trim().isEmpty || _passwordController.text.isEmpty)) {
 
-      _mostrarError(Exception('Completá email y contraseña.'));
+      _mostrarError(Exception(context.l10n.completaEmailYContrasena));
 
       return;
 
@@ -3049,7 +3216,7 @@ class _AuthScreenState extends State<AuthScreen> {
 
       builder: (context) => AlertDialog(
 
-        title: const Text('Completá tu perfil'),
+        title: Text(context.l10n.completaTuPerfil),
 
         content: Form(
 
@@ -3065,9 +3232,9 @@ class _AuthScreenState extends State<AuthScreen> {
 
                 controller: nombreController,
 
-                decoration: const InputDecoration(labelText: 'Tu nombre'),
+                decoration: InputDecoration(labelText: context.l10n.tuNombre),
 
-                validator: (v) => (v == null || v.trim().isEmpty) ? 'Requerido' : null,
+                validator: (v) => (v == null || v.trim().isEmpty) ? context.l10n.requerido : null,
 
               ),
 
@@ -3077,9 +3244,9 @@ class _AuthScreenState extends State<AuthScreen> {
 
                 controller: rolController,
 
-                decoration: const InputDecoration(labelText: 'Tu rol (ej: sonidista, guitarrista)'),
+                decoration: InputDecoration(labelText: context.l10n.tuRolEjSonidistaGuitarrista),
 
-                validator: (v) => (v == null || v.trim().isEmpty) ? 'Requerido' : null,
+                validator: (v) => (v == null || v.trim().isEmpty) ? context.l10n.requerido : null,
 
               ),
 
@@ -3115,7 +3282,7 @@ class _AuthScreenState extends State<AuthScreen> {
 
             },
 
-            child: const Text('Guardar'),
+            child: Text(context.l10n.guardar),
 
           ),
 
@@ -3137,7 +3304,7 @@ class _AuthScreenState extends State<AuthScreen> {
 
       builder: (context) => AlertDialog(
 
-        title: const Text('Recuperar contraseña'),
+        title: Text(context.l10n.recuperarContrasena),
 
         content: TextField(
 
@@ -3145,19 +3312,19 @@ class _AuthScreenState extends State<AuthScreen> {
 
           keyboardType: TextInputType.emailAddress,
 
-          decoration: const InputDecoration(labelText: 'Tu email', border: OutlineInputBorder()),
+          decoration: InputDecoration(labelText: context.l10n.tuEmail, border: OutlineInputBorder()),
 
         ),
 
         actions: [
 
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
+          TextButton(onPressed: () => Navigator.pop(context), child: Text(context.l10n.cancelar)),
 
           TextButton(
 
             onPressed: () => Navigator.pop(context, controller.text.trim()),
 
-            child: const Text('Enviar email'),
+            child: Text(context.l10n.enviarEmail),
 
           ),
 
@@ -3177,7 +3344,7 @@ class _AuthScreenState extends State<AuthScreen> {
 
       ScaffoldMessenger.of(context).showSnackBar(
 
-        const SnackBar(content: Text('Te enviamos un email para restablecer tu contraseña.')),
+        SnackBar(content: Text(context.l10n.teEnviamosUnEmailPara)),
 
       );
 
@@ -3235,7 +3402,7 @@ class _AuthScreenState extends State<AuthScreen> {
 
                 Text(
 
-                  _modoRegistro ? 'Crear cuenta' : 'Iniciar sesión',
+                  _modoRegistro ? context.l10n.crearCuenta : context.l10n.iniciarSesion,
 
                   textAlign: TextAlign.center,
 
@@ -3251,9 +3418,9 @@ class _AuthScreenState extends State<AuthScreen> {
 
                     controller: _nombreController,
 
-                    decoration: const InputDecoration(labelText: 'Tu nombre', border: OutlineInputBorder()),
+                    decoration: InputDecoration(labelText: context.l10n.tuNombre, border: OutlineInputBorder()),
 
-                    validator: (v) => (v == null || v.trim().isEmpty) ? 'Requerido' : null,
+                    validator: (v) => (v == null || v.trim().isEmpty) ? context.l10n.requerido : null,
 
                   ),
 
@@ -3263,15 +3430,15 @@ class _AuthScreenState extends State<AuthScreen> {
 
                     controller: _rolController,
 
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
 
-                      labelText: 'Tu rol (ej: sonidista, guitarrista, corista)',
+                      labelText: context.l10n.tuRolEjSonidistaGuitarrista2,
 
                       border: OutlineInputBorder(),
 
                     ),
 
-                    validator: (v) => (v == null || v.trim().isEmpty) ? 'Requerido' : null,
+                    validator: (v) => (v == null || v.trim().isEmpty) ? context.l10n.requerido : null,
 
                   ),
 
@@ -3285,9 +3452,9 @@ class _AuthScreenState extends State<AuthScreen> {
 
                   keyboardType: TextInputType.emailAddress,
 
-                  decoration: const InputDecoration(labelText: 'Email', border: OutlineInputBorder()),
+                  decoration: InputDecoration(labelText: context.l10n.email, border: OutlineInputBorder()),
 
-                  validator: (v) => (v == null || !v.contains('@')) ? 'Email inválido' : null,
+                  validator: (v) => (v == null || !v.contains('@')) ? context.l10n.emailInvalido : null,
 
                 ),
 
@@ -3299,9 +3466,9 @@ class _AuthScreenState extends State<AuthScreen> {
 
                   obscureText: true,
 
-                  decoration: const InputDecoration(labelText: 'Contraseña', border: OutlineInputBorder()),
+                  decoration: InputDecoration(labelText: context.l10n.contrasena, border: OutlineInputBorder()),
 
-                  validator: (v) => (v == null || v.length < 6) ? 'Mínimo 6 caracteres' : null,
+                  validator: (v) => (v == null || v.length < 6) ? context.l10n.minimo6Caracteres : null,
 
                 ),
 
@@ -3309,13 +3476,13 @@ class _AuthScreenState extends State<AuthScreen> {
 
                   Align(
 
-                    alignment: Alignment.centerRight,
+                    alignment: AlignmentDirectional.centerEnd,
 
                     child: TextButton(
 
                       onPressed: _procesando ? null : _olvideMiContrasena,
 
-                      child: const Text('¿Olvidaste tu contraseña?'),
+                      child: Text(context.l10n.olvidasteTuContrasena),
 
                     ),
 
@@ -3333,7 +3500,7 @@ class _AuthScreenState extends State<AuthScreen> {
 
                       ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
 
-                      : Text(_modoRegistro ? 'REGISTRARME' : 'INICIAR SESIÓN'),
+                      : Text(_modoRegistro ? context.l10n.registrarme : context.l10n.iniciarSesion2),
 
                 ),
 
@@ -3343,9 +3510,9 @@ class _AuthScreenState extends State<AuthScreen> {
 
                   child: Text(_modoRegistro
 
-                      ? '¿Ya tenés cuenta? Iniciar sesión'
+                      ? context.l10n.yaTenesCuentaIniciarSesion
 
-                      : '¿No tenés cuenta? Registrarme'),
+                      : context.l10n.noTenesCuentaRegistrarme),
 
                 ),
 
@@ -3361,7 +3528,7 @@ class _AuthScreenState extends State<AuthScreen> {
 
                   icon: const Icon(Icons.g_mobiledata, size: 28),
 
-                  label: const Text('Continuar con Google'),
+                  label: Text(context.l10n.continuarConGoogle),
 
                   style: OutlinedButton.styleFrom(padding: const EdgeInsets.all(16)),
 
@@ -3373,7 +3540,7 @@ class _AuthScreenState extends State<AuthScreen> {
 
                   onPressed: _procesando ? null : _irAIngreso,
 
-                  child: const Text('Continuar sin cuenta', style: TextStyle(color: Colors.grey)),
+                  child: Text(context.l10n.continuarSinCuenta, style: TextStyle(color: Colors.grey)),
 
                 ),
 
@@ -3455,9 +3622,19 @@ class IngressMenuScreen extends StatelessWidget {
 
             icon: const Icon(Icons.palette_outlined),
 
-            tooltip: 'Color de la app',
+            tooltip: context.l10n.colorDeLaApp,
 
             onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PaletaPickerScreen())),
+
+          ),
+
+          IconButton(
+
+            icon: const Icon(Icons.language),
+
+            tooltip: context.l10n.idioma,
+
+            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const IdiomaPickerScreen())),
 
           ),
 
@@ -3467,7 +3644,7 @@ class IngressMenuScreen extends StatelessWidget {
 
               icon: const Icon(Icons.logout),
 
-              tooltip: 'Cerrar sesión de cuenta',
+              tooltip: context.l10n.cerrarSesionDeCuenta,
 
               onPressed: () => _cerrarSesionCuenta(context),
 
@@ -3479,7 +3656,7 @@ class IngressMenuScreen extends StatelessWidget {
 
               icon: const Icon(Icons.login),
 
-              tooltip: 'Iniciar sesión',
+              tooltip: context.l10n.iniciarSesion,
 
               onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AuthScreen())),
 
@@ -3529,7 +3706,7 @@ class IngressMenuScreen extends StatelessWidget {
 
               Text(
 
-                'Sesión: ${user!.email ?? user.displayName ?? user.uid}',
+                context.l10n.sesion(user!.email ?? user.displayName ?? user.uid),
 
                 textAlign: TextAlign.center,
 
@@ -3545,7 +3722,7 @@ class IngressMenuScreen extends StatelessWidget {
 
               icon: const Icon(Icons.add),
 
-              label: const Text('CREAR NUEVA SALA'),
+              label: Text(context.l10n.crearNuevaSala),
 
               onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CrearSalaScreen())),
 
@@ -3559,7 +3736,7 @@ class IngressMenuScreen extends StatelessWidget {
 
               icon: const Icon(Icons.login),
 
-              label: const Text('UNIRME A SALA'),
+              label: Text(context.l10n.unirmeASala),
 
               onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const UnirmeSalaScreen())),
 
@@ -3575,7 +3752,7 @@ class IngressMenuScreen extends StatelessWidget {
 
                 icon: const Icon(Icons.history),
 
-                label: const Text('MIS SALAS'),
+                label: Text(context.l10n.misSalas),
 
                 onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MisSalasScreen())),
 
@@ -3589,7 +3766,7 @@ class IngressMenuScreen extends StatelessWidget {
 
                 icon: const Icon(Icons.edit_note),
 
-                label: const Text('MIS FRASES'),
+                label: Text(context.l10n.misFrases),
 
                 onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const FrasesAdminScreen())),
 
@@ -3603,7 +3780,7 @@ class IngressMenuScreen extends StatelessWidget {
 
                 icon: const Icon(Icons.library_music),
 
-                label: const Text('MI REPERTORIO'),
+                label: Text(context.l10n.miRepertorio),
 
                 onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MiRepertorioScreen())),
 
@@ -3615,7 +3792,7 @@ class IngressMenuScreen extends StatelessWidget {
 
               OutlinedButton.icon(
                 icon: const Icon(Icons.graphic_eq),
-                label: const Text('MIS SECUENCIAS'),
+                label: Text(context.l10n.misSecuencias),
                 onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MisSecuenciasScreen())),
                 style: OutlinedButton.styleFrom(padding: const EdgeInsets.all(16)),
               ),
@@ -3628,7 +3805,7 @@ class IngressMenuScreen extends StatelessWidget {
 
               icon: const Icon(Icons.tune),
 
-              label: const Text('ACCESO SONIDISTA'),
+              label: Text(context.l10n.accesoSonidista),
 
               onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SonidistaPinScreen())),
 
@@ -3670,7 +3847,7 @@ class PaletaPickerScreen extends StatelessWidget {
 
     return Scaffold(
 
-      appBar: AppBar(title: const Text('Color de la app')),
+      appBar: AppBar(title: Text(context.l10n.colorDeLaApp)),
 
       body: ListView(
 
@@ -3680,7 +3857,7 @@ class PaletaPickerScreen extends StatelessWidget {
 
           Text(
 
-            'Elegí la identidad visual de la app. Se guarda en este dispositivo.',
+            context.l10n.elegiLaIdentidadVisualDe,
 
             style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.onSurfaceVariant),
 
@@ -3714,6 +3891,97 @@ class PaletaPickerScreen extends StatelessWidget {
 
   }
 
+}
+
+// --- SELECTOR DE IDIOMA ---
+
+/// Elegir el idioma de la app a mano, o dejarlo en automático (el del
+/// dispositivo). Cada idioma aparece con su nombre en su propio idioma, así
+/// se puede encontrar el propio aunque la app esté en otro. Se guarda en este
+/// dispositivo (ver _SoundCheckProAppState.setIdioma).
+class IdiomaPickerScreen extends StatelessWidget {
+  const IdiomaPickerScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final l = context.l10n;
+    final app = SoundCheckProApp.of(context);
+    final elegido = app.idiomaElegido;
+    final acento = context.acento;
+
+    Widget opcion({required String titulo, String? detalle, required bool seleccionada, required VoidCallback onTap}) {
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 10),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(14),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: seleccionada ? acento : Theme.of(context).colorScheme.outlineVariant,
+                width: seleccionada ? 2 : 1,
+              ),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(titulo, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                      if (detalle != null)
+                        Text(
+                          detalle,
+                          style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                        ),
+                    ],
+                  ),
+                ),
+                Icon(
+                  seleccionada ? Icons.check_circle : Icons.radio_button_unchecked,
+                  color: seleccionada ? acento : Theme.of(context).colorScheme.outlineVariant,
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    // Idioma que se usaría en automático, para mostrarlo en esa opción.
+    final automatico = IdiomasApp.resolver(
+      WidgetsBinding.instance.platformDispatcher.locales,
+      AppLocalizations.supportedLocales,
+    );
+    final nombreAutomatico = IdiomasApp.todos.firstWhere((i) => i.$1.languageCode == automatico.languageCode).$2;
+
+    return Scaffold(
+      appBar: AppBar(title: Text(l.idioma)),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: Text(l.idiomaDescripcion),
+          ),
+          opcion(
+            titulo: l.idiomaAutomatico,
+            detalle: nombreAutomatico,
+            seleccionada: elegido == null,
+            onTap: () => app.setIdioma(null),
+          ),
+          for (final (locale, nombre) in IdiomasApp.todos)
+            opcion(
+              titulo: nombre,
+              seleccionada: elegido?.languageCode == locale.languageCode,
+              onTap: () => app.setIdioma(locale),
+            ),
+        ],
+      ),
+    );
+  }
 }
 
 class _PaletaCard extends StatelessWidget {
@@ -3806,9 +4074,9 @@ class _PaletaCard extends StatelessWidget {
 
                 children: [
 
-                  Text(paleta.nombre, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                  Text(paleta.nombreMostrar(context.l10n), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
 
-                  Text(paleta.tag, style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant)),
+                  Text(paleta.tagMostrar(context.l10n), style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant)),
 
                 ],
 
@@ -3872,7 +4140,7 @@ class _CrearSalaScreenState extends State<CrearSalaScreen> {
 
     if (_roles.isEmpty) {
 
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Marcá al menos un rol.')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(context.l10n.marcaAlMenosUnRol)));
 
       return;
 
@@ -3938,7 +4206,7 @@ class _CrearSalaScreenState extends State<CrearSalaScreen> {
 
       setState(() => _procesando = false);
 
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error al ingresar: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(context.l10n.errorAlIngresar(e))));
 
     }
 
@@ -3964,7 +4232,7 @@ class _CrearSalaScreenState extends State<CrearSalaScreen> {
 
     return Scaffold(
 
-      appBar: AppBar(title: const Text('Configurar Sala')),
+      appBar: AppBar(title: Text(context.l10n.configurarSala)),
 
       body: SingleChildScrollView(
 
@@ -3978,7 +4246,7 @@ class _CrearSalaScreenState extends State<CrearSalaScreen> {
 
               child: ListTile(
 
-                title: const Text('Tu PIN de Sala', textAlign: TextAlign.center),
+                title: Text(context.l10n.tuPinDeSala, textAlign: TextAlign.center),
 
                 subtitle: Text(_pin, textAlign: TextAlign.center, style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: context.acento)),
 
@@ -3986,7 +4254,7 @@ class _CrearSalaScreenState extends State<CrearSalaScreen> {
 
                   Clipboard.setData(ClipboardData(text: _pin));
 
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('PIN copiado')));
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(context.l10n.pinCopiado)));
 
                 }),
 
@@ -3996,7 +4264,7 @@ class _CrearSalaScreenState extends State<CrearSalaScreen> {
 
             const SizedBox(height: 24),
 
-            TextField(controller: _nameController, decoration: const InputDecoration(labelText: 'Tu Nombre', border: OutlineInputBorder())),
+            TextField(controller: _nameController, decoration: InputDecoration(labelText: context.l10n.tuNombre2, border: OutlineInputBorder())),
 
             const SizedBox(height: 16),
 
@@ -4012,7 +4280,7 @@ class _CrearSalaScreenState extends State<CrearSalaScreen> {
 
                 onPressed: _procesando ? null : _crearYEntrar,
 
-                child: _procesando ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : const Text('EMPEZAR'),
+                child: _procesando ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : Text(context.l10n.empezar),
 
               ),
 
@@ -4072,7 +4340,7 @@ class _UnirmeSalaScreenState extends State<UnirmeSalaScreen> {
 
     if (_roles.isEmpty) {
 
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Marcá al menos un rol.')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(context.l10n.marcaAlMenosUnRol)));
 
       return;
 
@@ -4138,7 +4406,7 @@ class _UnirmeSalaScreenState extends State<UnirmeSalaScreen> {
 
       setState(() => _procesando = false);
 
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error al ingresar: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(context.l10n.errorAlIngresar(e))));
 
     }
 
@@ -4166,7 +4434,7 @@ class _UnirmeSalaScreenState extends State<UnirmeSalaScreen> {
 
     return Scaffold(
 
-      appBar: AppBar(title: const Text('Unirse a Sala')),
+      appBar: AppBar(title: Text(context.l10n.unirseASala)),
 
       body: SingleChildScrollView(
 
@@ -4182,13 +4450,13 @@ class _UnirmeSalaScreenState extends State<UnirmeSalaScreen> {
 
               textCapitalization: TextCapitalization.characters,
 
-              decoration: const InputDecoration(labelText: 'Código de sala (8 caracteres)', border: OutlineInputBorder()),
+              decoration: InputDecoration(labelText: context.l10n.codigoDeSala8Caracteres, border: OutlineInputBorder()),
 
             ),
 
             const SizedBox(height: 16),
 
-            TextField(controller: _nameController, decoration: const InputDecoration(labelText: 'Tu Nombre', border: OutlineInputBorder())),
+            TextField(controller: _nameController, decoration: InputDecoration(labelText: context.l10n.tuNombre2, border: OutlineInputBorder())),
 
             const SizedBox(height: 16),
 
@@ -4204,7 +4472,7 @@ class _UnirmeSalaScreenState extends State<UnirmeSalaScreen> {
 
                 onPressed: _procesando ? null : _unirmeASala,
 
-                child: _procesando ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : const Text('UNIRME'),
+                child: _procesando ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : Text(context.l10n.unirme),
 
               ),
 
@@ -4268,15 +4536,15 @@ class MisSalasScreen extends StatelessWidget {
     final nuevo = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Nombre para esta sala'),
+        title: Text(context.l10n.nombreParaEstaSala),
         content: TextField(
           controller: controller,
           autofocus: true,
-          decoration: const InputDecoration(hintText: 'Ej: Banda X - Ensayo jueves', border: OutlineInputBorder()),
+          decoration: InputDecoration(hintText: context.l10n.ejBandaXEnsayoJueves, border: OutlineInputBorder()),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
-          TextButton(onPressed: () => Navigator.pop(context, controller.text.trim()), child: const Text('Guardar')),
+          TextButton(onPressed: () => Navigator.pop(context), child: Text(context.l10n.cancelar)),
+          TextButton(onPressed: () => Navigator.pop(context, controller.text.trim()), child: Text(context.l10n.guardar)),
         ],
       ),
     );
@@ -4288,9 +4556,9 @@ class MisSalasScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final user = AuthService.currentUser;
     return Scaffold(
-      appBar: AppBar(title: const Text('Mis salas')),
+      appBar: AppBar(title: Text(context.l10n.misSalas2)),
       body: (user == null || user.isAnonymous)
-          ? const Center(child: Text('Necesitás iniciar sesión para tener un historial de salas.'))
+          ? Center(child: Text(context.l10n.necesitasIniciarSesionParaTener))
           : StreamBuilder<bool>(
               stream: UsuarioService.streamEsPro(user.uid),
               builder: (context, proSnapshot) {
@@ -4304,8 +4572,8 @@ class MisSalasScreen extends StatelessWidget {
                         children: [
                           Icon(Icons.workspace_premium, color: context.acento, size: 48),
                           const SizedBox(height: 12),
-                          const Text(
-                            'Guardar un historial de varias salas/bandas para volver a entrar con un toque es una función Pro.',
+                          Text(
+                            context.l10n.guardarUnHistorialDeVarias,
                             textAlign: TextAlign.center,
                           ),
                         ],
@@ -4319,7 +4587,7 @@ class MisSalasScreen extends StatelessWidget {
                     if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
                     final docs = snapshot.data!.docs;
                     if (docs.isEmpty) {
-                      return const Center(child: Text('Todavía no entraste a ninguna sala con esta cuenta.'));
+                      return Center(child: Text(context.l10n.todaviaNoEntrasteANinguna));
                     }
                     return ListView.separated(
                       itemCount: docs.length,
@@ -4335,19 +4603,21 @@ class MisSalasScreen extends StatelessWidget {
                         return ListTile(
                           leading: Icon(rol == 'Sonidista' ? Icons.tune : Icons.mic_external_on, color: context.acento),
                           title: Text(tieneNombre ? nombreSala : codigoSala),
-                          subtitle: Text(tieneNombre ? '$codigoSala · $rol' : rol),
+                          subtitle: Text(tieneNombre
+                              ? '$codigoSala · ${rolParaMostrar(context.l10n, rol)}'
+                              : rolParaMostrar(context.l10n, rol)),
                           onTap: () => _entrar(context, user.uid, codigoSala, rol, nombre),
                           trailing: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               IconButton(
                                 icon: const Icon(Icons.edit, size: 18),
-                                tooltip: 'Renombrar',
+                                tooltip: context.l10n.renombrar,
                                 onPressed: () => _renombrar(context, user.uid, codigoSala, nombreSala ?? ''),
                               ),
                               IconButton(
                                 icon: const Icon(Icons.delete_outline, size: 18, color: Colors.red),
-                                tooltip: 'Quitar del historial',
+                                tooltip: context.l10n.quitarDelHistorial,
                                 onPressed: () => MisSalasService.quitar(user.uid, codigoSala),
                               ),
                             ],
@@ -4369,18 +4639,21 @@ class MisSalasScreen extends StatelessWidget {
 /// ver (botón de la barra de arriba), por separado para la pantalla de
 /// músico/cantante (RequestScreen) y la del sonidista (SonidistaPage).
 enum PestanaSala {
-  pedidos('PEDIDOS', 'Pedidos'),
-  historial('HISTORIAL', 'Historial'),
-  setlist('SETLIST', 'Setlist'),
-  secuencias('SECUENCIAS', 'Secuencias');
+  pedidos,
+  historial,
+  setlist,
+  secuencias;
 
-  const PestanaSala(this.etiqueta, this.nombre);
+  /// Texto en el selector, en el idioma de la app.
+  String nombre(AppLocalizations l) => switch (this) {
+        PestanaSala.pedidos => l.pestanaPedidos,
+        PestanaSala.historial => l.pestanaHistorial,
+        PestanaSala.setlist => l.pestanaSetlist,
+        PestanaSala.secuencias => l.pestanaSecuencias,
+      };
 
-  /// Texto de la pestaña.
-  final String etiqueta;
-
-  /// Texto en el selector.
-  final String nombre;
+  /// Texto de la pestaña (mayúsculas donde el idioma las tiene).
+  String etiqueta(AppLocalizations l) => nombre(l).toUpperCase();
 }
 
 /// Guarda en el dispositivo qué pestañas quiere ver el usuario (como la
@@ -4417,33 +4690,33 @@ Future<List<PestanaSala>?> elegirPestanasSala(
     context: context,
     builder: (context) => StatefulBuilder(
       builder: (context, setDialog) => AlertDialog(
-        title: const Text('¿Qué querés ver en la sala?'),
+        title: Text(context.l10n.queQueresVerEnLa),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             for (final p in todas)
               CheckboxListTile(
                 value: elegidas.contains(p),
-                title: Text(p.nombre),
+                title: Text(p.nombre(context.l10n)),
                 // La última que queda no se puede destildar.
                 onChanged: elegidas.length == 1 && elegidas.contains(p)
                     ? null
                     : (v) => setDialog(() => v == true ? elegidas.add(p) : elegidas.remove(p)),
               ),
-            const Padding(
+            Padding(
               padding: EdgeInsets.only(top: 8),
               child: Text(
-                'Se guarda en este dispositivo. Tiene que quedar al menos una.',
+                context.l10n.seGuardaEnEsteDispositivo,
                 style: TextStyle(fontSize: 12, color: Colors.grey),
               ),
             ),
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
+          TextButton(onPressed: () => Navigator.pop(context), child: Text(context.l10n.cancelar)),
           FilledButton(
             onPressed: () => Navigator.pop(context, todas.where(elegidas.contains).toList()),
-            child: const Text('Guardar'),
+            child: Text(context.l10n.guardar),
           ),
         ],
       ),
@@ -4658,7 +4931,7 @@ class _RequestScreenState extends State<RequestScreen> with TickerProviderStateM
 
       SnackBar(
 
-        content: Text(urgente ? '¡Urgente enviado!: ${texto.trim()}' : 'Enviado: ${texto.trim()}'),
+        content: Text(urgente ? context.l10n.urgenteEnviado(texto.trim()) : context.l10n.enviado(texto.trim())),
 
         duration: const Duration(milliseconds: 400),
 
@@ -4740,7 +5013,6 @@ class _RequestScreenState extends State<RequestScreen> with TickerProviderStateM
 
   Widget build(BuildContext context) {
 
-    final rolStr = etiquetaRoles(widget.roles);
 
 
 
@@ -4748,7 +5020,7 @@ class _RequestScreenState extends State<RequestScreen> with TickerProviderStateM
 
       appBar: AppBar(
 
-        title: Text('${widget.userName} ($rolStr)'),
+        title: Text('${widget.userName} (${textoRoles(context.l10n, widget.roles)})'),
 
         centerTitle: true,
 
@@ -4756,7 +5028,7 @@ class _RequestScreenState extends State<RequestScreen> with TickerProviderStateM
 
           icon: const Icon(Icons.logout),
 
-          tooltip: 'Cerrar Sesión',
+          tooltip: context.l10n.cerrarSesion,
 
           onPressed: () => _cerrarSesion(context),
 
@@ -4782,7 +5054,7 @@ class _RequestScreenState extends State<RequestScreen> with TickerProviderStateM
 
                   Clipboard.setData(ClipboardData(text: widget.codigoSala));
 
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Código de sala copiado')));
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(context.l10n.codigoDeSalaCopiado)));
 
                 },
 
@@ -4790,7 +5062,7 @@ class _RequestScreenState extends State<RequestScreen> with TickerProviderStateM
 
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
 
-                  child: Text('SALA: ${widget.codigoSala}',
+                  child: Text(context.l10n.sala(widget.codigoSala),
 
                       style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.white)),
 
@@ -4806,7 +5078,7 @@ class _RequestScreenState extends State<RequestScreen> with TickerProviderStateM
 
             icon: Icon(_pantallaEncendida ? Icons.lightbulb : Icons.lightbulb_outline),
 
-            tooltip: _pantallaEncendida ? 'Pantalla siempre encendida: activado' : 'Pantalla siempre encendida: desactivado',
+            tooltip: _pantallaEncendida ? context.l10n.pantallaSiempreEncendidaActivado : context.l10n.pantallaSiempreEncendidaDesactivado,
 
             onPressed: _togglePantallaEncendida,
 
@@ -4814,7 +5086,7 @@ class _RequestScreenState extends State<RequestScreen> with TickerProviderStateM
 
           IconButton(
             icon: const Icon(Icons.view_carousel_outlined),
-            tooltip: 'Elegir qué ver en la sala',
+            tooltip: context.l10n.elegirQueVerEnLa,
             onPressed: _elegirPestanas,
           ),
 
@@ -4825,7 +5097,7 @@ class _RequestScreenState extends State<RequestScreen> with TickerProviderStateM
             ? null
             : TabBar(
                 controller: _tabController,
-                tabs: [for (final p in _pestanas) Tab(text: p.etiqueta)],
+                tabs: [for (final p in _pestanas) Tab(text: p.etiqueta(context.l10n))],
               ),
 
       ),
@@ -4856,7 +5128,7 @@ class _RequestScreenState extends State<RequestScreen> with TickerProviderStateM
 
               if (user == null || user.isAnonymous) {
 
-                return _construirGridFrases(AppConstants.pedidosRapidos);
+                return _construirGridFrases(AppConstants.pedidosRapidos(context.l10n));
 
               }
 
@@ -4870,7 +5142,7 @@ class _RequestScreenState extends State<RequestScreen> with TickerProviderStateM
 
                   final pedidosRapidos = (docs == null || docs.isEmpty)
 
-                      ? AppConstants.pedidosRapidos
+                      ? AppConstants.pedidosRapidos(context.l10n)
 
                       : docs.map((d) => d.data()['texto'] as String).toList();
 
@@ -4902,9 +5174,9 @@ class _RequestScreenState extends State<RequestScreen> with TickerProviderStateM
 
                     style: const TextStyle(fontSize: 13),
 
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
 
-                      hintText: 'Escribir pedido personalizado...',
+                      hintText: context.l10n.escribirPedidoPersonalizado,
 
                       isDense: true,
 
@@ -4924,7 +5196,7 @@ class _RequestScreenState extends State<RequestScreen> with TickerProviderStateM
 
                   icon: Icon(Icons.priority_high, color: _esUrgente ? Colors.redAccent : Colors.grey),
 
-                  tooltip: _esUrgente ? 'Pedido urgente: activado' : 'Marcar el próximo pedido como urgente',
+                  tooltip: _esUrgente ? context.l10n.pedidoUrgenteActivado : context.l10n.marcarElProximoPedidoComo,
 
                   onPressed: () => setState(() => _esUrgente = !_esUrgente),
 
@@ -4958,11 +5230,11 @@ class _RequestScreenState extends State<RequestScreen> with TickerProviderStateM
 
           const Divider(thickness: 1, height: 1),
 
-          const Padding(
+          Padding(
 
               padding: EdgeInsets.symmetric(vertical: 6),
 
-              child: Text('MIS ÚLTIMOS PEDIDOS', style: TextStyle(fontSize: 9, color: Colors.grey, letterSpacing: 1.1))
+              child: Text(context.l10n.misUltimosPedidos, style: TextStyle(fontSize: 9, color: Colors.grey, letterSpacing: 1.1))
 
           ),
 
@@ -4992,7 +5264,7 @@ class _RequestScreenState extends State<RequestScreen> with TickerProviderStateM
 
               builder: (context, snapshot) {
 
-                if (snapshot.hasError) return Center(child: Text("Error: ${snapshot.error}", style: const TextStyle(fontSize: 10)));
+                if (snapshot.hasError) return Center(child: Text(context.l10n.error('${snapshot.error}'), style: const TextStyle(fontSize: 10)));
 
                 if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
 
@@ -5000,7 +5272,7 @@ class _RequestScreenState extends State<RequestScreen> with TickerProviderStateM
 
                 final docs = snapshot.data!.docs;
 
-                if (docs.isEmpty) return const Center(child: Text('Sin pedidos propios', style: TextStyle(color: Colors.grey, fontSize: 11)));
+                if (docs.isEmpty) return Center(child: Text(context.l10n.sinPedidosPropios, style: TextStyle(color: Colors.grey, fontSize: 11)));
 
 
 
@@ -5030,7 +5302,7 @@ class _RequestScreenState extends State<RequestScreen> with TickerProviderStateM
 
                           SnackBar(
 
-                            content: Text('Eliminando pedido: "${data['pedido']}"'),
+                            content: Text(context.l10n.eliminandoPedido(data['pedido'])),
 
                             duration: const Duration(seconds: 2),
 
@@ -5084,7 +5356,7 @@ class _RequestScreenState extends State<RequestScreen> with TickerProviderStateM
 
                             ? Text(
 
-                          "Consola: $respuestaTecnico",
+                          context.l10n.consola(respuestaTecnico),
 
                           style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: context.acento),
 
@@ -5198,7 +5470,7 @@ class SetlistTab extends StatelessWidget {
 
               leading: Icon(Icons.library_music, color: context.acento),
 
-              title: const Text('Desde mi biblioteca'),
+              title: Text(context.l10n.desdeMiBiblioteca),
 
               onTap: () => Navigator.pop(context, 'biblioteca'),
 
@@ -5208,7 +5480,7 @@ class SetlistTab extends StatelessWidget {
 
               leading: Icon(Icons.search, color: context.acento),
 
-              title: const Text('Buscar en bibliotecas de la sala'),
+              title: Text(context.l10n.buscarEnBibliotecasDeLa),
 
               onTap: () => Navigator.pop(context, 'buscar'),
 
@@ -5244,7 +5516,7 @@ class SetlistTab extends StatelessWidget {
 
       ScaffoldMessenger.of(context).showSnackBar(
 
-        const SnackBar(content: Text('Necesitás iniciar sesión para usar tu biblioteca.')),
+        SnackBar(content: Text(context.l10n.necesitasIniciarSesionParaUsar)),
 
       );
 
@@ -5280,7 +5552,7 @@ class SetlistTab extends StatelessWidget {
 
                 final docs = RepertorioService.ordenarPorTitulo(snapshot.data!.docs);
 
-                if (docs.isEmpty) return const Center(child: Text('Tu biblioteca está vacía.'));
+                if (docs.isEmpty) return Center(child: Text(context.l10n.tuBibliotecaEstaVacia));
 
                 final canciones = docs.map((d) => {...d.data(), 'id': d.id}).toList();
 
@@ -5314,7 +5586,7 @@ class SetlistTab extends StatelessWidget {
 
                               decoration: InputDecoration(
 
-                                hintText: 'Título...',
+                                hintText: context.l10n.titulo,
 
                                 isDense: true,
 
@@ -5342,7 +5614,7 @@ class SetlistTab extends StatelessWidget {
 
                               decoration: InputDecoration(
 
-                                hintText: 'Tonalidad...',
+                                hintText: context.l10n.tonalidad,
 
                                 isDense: true,
 
@@ -5368,7 +5640,7 @@ class SetlistTab extends StatelessWidget {
 
                       child: docsFiltrados.isEmpty
 
-                          ? const Center(child: Text('Sin resultados.'))
+                          ? Center(child: Text(context.l10n.sinResultados))
 
                           : ListView.builder(
 
@@ -5495,9 +5767,9 @@ class SetlistTab extends StatelessWidget {
 
                             autofocus: true,
 
-                            decoration: const InputDecoration(
+                            decoration: InputDecoration(
 
-                              hintText: 'Título...',
+                              hintText: context.l10n.titulo,
 
                               prefixIcon: Icon(Icons.search),
 
@@ -5517,9 +5789,9 @@ class SetlistTab extends StatelessWidget {
 
                             controller: controllerTonalidad,
 
-                            decoration: const InputDecoration(
+                            decoration: InputDecoration(
 
-                              hintText: 'Tonalidad...',
+                              hintText: context.l10n.tonalidad,
 
                               prefixIcon: Icon(Icons.music_note),
 
@@ -5543,19 +5815,19 @@ class SetlistTab extends StatelessWidget {
 
                     if (snapshot.connectionState != ConnectionState.waiting && snapshot.hasError)
 
-                      const Padding(
+                      Padding(
                         padding: EdgeInsets.all(16),
                         child: Text(
-                          'No se pudo buscar. Intentá de nuevo en un momento.',
+                          context.l10n.noSePudoBuscarIntenta,
                           style: TextStyle(color: Colors.red),
                         ),
                       ),
 
                     if (snapshot.connectionState != ConnectionState.waiting && !snapshot.hasError && snapshot.data == null)
 
-                      const Padding(
+                      Padding(
                         padding: EdgeInsets.all(16),
-                        child: Text('Todavía no hay bibliotecas para buscar en esta sala.'),
+                        child: Text(context.l10n.todaviaNoHayBibliotecasPara),
                       ),
 
                     if (snapshot.connectionState != ConnectionState.waiting && !snapshot.hasError && snapshot.data != null)
@@ -5573,7 +5845,7 @@ class SetlistTab extends StatelessWidget {
                           );
 
                           if (sugerencias.isEmpty) {
-                            return const Padding(padding: EdgeInsets.all(16), child: Text('Sin resultados.'));
+                            return Padding(padding: EdgeInsets.all(16), child: Text(context.l10n.sinResultados));
                           }
 
                           return Flexible(
@@ -5599,7 +5871,7 @@ class SetlistTab extends StatelessWidget {
                                   title: Text(data['titulo'] as String? ?? ''),
 
                                   subtitle: Text(
-                                    [tonalidad, if (propietario.isNotEmpty) 'de $propietario']
+                                    [tonalidad, if (propietario.isNotEmpty) context.l10n.de(propietario)]
                                         .where((s) => s.isNotEmpty)
                                         .join(' · '),
                                   ),
@@ -5672,7 +5944,7 @@ class SetlistTab extends StatelessWidget {
 
       ScaffoldMessenger.of(context).showSnackBar(
 
-        const SnackBar(content: Text('El setlist está vacío, no hay nada para exportar.')),
+        SnackBar(content: Text(context.l10n.elSetlistEstaVacioNo)),
 
       );
 
@@ -5680,7 +5952,7 @@ class SetlistTab extends StatelessWidget {
 
     }
 
-    final buffer = StringBuffer('Setlist — Sala $codigoSala\n\n');
+    final buffer = StringBuffer(context.l10n.setlistSala(codigoSala));
 
     for (var i = 0; i < docs.length; i++) {
 
@@ -5706,7 +5978,7 @@ class SetlistTab extends StatelessWidget {
 
       builder: (dialogContext) => AlertDialog(
 
-        title: const Text('Exportar setlist'),
+        title: Text(context.l10n.exportarSetlist),
 
         content: SingleChildScrollView(child: SelectableText(texto)),
 
@@ -5722,7 +5994,7 @@ class SetlistTab extends StatelessWidget {
 
                 ScaffoldMessenger.of(dialogContext).showSnackBar(
 
-                  const SnackBar(content: Text('Copiado al portapapeles'), duration: Duration(seconds: 1)),
+                  SnackBar(content: Text(context.l10n.copiadoAlPortapapeles), duration: Duration(seconds: 1)),
 
                 );
 
@@ -5730,19 +6002,19 @@ class SetlistTab extends StatelessWidget {
 
             },
 
-            child: const Text('Copiar'),
+            child: Text(context.l10n.copiar),
 
           ),
 
           TextButton(
 
-            onPressed: () => Share.share(texto, subject: 'Setlist - Sala $codigoSala'),
+            onPressed: () => Share.share(texto, subject: context.l10n.setlistSala2(codigoSala)),
 
-            child: const Text('Compartir'),
+            child: Text(context.l10n.compartir),
 
           ),
 
-          TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Cerrar')),
+          TextButton(onPressed: () => Navigator.pop(dialogContext), child: Text(context.l10n.cerrar)),
 
         ],
 
@@ -5780,7 +6052,7 @@ class SetlistTab extends StatelessWidget {
 
       ScaffoldMessenger.of(context).showSnackBar(
 
-        SnackBar(content: Text('Agregado: $titulo'), duration: const Duration(seconds: 1)),
+        SnackBar(content: Text(context.l10n.agregado(titulo)), duration: const Duration(seconds: 1)),
 
       );
 
@@ -5802,7 +6074,7 @@ class SetlistTab extends StatelessWidget {
 
           if (snapshot.hasError) {
 
-            return Center(child: Text('Error: ${snapshot.error}'));
+            return Center(child: Text(context.l10n.error('${snapshot.error}')));
 
           }
 
@@ -5816,7 +6088,7 @@ class SetlistTab extends StatelessWidget {
 
           if (docs.isEmpty) {
 
-            return const Center(child: Text('Todavía no hay temas en la lista.'));
+            return Center(child: Text(context.l10n.todaviaNoHayTemasEn));
 
           }
 
@@ -5904,19 +6176,19 @@ class SetlistTab extends StatelessWidget {
 
                 leading: PopupMenuButton<String>(
 
-                  tooltip: 'Cambiar estado del tema',
+                  tooltip: context.l10n.cambiarEstadoDelTema,
 
                   icon: Icon(iconosEstado[estado], color: coloresEstado[estado] ?? context.acento.withOpacity(0.5)),
 
                   onSelected: (nuevoEstado) => SetlistService.actualizarEstado(codigoSala, doc.id, nuevoEstado),
 
-                  itemBuilder: (context) => const [
+                  itemBuilder: (context) => [
 
-                    PopupMenuItem(value: 'pendiente', child: Text('Pendiente')),
+                    PopupMenuItem(value: 'pendiente', child: Text(context.l10n.pendiente)),
 
-                    PopupMenuItem(value: 'pausado', child: Text('Pausado (corte técnico)')),
+                    PopupMenuItem(value: 'pausado', child: Text(context.l10n.pausadoCorteTecnico)),
 
-                    PopupMenuItem(value: 'tocado', child: Text('Tocado')),
+                    PopupMenuItem(value: 'tocado', child: Text(context.l10n.tocado)),
 
                   ],
 
@@ -5964,7 +6236,7 @@ class SetlistTab extends StatelessWidget {
 
                         child: Text(
 
-                          pausado ? 'PAUSADO' : 'PRÓXIMO',
+                          pausado ? context.l10n.pausado : context.l10n.proximo,
 
                           style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.white),
 
@@ -5980,7 +6252,7 @@ class SetlistTab extends StatelessWidget {
 
                 subtitle: Text(
 
-                  'Subido por $subidoPor',
+                  context.l10n.subidoPor(subidoPor),
 
                   style: TextStyle(color: completado ? Colors.grey : null),
 
@@ -6028,7 +6300,7 @@ class SetlistTab extends StatelessWidget {
 
                         icon: Icon(Icons.music_note, color: context.acento),
 
-                        tooltip: 'Ver cifrado (transponer)',
+                        tooltip: context.l10n.verCifradoTransponer,
 
                         onPressed: () => Navigator.push(
 
@@ -6130,7 +6402,7 @@ class SetlistTab extends StatelessWidget {
 
             onPressed: () => _exportarSetlist(context),
 
-            tooltip: 'Exportar / compartir setlist',
+            tooltip: context.l10n.exportarCompartirSetlist,
 
             child: const Icon(Icons.ios_share),
 
@@ -6144,7 +6416,7 @@ class SetlistTab extends StatelessWidget {
 
             onPressed: () => _agregarCancion(context),
 
-            tooltip: 'Agregar canción',
+            tooltip: context.l10n.agregarCancion,
 
             child: const Icon(Icons.add),
 
@@ -6207,7 +6479,7 @@ class _SecuenciasTabState extends State<SecuenciasTab> with AutomaticKeepAliveCl
     final user = AuthService.currentUser;
     if (user == null || user.isAnonymous) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Necesitás iniciar sesión para usar tus secuencias.')),
+        SnackBar(content: Text(context.l10n.necesitasIniciarSesionParaUsar2)),
       );
       return;
     }
@@ -6227,11 +6499,11 @@ class _SecuenciasTabState extends State<SecuenciasTab> with AutomaticKeepAliveCl
               if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
               final docs = RepertorioService.ordenarPorTitulo(snapshot.data!.docs);
               if (docs.isEmpty) {
-                return const Center(
+                return Center(
                   child: Padding(
                     padding: EdgeInsets.all(32),
                     child: Text(
-                      'No tenés secuencias todavía.\nSubilas desde "Mis secuencias" en el menú principal.',
+                      context.l10n.noTenesSecuenciasTodaviaSubilas,
                       textAlign: TextAlign.center,
                     ),
                   ),
@@ -6250,7 +6522,7 @@ class _SecuenciasTabState extends State<SecuenciasTab> with AutomaticKeepAliveCl
                       controller: busqueda,
                       onChanged: (_) => setModalState(() {}),
                       decoration: InputDecoration(
-                        hintText: 'Buscar secuencia...',
+                        hintText: context.l10n.buscarSecuencia,
                         isDense: true,
                         prefixIcon: const Icon(Icons.search, size: 20),
                         contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -6273,7 +6545,7 @@ class _SecuenciasTabState extends State<SecuenciasTab> with AutomaticKeepAliveCl
                               : (v) => setModalState(() => v == true ? elegidas[id] = data : elegidas.remove(id)),
                           secondary: Icon(Icons.graphic_eq, color: context.acento),
                           title: Text(data['titulo'] as String? ?? ''),
-                          subtitle: yaCargada ? const Text('Ya está en la sala') : null,
+                          subtitle: yaCargada ? Text(context.l10n.yaEstaEnLaSala) : null,
                         );
                       },
                     ),
@@ -6286,8 +6558,8 @@ class _SecuenciasTabState extends State<SecuenciasTab> with AutomaticKeepAliveCl
                         child: FilledButton.icon(
                           icon: const Icon(Icons.playlist_add),
                           label: Text(elegidas.isEmpty
-                              ? 'Elegí las secuencias de hoy'
-                              : 'CARGAR ${elegidas.length} A LA SALA'),
+                              ? context.l10n.elegiLasSecuenciasDeHoy
+                              : context.l10n.cargarALaSala(elegidas.length)),
                           onPressed: elegidas.isEmpty ? null : () => Navigator.pop(context, true),
                         ),
                       ),
@@ -6313,7 +6585,7 @@ class _SecuenciasTabState extends State<SecuenciasTab> with AutomaticKeepAliveCl
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('No se pudieron cargar: $e'), backgroundColor: Colors.redAccent),
+          SnackBar(content: Text(context.l10n.noSePudieronCargar(e)), backgroundColor: Colors.redAccent),
         );
       }
     }
@@ -6323,13 +6595,13 @@ class _SecuenciasTabState extends State<SecuenciasTab> with AutomaticKeepAliveCl
     final ok = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Quitar de la sala'),
-        content: Text('¿Quitar "$titulo" de las secuencias de hoy? Sigue estando en la biblioteca de quien la subió.'),
+        title: Text(context.l10n.quitarDeLaSala),
+        content: Text(context.l10n.quitarDeLasSecuenciasDe(titulo)),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar')),
+          TextButton(onPressed: () => Navigator.pop(context, false), child: Text(context.l10n.cancelar)),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Quitar', style: TextStyle(color: Colors.red)),
+            child: Text(context.l10n.quitar, style: TextStyle(color: Colors.red)),
           ),
         ],
       ),
@@ -6339,19 +6611,18 @@ class _SecuenciasTabState extends State<SecuenciasTab> with AutomaticKeepAliveCl
     await SecuenciasService.quitarDeSala(widget.codigoSala, id);
   }
 
-  static String _textoSemitonos(int semitonos) {
-    if (semitonos == 0) return 'Original';
-    final signo = semitonos > 0 ? '+' : '−';
-    return '$signo${semitonos.abs()} ${semitonos.abs() == 1 ? 'semitono' : 'semitonos'}';
+  static String _textoSemitonos(AppLocalizations l, int semitonos) {
+    if (semitonos == 0) return l.tonoOriginal;
+    return l.semitonosConSigno(semitonos > 0 ? '+' : '−', semitonos.abs());
   }
 
   /// "Tono +2 · Tempo 95% · Vol 80%", o null si la secuencia está como se
   /// subió.
-  static String? _resumenAjustes(int semitonos, int tempoPorcentaje, int volumenPorcentaje) {
+  static String? _resumenAjustes(AppLocalizations l, int semitonos, int tempoPorcentaje, int volumenPorcentaje) {
     final partes = [
-      if (semitonos != 0) 'Tono ${semitonos > 0 ? '+' : '−'}${semitonos.abs()}',
-      if (tempoPorcentaje != 100) 'Tempo $tempoPorcentaje%',
-      if (volumenPorcentaje != 100) 'Vol $volumenPorcentaje%',
+      if (semitonos != 0) l.ajusteTono('${semitonos > 0 ? '+' : '−'}${semitonos.abs()}'),
+      if (tempoPorcentaje != 100) l.ajusteTempo(tempoPorcentaje),
+      if (volumenPorcentaje != 100) l.ajusteVolumen(volumenPorcentaje),
     ];
     return partes.isEmpty ? null : partes.join(' · ');
   }
@@ -6381,7 +6652,7 @@ class _SecuenciasTabState extends State<SecuenciasTab> with AutomaticKeepAliveCl
       ).catchError((e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('No se pudo guardar el ajuste: $e'), backgroundColor: Colors.redAccent),
+            SnackBar(content: Text(context.l10n.noSePudoGuardarEl(e)), backgroundColor: Colors.redAccent),
           );
         }
       });
@@ -6412,12 +6683,12 @@ class _SecuenciasTabState extends State<SecuenciasTab> with AutomaticKeepAliveCl
                 children: [
                   Text(titulo, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 4),
-                  const Text(
-                    'Se guarda para toda la sala. Tono, tempo y volumen se cambian por separado.',
+                  Text(
+                    context.l10n.seGuardaParaTodaLa,
                     style: TextStyle(fontSize: 12, color: Colors.grey),
                   ),
                   const SizedBox(height: 20),
-                  const Text('TONO', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1)),
+                  Text(context.l10n.tono, style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1)),
                   const SizedBox(height: 8),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -6425,13 +6696,13 @@ class _SecuenciasTabState extends State<SecuenciasTab> with AutomaticKeepAliveCl
                       IconButton.filledTonal(
                         iconSize: 32,
                         icon: const Icon(Icons.remove),
-                        tooltip: 'Bajar un semitono',
+                        tooltip: context.l10n.bajarUnSemitono,
                         onPressed: soportaTono && semitonos > -12 ? () => cambiar(nuevoTono: semitonos - 1) : null,
                       ),
                       SizedBox(
                         width: 160,
                         child: Text(
-                          _textoSemitonos(semitonos),
+                          _textoSemitonos(context.l10n, semitonos),
                           textAlign: TextAlign.center,
                           style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                         ),
@@ -6439,16 +6710,16 @@ class _SecuenciasTabState extends State<SecuenciasTab> with AutomaticKeepAliveCl
                       IconButton.filledTonal(
                         iconSize: 32,
                         icon: const Icon(Icons.add),
-                        tooltip: 'Subir un semitono',
+                        tooltip: context.l10n.subirUnSemitono,
                         onPressed: soportaTono && semitonos < 12 ? () => cambiar(nuevoTono: semitonos + 1) : null,
                       ),
                     ],
                   ),
                   if (!soportaTono)
-                    const Padding(
+                    Padding(
                       padding: EdgeInsets.only(top: 4),
                       child: Text(
-                        'El cambio de tono por ahora solo funciona en la versión web.',
+                        context.l10n.elCambioDeTonoPor,
                         textAlign: TextAlign.center,
                         style: TextStyle(fontSize: 12, color: Colors.grey),
                       ),
@@ -6456,8 +6727,8 @@ class _SecuenciasTabState extends State<SecuenciasTab> with AutomaticKeepAliveCl
                   const SizedBox(height: 20),
                   Row(
                     children: [
-                      const Expanded(
-                        child: Text('TEMPO', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1)),
+                      Expanded(
+                        child: Text(context.l10n.tempo, style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1)),
                       ),
                       Text('$tempo%', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                     ],
@@ -6466,7 +6737,7 @@ class _SecuenciasTabState extends State<SecuenciasTab> with AutomaticKeepAliveCl
                     children: [
                       IconButton(
                         icon: const Icon(Icons.remove),
-                        tooltip: 'Más lento (1%)',
+                        tooltip: context.l10n.masLento1,
                         onPressed: tempo > 50 ? () => cambiar(nuevoTempo: tempo - 1) : null,
                       ),
                       Expanded(
@@ -6482,7 +6753,7 @@ class _SecuenciasTabState extends State<SecuenciasTab> with AutomaticKeepAliveCl
                       ),
                       IconButton(
                         icon: const Icon(Icons.add),
-                        tooltip: 'Más rápido (1%)',
+                        tooltip: context.l10n.masRapido1,
                         onPressed: tempo < 150 ? () => cambiar(nuevoTempo: tempo + 1) : null,
                       ),
                     ],
@@ -6490,8 +6761,8 @@ class _SecuenciasTabState extends State<SecuenciasTab> with AutomaticKeepAliveCl
                   const SizedBox(height: 12),
                   Row(
                     children: [
-                      const Expanded(
-                        child: Text('VOLUMEN', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1)),
+                      Expanded(
+                        child: Text(context.l10n.volumen, style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1)),
                       ),
                       Text('$volumen%', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                     ],
@@ -6500,7 +6771,7 @@ class _SecuenciasTabState extends State<SecuenciasTab> with AutomaticKeepAliveCl
                     children: [
                       IconButton(
                         icon: const Icon(Icons.volume_down),
-                        tooltip: 'Bajar 5%',
+                        tooltip: context.l10n.bajar5,
                         onPressed: volumen > 0 ? () => cambiar(nuevoVolumen: max(0, volumen - 5)) : null,
                       ),
                       Expanded(
@@ -6516,7 +6787,7 @@ class _SecuenciasTabState extends State<SecuenciasTab> with AutomaticKeepAliveCl
                       ),
                       IconButton(
                         icon: const Icon(Icons.volume_up),
-                        tooltip: 'Subir 5%',
+                        tooltip: context.l10n.subir5,
                         onPressed: volumen < 100 ? () => cambiar(nuevoVolumen: min(100, volumen + 5)) : null,
                       ),
                     ],
@@ -6524,7 +6795,7 @@ class _SecuenciasTabState extends State<SecuenciasTab> with AutomaticKeepAliveCl
                   const SizedBox(height: 8),
                   TextButton.icon(
                     icon: const Icon(Icons.restart_alt),
-                    label: const Text('Restablecer (como se subió)'),
+                    label: Text(context.l10n.restablecerComoSeSubio),
                     onPressed: semitonos == 0 && tempo == 100 && volumen == 100
                         ? null
                         : () => cambiar(nuevoTono: 0, nuevoTempo: 100, nuevoVolumen: 100),
@@ -6548,7 +6819,7 @@ class _SecuenciasTabState extends State<SecuenciasTab> with AutomaticKeepAliveCl
           return Center(
             child: Padding(
               padding: const EdgeInsets.all(24),
-              child: Text('No se pudieron cargar las secuencias: ${snapshot.error}', textAlign: TextAlign.center),
+              child: Text(context.l10n.noSePudieronCargarLas('${snapshot.error}'), textAlign: TextAlign.center),
             ),
           );
         }
@@ -6572,7 +6843,7 @@ class _SecuenciasTabState extends State<SecuenciasTab> with AutomaticKeepAliveCl
                   volumen: volumenPorcentaje / 100,
                 ));
           }
-          final ajustes = _resumenAjustes(semitonos, tempoPorcentaje, volumenPorcentaje);
+          final ajustes = _resumenAjustes(context.l10n, semitonos, tempoPorcentaje, volumenPorcentaje);
           return FilaSecuencia(
             key: ValueKey(doc.id),
             reproductor: _reproductor,
@@ -6580,7 +6851,7 @@ class _SecuenciasTabState extends State<SecuenciasTab> with AutomaticKeepAliveCl
             titulo: '${i + 1}. $titulo',
             audioUrl: data['audioUrl'] as String? ?? '',
             subtitulo: [
-              'Cargada por ${data['subidoPor'] ?? '—'}',
+              context.l10n.cargadaPor(data['subidoPor'] ?? '—'),
               if (ajustes != null) ajustes,
             ].join(' · '),
             tempo: tempoPorcentaje / 100,
@@ -6593,13 +6864,13 @@ class _SecuenciasTabState extends State<SecuenciasTab> with AutomaticKeepAliveCl
                     children: [
                       IconButton(
                         icon: Icon(Icons.tune, color: ajustes != null ? context.acento : null),
-                        tooltip: 'Tono, tempo y volumen',
+                        tooltip: context.l10n.tonoTempoYVolumen,
                         onPressed: () =>
                             _ajustarTonoYTempo(doc.id, titulo, semitonos, tempoPorcentaje, volumenPorcentaje),
                       ),
                       IconButton(
                         icon: const Icon(Icons.remove_circle_outline, color: Colors.red),
-                        tooltip: 'Quitar de la sala',
+                        tooltip: context.l10n.quitarDeLaSala,
                         onPressed: () => _quitar(doc.id, titulo),
                       ),
                       ReorderableDragStartListener(index: i, child: const Icon(Icons.drag_handle)),
@@ -6619,13 +6890,13 @@ class _SecuenciasTabState extends State<SecuenciasTab> with AutomaticKeepAliveCl
                     children: [
                       Expanded(
                         child: Text(
-                          docs.isEmpty ? '' : '${docs.length} secuencia${docs.length == 1 ? '' : 's'} para hoy',
+                          docs.isEmpty ? '' : context.l10n.secuenciasParaHoy(docs.length),
                           style: const TextStyle(fontSize: 12, color: Colors.grey),
                         ),
                       ),
                       FilterChip(
                         avatar: const Icon(Icons.repeat, size: 18),
-                        label: const Text('Repetir'),
+                        label: Text(context.l10n.repetir),
                         selected: _reproductor.repetir,
                         onSelected: (_) => _reproductor.alternarRepetir(),
                       ),
@@ -6645,8 +6916,8 @@ class _SecuenciasTabState extends State<SecuenciasTab> with AutomaticKeepAliveCl
                               const SizedBox(height: 12),
                               Text(
                                 widget.esSonidista
-                                    ? 'Todavía no hay secuencias cargadas para hoy.'
-                                    : 'Todavía no hay secuencias cargadas para hoy.\nTocá + para elegirlas de "Mis secuencias".',
+                                    ? context.l10n.todaviaNoHaySecuenciasCargadas
+                                    : context.l10n.todaviaNoHaySecuenciasCargadas2,
                                 textAlign: TextAlign.center,
                               ),
                             ],
@@ -6679,7 +6950,7 @@ class _SecuenciasTabState extends State<SecuenciasTab> with AutomaticKeepAliveCl
               ? null
               : FloatingActionButton(
                   heroTag: 'agregar_secuencias',
-                  tooltip: 'Cargar secuencias de hoy',
+                  tooltip: context.l10n.cargarSecuenciasDeHoy,
                   onPressed: () => _cargarDesdeMisSecuencias(urlsEnSala, docs.length),
                   child: const Icon(Icons.add),
                 ),
@@ -6705,7 +6976,7 @@ class FrasesAdminScreen extends StatelessWidget {
 
       builder: (context) => AlertDialog(
 
-        title: const Text('Nueva frase'),
+        title: Text(context.l10n.nuevaFrase),
 
         content: TextField(
 
@@ -6713,15 +6984,15 @@ class FrasesAdminScreen extends StatelessWidget {
 
           autofocus: true,
 
-          decoration: const InputDecoration(labelText: 'Texto de la frase', border: OutlineInputBorder()),
+          decoration: InputDecoration(labelText: context.l10n.textoDeLaFrase, border: OutlineInputBorder()),
 
         ),
 
         actions: [
 
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
+          TextButton(onPressed: () => Navigator.pop(context), child: Text(context.l10n.cancelar)),
 
-          TextButton(onPressed: () => Navigator.pop(context, controller.text.trim()), child: const Text('Agregar')),
+          TextButton(onPressed: () => Navigator.pop(context, controller.text.trim()), child: Text(context.l10n.agregar)),
 
         ],
 
@@ -6745,7 +7016,7 @@ class FrasesAdminScreen extends StatelessWidget {
 
       builder: (context) => AlertDialog(
 
-        title: const Text('Editar frase'),
+        title: Text(context.l10n.editarFrase),
 
         content: TextField(
 
@@ -6759,9 +7030,9 @@ class FrasesAdminScreen extends StatelessWidget {
 
         actions: [
 
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
+          TextButton(onPressed: () => Navigator.pop(context), child: Text(context.l10n.cancelar)),
 
-          TextButton(onPressed: () => Navigator.pop(context, controller.text.trim()), child: const Text('Guardar')),
+          TextButton(onPressed: () => Navigator.pop(context, controller.text.trim()), child: Text(context.l10n.guardar)),
 
         ],
 
@@ -6783,11 +7054,11 @@ class FrasesAdminScreen extends StatelessWidget {
 
     return Scaffold(
 
-      appBar: AppBar(title: const Text('Mis frases')),
+      appBar: AppBar(title: Text(context.l10n.misFrases2)),
 
       body: (user == null || user.isAnonymous)
 
-          ? const Center(child: Text('Necesitás iniciar sesión para editar tus frases.'))
+          ? Center(child: Text(context.l10n.necesitasIniciarSesionParaEditar))
 
           : StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
 
@@ -6797,7 +7068,7 @@ class FrasesAdminScreen extends StatelessWidget {
 
                 if (snapshot.hasError) {
 
-                  return Center(child: Text('Error: ${snapshot.error}'));
+                  return Center(child: Text(context.l10n.error('${snapshot.error}')));
 
                 }
 
@@ -6819,7 +7090,7 @@ class FrasesAdminScreen extends StatelessWidget {
 
                       children: [
 
-                        const Text('Todavía no tenés frases propias cargadas.'),
+                        Text(context.l10n.todaviaNoTenesFrasesPropias),
 
                         const SizedBox(height: 16),
 
@@ -6827,7 +7098,7 @@ class FrasesAdminScreen extends StatelessWidget {
 
                           onPressed: () => FrasesService.copiarFrasesBaseParaUsuario(user.uid),
 
-                          child: const Text('Cargar frases por defecto'),
+                          child: Text(context.l10n.cargarFrasesPorDefecto),
 
                         ),
 
@@ -6963,13 +7234,13 @@ class _MiRepertorioScreenState extends State<MiRepertorioScreen> {
 
       builder: (context) => AlertDialog(
 
-        title: const Text('Función Pro'),
+        title: Text(context.l10n.funcionPro),
 
-        content: const Text('Subir tus propias partituras/cifrados en PDF es parte de Sound Check Pro. Activá tu cuenta Pro para usar esta función.'),
+        content: Text(context.l10n.subirTusPropiasPartiturasCifrados),
 
         actions: [
 
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Entendido')),
+          TextButton(onPressed: () => Navigator.pop(context), child: Text(context.l10n.entendido)),
 
         ],
 
@@ -7041,7 +7312,7 @@ class _MiRepertorioScreenState extends State<MiRepertorioScreen> {
 
         ScaffoldMessenger.of(context).showSnackBar(
 
-          SnackBar(content: Text('Error al subir: $e'), backgroundColor: Colors.redAccent),
+          SnackBar(content: Text(context.l10n.errorAlSubir(e)), backgroundColor: Colors.redAccent),
 
         );
 
@@ -7081,7 +7352,7 @@ class _MiRepertorioScreenState extends State<MiRepertorioScreen> {
 
       builder: (context) => AlertDialog(
 
-        title: Text(tituloInicial == null ? 'Nueva canción' : 'Editar canción'),
+        title: Text(tituloInicial == null ? context.l10n.nuevaCancion : context.l10n.editarCancion),
 
         content: SizedBox(
 
@@ -7105,9 +7376,9 @@ class _MiRepertorioScreenState extends State<MiRepertorioScreen> {
 
                     autofocus: true,
 
-                    decoration: const InputDecoration(labelText: 'Título', border: OutlineInputBorder()),
+                    decoration: InputDecoration(labelText: context.l10n.titulo2, border: OutlineInputBorder()),
 
-                    validator: (v) => (v == null || v.trim().isEmpty) ? 'Requerido' : null,
+                    validator: (v) => (v == null || v.trim().isEmpty) ? context.l10n.requerido : null,
 
                   ),
 
@@ -7117,7 +7388,7 @@ class _MiRepertorioScreenState extends State<MiRepertorioScreen> {
 
                     controller: tonalidadController,
 
-                    decoration: const InputDecoration(labelText: 'Tonalidad (opcional)', border: OutlineInputBorder()),
+                    decoration: InputDecoration(labelText: context.l10n.tonalidadOpcional, border: OutlineInputBorder()),
 
                   ),
 
@@ -7131,11 +7402,11 @@ class _MiRepertorioScreenState extends State<MiRepertorioScreen> {
 
                     style: const TextStyle(fontFamily: 'RobotoMono', fontSize: 12),
 
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
 
-                      labelText: 'Cifrado en texto (opcional, para transponer)',
+                      labelText: context.l10n.cifradoEnTextoOpcionalPara,
 
-                      hintText: 'Pegá los acordes acá. Ej: [C]Amazing [G]grace...',
+                      hintText: context.l10n.pegaLosAcordesAcaEj,
 
                       border: OutlineInputBorder(),
 
@@ -7157,7 +7428,7 @@ class _MiRepertorioScreenState extends State<MiRepertorioScreen> {
 
         actions: [
 
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
+          TextButton(onPressed: () => Navigator.pop(context), child: Text(context.l10n.cancelar)),
 
           TextButton(
 
@@ -7169,7 +7440,7 @@ class _MiRepertorioScreenState extends State<MiRepertorioScreen> {
 
             },
 
-            child: const Text('Guardar'),
+            child: Text(context.l10n.guardar),
 
           ),
 
@@ -7205,23 +7476,19 @@ class _MiRepertorioScreenState extends State<MiRepertorioScreen> {
     final confirmar = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Regenerar cifrados'),
-        content: const Text(
-          'Se va a volver a leer cada PDF de tu biblioteca para rearmar el cifrado '
-          'con los acordes ubicados como en el PDF original.\n\n'
-          'Esto reemplaza el cifrado en texto que tengas guardado en cada canción '
-          '(incluido lo que hayas editado a mano). Las canciones cuyo PDF no tiene '
-          'texto seleccionable no se tocan.',
+        title: Text(context.l10n.regenerarCifrados),
+        content: Text(
+          context.l10n.seVaAVolverA,
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar')),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Regenerar')),
+          TextButton(onPressed: () => Navigator.pop(context, false), child: Text(context.l10n.cancelar)),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(context.l10n.regenerar)),
         ],
       ),
     );
     if (confirmar != true || !mounted) return;
 
-    final progreso = ValueNotifier<String>('Preparando...');
+    final progreso = ValueNotifier<String>(context.l10n.preparando);
     showDialog<void>(
       context: context,
       barrierDismissible: false,
@@ -7246,16 +7513,16 @@ class _MiRepertorioScreenState extends State<MiRepertorioScreen> {
 
     final resultado = await RepertorioService.regenerarCifrados(
       uid,
-      alAvanzar: (hechas, total) => progreso.value = 'Procesando $hechas de $total...',
+      alAvanzar: (hechas, total) => progreso.value = context.l10n.procesandoDe(hechas, total),
     );
     progreso.dispose();
     if (!mounted) return;
     Navigator.of(context, rootNavigator: true).pop();
 
-    final partes = <String>['${resultado.actualizadas} actualizadas'];
-    if (resultado.sinTexto > 0) partes.add('${resultado.sinTexto} sin texto en el PDF');
-    if (resultado.fallidas > 0) partes.add('${resultado.fallidas} con error');
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Cifrados: ${partes.join(', ')}.')));
+    final partes = <String>[context.l10n.actualizadas(resultado.actualizadas)];
+    if (resultado.sinTexto > 0) partes.add(context.l10n.sinTextoEnElPdf(resultado.sinTexto));
+    if (resultado.fallidas > 0) partes.add(context.l10n.conError(resultado.fallidas));
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(context.l10n.cifrados(partes.join(', ')))));
   }
 
   Future<void> _confirmarEliminar(String uid, String id, String? storagePath) async {
@@ -7266,15 +7533,15 @@ class _MiRepertorioScreenState extends State<MiRepertorioScreen> {
 
       builder: (c) => AlertDialog(
 
-        title: const Text('¿Eliminar canción?'),
+        title: Text(context.l10n.eliminarCancion),
 
-        content: const Text('Se borra de tu biblioteca. Si está en el setlist de alguna sala, va a dejar de abrir.'),
+        content: Text(context.l10n.seBorraDeTuBiblioteca),
 
         actions: [
 
-          TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Cancelar')),
+          TextButton(onPressed: () => Navigator.pop(c, false), child: Text(context.l10n.cancelar)),
 
-          TextButton(onPressed: () => Navigator.pop(c, true), child: const Text('Eliminar')),
+          TextButton(onPressed: () => Navigator.pop(c, true), child: Text(context.l10n.eliminar)),
 
         ],
 
@@ -7299,12 +7566,12 @@ class _MiRepertorioScreenState extends State<MiRepertorioScreen> {
     return Scaffold(
 
       appBar: AppBar(
-        title: const Text('Mi repertorio'),
+        title: Text(context.l10n.miRepertorio2),
         actions: [
           if (user != null && !user.isAnonymous)
             IconButton(
               icon: const Icon(Icons.auto_fix_high),
-              tooltip: 'Regenerar cifrados desde los PDF',
+              tooltip: context.l10n.regenerarCifradosDesdeLosPdf,
               onPressed: () => _regenerarCifrados(user.uid),
             ),
         ],
@@ -7312,7 +7579,7 @@ class _MiRepertorioScreenState extends State<MiRepertorioScreen> {
 
       body: (user == null || user.isAnonymous)
 
-          ? const Center(child: Text('Necesitás iniciar sesión para tener tu biblioteca.'))
+          ? Center(child: Text(context.l10n.necesitasIniciarSesionParaTener2))
 
           : Column(
 
@@ -7342,11 +7609,11 @@ class _MiRepertorioScreenState extends State<MiRepertorioScreen> {
 
                           const SizedBox(width: 8),
 
-                          const Expanded(
+                          Expanded(
 
                             child: Text(
 
-                              'Subir tus propias partituras es una función Pro.',
+                              context.l10n.subirTusPropiasPartiturasEs,
 
                               style: TextStyle(fontSize: 12),
 
@@ -7358,7 +7625,7 @@ class _MiRepertorioScreenState extends State<MiRepertorioScreen> {
 
                             onPressed: () => _mostrarUpsellPro(context),
 
-                            child: const Text('Más info', style: TextStyle(fontSize: 12)),
+                            child: Text(context.l10n.masInfo, style: TextStyle(fontSize: 12)),
 
                           ),
 
@@ -7390,7 +7657,7 @@ class _MiRepertorioScreenState extends State<MiRepertorioScreen> {
 
                           decoration: InputDecoration(
 
-                            hintText: 'Título...',
+                            hintText: context.l10n.titulo,
 
                             isDense: true,
 
@@ -7430,7 +7697,7 @@ class _MiRepertorioScreenState extends State<MiRepertorioScreen> {
 
                           decoration: InputDecoration(
 
-                            hintText: 'Tonalidad...',
+                            hintText: context.l10n.tonalidad,
 
                             isDense: true,
 
@@ -7474,7 +7741,7 @@ class _MiRepertorioScreenState extends State<MiRepertorioScreen> {
 
                 if (snapshot.hasError) {
 
-                  return Center(child: Text('Error: ${snapshot.error}'));
+                  return Center(child: Text(context.l10n.error('${snapshot.error}')));
 
                 }
 
@@ -7500,7 +7767,7 @@ class _MiRepertorioScreenState extends State<MiRepertorioScreen> {
 
                     child: Text(
 
-                      todasLasCanciones.isEmpty ? 'Todavía no subiste ninguna canción.' : 'Sin resultados.',
+                      todasLasCanciones.isEmpty ? context.l10n.todaviaNoSubisteNingunaCancion : context.l10n.sinResultados,
 
                     ),
 
@@ -7534,7 +7801,7 @@ class _MiRepertorioScreenState extends State<MiRepertorioScreen> {
 
                       title: Text(titulo),
 
-                      subtitle: tonalidad.isNotEmpty ? Text('Tonalidad: $tonalidad') : null,
+                      subtitle: tonalidad.isNotEmpty ? Text(context.l10n.tonalidad2(tonalidad)) : null,
 
                       onTap: () => Navigator.push(
 
@@ -7556,7 +7823,7 @@ class _MiRepertorioScreenState extends State<MiRepertorioScreen> {
 
                               icon: Icon(Icons.music_note, color: context.acento),
 
-                              tooltip: 'Ver cifrado (transponer)',
+                              tooltip: context.l10n.verCifradoTransponer,
 
                               onPressed: () => Navigator.push(
 
@@ -7661,9 +7928,9 @@ class _MisSecuenciasScreenState extends State<MisSecuenciasScreen> {
       await showDialog<void>(
         context: context,
         builder: (context) => AlertDialog(
-          title: const Text('Función Pro'),
-          content: const Text('Subir tus propias secuencias es parte de Sound Check Pro. Activá tu cuenta Pro para usar esta función.'),
-          actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Entendido'))],
+          title: Text(context.l10n.funcionPro),
+          content: Text(context.l10n.subirTusPropiasSecuenciasEs),
+          actions: [TextButton(onPressed: () => Navigator.pop(context), child: Text(context.l10n.entendido))],
         ),
       );
       return;
@@ -7690,14 +7957,11 @@ class _MisSecuenciasScreenState extends State<MisSecuenciasScreen> {
         await showDialog<void>(
           context: context,
           builder: (context) => AlertDialog(
-            title: Text(grandes.length == 1 ? 'Archivo demasiado grande' : 'Archivos demasiado grandes'),
+            title: Text(grandes.length == 1 ? context.l10n.archivoDemasiadoGrande : context.l10n.archivosDemasiadoGrandes),
             content: Text(
-              '${grandes.map((a) => '• ${a.name} (${SecuenciasService.formatearMb(a.size)})').join('\n')}\n\n'
-              'El máximo por archivo es ${SecuenciasService.formatearMb(limite)}. '
-              'Convertilo a MP3 (a 320 kbps una canción entera ocupa unos 10-15 MB) y volvé a subirlo, '
-              'o subilo desde la versión web, que lo convierte sola.',
+              context.l10n.elMaximoPorArchivoEs(grandes.map((a) => '• ${a.name} (${SecuenciasService.formatearMb(a.size)})').join('\n'), SecuenciasService.formatearMb(limite)),
             ),
-            actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Entendido'))],
+            actions: [TextButton(onPressed: () => Navigator.pop(context), child: Text(context.l10n.entendido))],
           ),
         );
       }
@@ -7718,12 +7982,12 @@ class _MisSecuenciasScreenState extends State<MisSecuenciasScreen> {
         var bytes = archivo.bytes!;
         try {
           if (bytes.length > limite) {
-            setState(() => _progresoSubida = 'Convirtiendo a MP3$contador');
+            setState(() => _progresoSubida = context.l10n.convirtiendoAMp3(contador));
             final mp3 = await puente.convertirAMp3(
               bytes,
               SecuenciasService.tamanoObjetivoMp3Bytes,
               (p) {
-                if (mounted) setState(() => _progresoSubida = 'Convirtiendo a MP3 ${(p * 100).round()}%$contador');
+                if (mounted) setState(() => _progresoSubida = context.l10n.convirtiendoAMp32((p * 100).round(), contador));
               },
             );
             bytes = mp3.bytes;
@@ -7731,7 +7995,7 @@ class _MisSecuenciasScreenState extends State<MisSecuenciasScreen> {
             convertidos.add('$titulo (${SecuenciasService.formatearMb(archivo.size)} → '
                 '${SecuenciasService.formatearMb(bytes.length)}, ${mp3.kbps} kbps)');
           }
-          setState(() => _progresoSubida = 'Subiendo$contador');
+          setState(() => _progresoSubida = context.l10n.subiendo(contador));
           await SecuenciasService.subirSecuencia(
             uid: uid,
             titulo: titulo,
@@ -7751,16 +8015,15 @@ class _MisSecuenciasScreenState extends State<MisSecuenciasScreen> {
       await showDialog<void>(
         context: context,
         builder: (context) => AlertDialog(
-          title: Text(errores.isEmpty ? 'Secuencias subidas' : 'Algunas secuencias no se subieron'),
+          title: Text(errores.isEmpty ? context.l10n.secuenciasSubidas : context.l10n.algunasSecuenciasNoSeSubieron),
           content: SingleChildScrollView(
             child: Text([
               if (convertidos.isNotEmpty)
-                'Se convirtieron a MP3 porque pasaban el máximo de '
-                    '${SecuenciasService.formatearMb(limite)}:\n${convertidos.map((c) => '• $c').join('\n')}',
-              if (errores.isNotEmpty) 'No se pudieron subir:\n${errores.map((e) => '• $e').join('\n')}',
+                context.l10n.seConvirtieronAMp3Porque(SecuenciasService.formatearMb(limite), convertidos.map((c) => '• $c').join('\n')),
+              if (errores.isNotEmpty) context.l10n.noSePudieronSubir(errores.map((e) => '• $e').join('\n')),
             ].join('\n\n')),
           ),
-          actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Entendido'))],
+          actions: [TextButton(onPressed: () => Navigator.pop(context), child: Text(context.l10n.entendido))],
         ),
       );
     }
@@ -7771,16 +8034,16 @@ class _MisSecuenciasScreenState extends State<MisSecuenciasScreen> {
     final nuevo = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Renombrar secuencia'),
+        title: Text(context.l10n.renombrarSecuencia),
         content: TextField(
           controller: controller,
           autofocus: true,
-          decoration: const InputDecoration(labelText: 'Título'),
+          decoration: InputDecoration(labelText: context.l10n.titulo2),
           onSubmitted: (v) => Navigator.pop(context, v),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
-          FilledButton(onPressed: () => Navigator.pop(context, controller.text), child: const Text('Guardar')),
+          TextButton(onPressed: () => Navigator.pop(context), child: Text(context.l10n.cancelar)),
+          FilledButton(onPressed: () => Navigator.pop(context, controller.text), child: Text(context.l10n.guardar)),
         ],
       ),
     );
@@ -7792,13 +8055,13 @@ class _MisSecuenciasScreenState extends State<MisSecuenciasScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Eliminar secuencia'),
-        content: Text('¿Eliminar "$titulo" de tu biblioteca?'),
+        title: Text(context.l10n.eliminarSecuencia),
+        content: Text(context.l10n.eliminarDeTuBiblioteca(titulo)),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar')),
+          TextButton(onPressed: () => Navigator.pop(context, false), child: Text(context.l10n.cancelar)),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Eliminar', style: TextStyle(color: Colors.red)),
+            child: Text(context.l10n.eliminar, style: TextStyle(color: Colors.red)),
           ),
         ],
       ),
@@ -7812,9 +8075,9 @@ class _MisSecuenciasScreenState extends State<MisSecuenciasScreen> {
   Widget build(BuildContext context) {
     final user = AuthService.currentUser;
     return Scaffold(
-      appBar: AppBar(title: const Text('Mis secuencias')),
+      appBar: AppBar(title: Text(context.l10n.misSecuencias2)),
       body: (user == null || user.isAnonymous)
-          ? const Center(child: Text('Necesitás iniciar sesión para tener tus secuencias.'))
+          ? Center(child: Text(context.l10n.necesitasIniciarSesionParaTener3))
           : Column(
               children: [
                 Padding(
@@ -7823,7 +8086,7 @@ class _MisSecuenciasScreenState extends State<MisSecuenciasScreen> {
                     controller: _busquedaController,
                     onChanged: (_) => setState(() {}),
                     decoration: InputDecoration(
-                      hintText: 'Buscar secuencia...',
+                      hintText: context.l10n.buscarSecuencia,
                       isDense: true,
                       prefixIcon: const Icon(Icons.search, size: 20),
                       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -7836,16 +8099,16 @@ class _MisSecuenciasScreenState extends State<MisSecuenciasScreen> {
                     stream: SecuenciasService.streamMisSecuencias(user.uid),
                     builder: (context, snapshot) {
                       if (snapshot.hasError) {
-                        return Center(child: Text('Error al cargar: ${snapshot.error}'));
+                        return Center(child: Text(context.l10n.errorAlCargar('${snapshot.error}')));
                       }
                       if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
                       final docs = RepertorioService.ordenarPorTitulo(snapshot.data!.docs);
                       if (docs.isEmpty) {
-                        return const Center(
+                        return Center(
                           child: Padding(
                             padding: EdgeInsets.all(32),
                             child: Text(
-                              'Todavía no subiste secuencias.\nTocá el botón de abajo para cargar tus pistas de audio (MP3, WAV, M4A...).',
+                              context.l10n.todaviaNoSubisteSecuenciasToca,
                               textAlign: TextAlign.center,
                             ),
                           ),
@@ -7857,7 +8120,7 @@ class _MisSecuenciasScreenState extends State<MisSecuenciasScreen> {
                         titulo: _busquedaController.text,
                         tonalidad: '',
                       );
-                      if (filtradas.isEmpty) return const Center(child: Text('Sin resultados.'));
+                      if (filtradas.isEmpty) return Center(child: Text(context.l10n.sinResultados));
                       return ListView.separated(
                         padding: const EdgeInsets.only(bottom: 88),
                         itemCount: filtradas.length,
@@ -7876,12 +8139,12 @@ class _MisSecuenciasScreenState extends State<MisSecuenciasScreen> {
                               children: [
                                 IconButton(
                                   icon: const Icon(Icons.edit),
-                                  tooltip: 'Renombrar',
+                                  tooltip: context.l10n.renombrar,
                                   onPressed: () => _renombrar(user.uid, id, titulo),
                                 ),
                                 IconButton(
                                   icon: const Icon(Icons.delete, color: Colors.red),
-                                  tooltip: 'Eliminar',
+                                  tooltip: context.l10n.eliminar,
                                   onPressed: () =>
                                       _confirmarEliminar(user.uid, id, titulo, data['storagePath'] as String?),
                                 ),
@@ -7902,7 +8165,7 @@ class _MisSecuenciasScreenState extends State<MisSecuenciasScreen> {
               icon: _subiendo
                   ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
                   : const Icon(Icons.upload_file),
-              label: Text(_subiendo ? _progresoSubida : 'Subir secuencias'),
+              label: Text(_subiendo ? _progresoSubida : context.l10n.subirSecuencias),
             ),
     );
   }
@@ -8199,7 +8462,7 @@ class _CifradoViewerScreenState extends State<CifradoViewerScreen> {
 
               icon: const Icon(Icons.remove_circle_outline),
 
-              tooltip: 'Bajar un semitono',
+              tooltip: context.l10n.bajarUnSemitono,
 
               onPressed: () => _cambiarSemitonos(semitonos - 1),
 
@@ -8223,7 +8486,7 @@ class _CifradoViewerScreenState extends State<CifradoViewerScreen> {
 
               icon: const Icon(Icons.add_circle_outline),
 
-              tooltip: 'Subir un semitono',
+              tooltip: context.l10n.subirUnSemitono,
 
               onPressed: () => _cambiarSemitonos(semitonos + 1),
 
@@ -8233,7 +8496,7 @@ class _CifradoViewerScreenState extends State<CifradoViewerScreen> {
 
               icon: const Icon(Icons.refresh),
 
-              tooltip: 'Restablecer tono original',
+              tooltip: context.l10n.restablecerTonoOriginal,
 
               onPressed: semitonos == 0 ? null : () => _cambiarSemitonos(0),
 
@@ -8249,9 +8512,9 @@ class _CifradoViewerScreenState extends State<CifradoViewerScreen> {
 
                 tooltip: _sincronizado
 
-                    ? 'Sincronizado con toda la sala (tocá para desincronizar)'
+                    ? context.l10n.sincronizadoConTodaLaSala
 
-                    : 'Desincronizado — cambios solo locales (tocá para volver a sincronizar)',
+                    : context.l10n.desincronizadoCambiosSoloLocalesToca,
 
                 onPressed: () => _toggleSincronizado(semitonos),
 
@@ -8553,7 +8816,7 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
 
                       Text(
 
-                        'No se pudo cargar el PDF.\n$_error',
+                        context.l10n.noSePudoCargarEl('$_error'),
 
                         textAlign: TextAlign.center,
 
@@ -8657,7 +8920,7 @@ class _SonidistaPinScreenState extends State<SonidistaPinScreen> {
 
       setState(() => _procesando = false);
 
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error al ingresar al panel: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(context.l10n.errorAlIngresarAlPanel(e))));
 
     }
 
@@ -8683,7 +8946,7 @@ class _SonidistaPinScreenState extends State<SonidistaPinScreen> {
 
     return Scaffold(
 
-      appBar: AppBar(title: const Text('Acceso Sonidista')),
+      appBar: AppBar(title: Text(context.l10n.accesoSonidista2)),
 
       body: Padding(
 
@@ -8693,7 +8956,7 @@ class _SonidistaPinScreenState extends State<SonidistaPinScreen> {
 
           children: [
 
-            TextField(controller: _pinController, textCapitalization: TextCapitalization.characters, decoration: const InputDecoration(labelText: 'PIN de Sala o Crear Sala', border: OutlineInputBorder())),
+            TextField(controller: _pinController, textCapitalization: TextCapitalization.characters, decoration: InputDecoration(labelText: context.l10n.pinDeSalaOCrear, border: OutlineInputBorder())),
 
             const SizedBox(height: 24),
 
@@ -8705,7 +8968,7 @@ class _SonidistaPinScreenState extends State<SonidistaPinScreen> {
 
                 onPressed: _procesando ? null : _ingresarComoSonidista,
 
-                child: _procesando ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : const Text('ACCEDER AL PANEL'),
+                child: _procesando ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : Text(context.l10n.accederAlPanel),
 
               ),
 
@@ -9093,11 +9356,11 @@ class _SonidistaPageState extends State<SonidistaPage> with TickerProviderStateM
 
         children: [
 
-          Text('$nombre ($rol)'),
+          Text('$nombre (${rolParaMostrar(context.l10n, rol)})'),
 
           if (respuestaActual.isNotEmpty)
 
-            Text('Tu respuesta: $respuestaActual', style: TextStyle(color: context.acento, fontSize: 12, fontWeight: FontWeight.w500)),
+            Text(context.l10n.tuRespuesta(respuestaActual), style: TextStyle(color: context.acento, fontSize: 12, fontWeight: FontWeight.w500)),
 
         ],
 
@@ -9113,7 +9376,7 @@ class _SonidistaPageState extends State<SonidistaPage> with TickerProviderStateM
 
             icon: Icon(respuestaActual.isNotEmpty ? Icons.chat : Icons.chat_bubble_outline, color: Colors.blue),
 
-            tooltip: 'Responder privado',
+            tooltip: context.l10n.responderPrivado,
 
             onPressed: () => _mostrarDialogoRespuesta(context, d.id, pedidoTexto, nombre.isEmpty ? 'Músico' : nombre),
 
@@ -9149,7 +9412,7 @@ class _SonidistaPageState extends State<SonidistaPage> with TickerProviderStateM
 
       builder: (context) => AlertDialog(
 
-        title: Text('Responder a $musico', style: const TextStyle(fontSize: 16)),
+        title: Text(context.l10n.responderA(musico), style: const TextStyle(fontSize: 16)),
 
         content: Column(
 
@@ -9159,7 +9422,7 @@ class _SonidistaPageState extends State<SonidistaPage> with TickerProviderStateM
 
           children: [
 
-            Text('Pedido: "$pedidoTexto"', style: const TextStyle(fontStyle: FontStyle.italic, color: Colors.grey, fontSize: 13)),
+            Text(context.l10n.pedido(pedidoTexto), style: const TextStyle(fontStyle: FontStyle.italic, color: Colors.grey, fontSize: 13)),
 
             const SizedBox(height: 12),
 
@@ -9167,9 +9430,9 @@ class _SonidistaPageState extends State<SonidistaPage> with TickerProviderStateM
 
               controller: controller,
 
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
 
-                labelText: 'Escribir respuesta privada...',
+                labelText: context.l10n.escribirRespuestaPrivada,
 
                 border: OutlineInputBorder(),
 
@@ -9183,7 +9446,7 @@ class _SonidistaPageState extends State<SonidistaPage> with TickerProviderStateM
 
         actions: [
 
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
+          TextButton(onPressed: () => Navigator.pop(context), child: Text(context.l10n.cancelar)),
 
           TextButton(
 
@@ -9199,7 +9462,7 @@ class _SonidistaPageState extends State<SonidistaPage> with TickerProviderStateM
 
             },
 
-            child: const Text('Enviar'),
+            child: Text(context.l10n.enviar),
 
           ),
 
@@ -9221,13 +9484,13 @@ class _SonidistaPageState extends State<SonidistaPage> with TickerProviderStateM
 
       appBar: AppBar(
 
-        title: Text('Consola: ${widget.codigoSala}'),
+        title: Text(context.l10n.consola2(widget.codigoSala)),
 
         leading: IconButton(
 
           icon: const Icon(Icons.logout),
 
-          tooltip: 'Cerrar Sesión',
+          tooltip: context.l10n.cerrarSesion,
 
           onPressed: () => _cerrarSesion(context),
 
@@ -9247,13 +9510,13 @@ class _SonidistaPageState extends State<SonidistaPage> with TickerProviderStateM
 
                     builder: (c) => AlertDialog(
 
-                        title: const Text('¿Borrar todo?'),
+                        title: Text(context.l10n.borrarTodo),
 
                         actions: [
 
-                          TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('No')),
+                          TextButton(onPressed: () => Navigator.pop(c, false), child: Text(context.l10n.no)),
 
-                          TextButton(onPressed: () => Navigator.pop(c, true), child: const Text('Sí')),
+                          TextButton(onPressed: () => Navigator.pop(c, true), child: Text(context.l10n.si)),
 
                         ]
 
@@ -9271,7 +9534,7 @@ class _SonidistaPageState extends State<SonidistaPage> with TickerProviderStateM
 
             icon: Icon(_agruparPorRol ? Icons.groups : Icons.format_list_bulleted),
 
-            tooltip: _agruparPorRol ? 'Agrupado por rol: activado' : 'Ver agrupado por rol',
+            tooltip: _agruparPorRol ? context.l10n.agrupadoPorRolActivado : context.l10n.verAgrupadoPorRol,
 
             onPressed: () => setState(() => _agruparPorRol = !_agruparPorRol),
 
@@ -9281,7 +9544,7 @@ class _SonidistaPageState extends State<SonidistaPage> with TickerProviderStateM
 
             icon: Icon(_pantallaEncendida ? Icons.lightbulb : Icons.lightbulb_outline),
 
-            tooltip: _pantallaEncendida ? 'Pantalla siempre encendida: activado' : 'Pantalla siempre encendida: desactivado',
+            tooltip: _pantallaEncendida ? context.l10n.pantallaSiempreEncendidaActivado : context.l10n.pantallaSiempreEncendidaDesactivado,
 
             onPressed: _togglePantallaEncendida,
 
@@ -9289,7 +9552,7 @@ class _SonidistaPageState extends State<SonidistaPage> with TickerProviderStateM
 
           IconButton(
             icon: const Icon(Icons.view_carousel_outlined),
-            tooltip: 'Elegir qué ver en la sala',
+            tooltip: context.l10n.elegirQueVerEnLa,
             onPressed: _elegirPestanas,
           ),
 
@@ -9304,7 +9567,7 @@ class _SonidistaPageState extends State<SonidistaPage> with TickerProviderStateM
                 // celular: la barra se desliza en vez de cortarlos.
                 isScrollable: _pestanas.length > 3,
                 tabAlignment: _pestanas.length > 3 ? TabAlignment.center : null,
-                tabs: [for (final p in _pestanas) Tab(text: p.etiqueta)],
+                tabs: [for (final p in _pestanas) Tab(text: p.etiqueta(context.l10n))],
               ),
 
       ),
@@ -9337,13 +9600,13 @@ class _SonidistaPageState extends State<SonidistaPage> with TickerProviderStateM
 
         builder: (context, snapshot) {
 
-          if (snapshot.hasError) return Center(child: Text('Error de conexión: ${snapshot.error}'));
+          if (snapshot.hasError) return Center(child: Text(context.l10n.errorDeConexion('${snapshot.error}')));
 
           if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
 
           final docs = snapshot.data!.docs;
 
-          if (docs.isEmpty) return const Center(child: Text('Esperando pedidos...'));
+          if (docs.isEmpty) return Center(child: Text(context.l10n.esperandoPedidos));
 
 
 
@@ -9393,7 +9656,7 @@ class _SonidistaPageState extends State<SonidistaPage> with TickerProviderStateM
 
                   child: Text(
 
-                    '$rol (${grupos[rol]!.length})',
+                    '${rolParaMostrar(context.l10n, rol)} (${grupos[rol]!.length})',
 
                     style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, letterSpacing: 1),
 
@@ -9431,7 +9694,7 @@ class _SonidistaPageState extends State<SonidistaPage> with TickerProviderStateM
 
             builder: (context, snapshot) {
 
-              if (snapshot.hasError) return Center(child: Text('Error de conexión: ${snapshot.error}'));
+              if (snapshot.hasError) return Center(child: Text(context.l10n.errorDeConexion('${snapshot.error}')));
 
               if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
 
@@ -9455,7 +9718,7 @@ class _SonidistaPageState extends State<SonidistaPage> with TickerProviderStateM
 
                 });
 
-              if (docs.isEmpty) return const Center(child: Text('Todavía no atendiste ningún pedido', style: TextStyle(color: Colors.grey)));
+              if (docs.isEmpty) return Center(child: Text(context.l10n.todaviaNoAtendisteNingunPedido, style: TextStyle(color: Colors.grey)));
 
               return ListView.separated(
 
@@ -9481,11 +9744,11 @@ class _SonidistaPageState extends State<SonidistaPage> with TickerProviderStateM
 
                       children: [
 
-                        Text('${data['nombre']} (${data['rol']})'),
+                        Text('${data['nombre']} (${rolParaMostrar(context.l10n, '${data['rol']}')})'),
 
                         if (respuestaActual.isNotEmpty)
 
-                          Text('Tu respuesta: $respuestaActual', style: TextStyle(color: context.acento, fontSize: 12, fontWeight: FontWeight.w500)),
+                          Text(context.l10n.tuRespuesta(respuestaActual), style: TextStyle(color: context.acento, fontSize: 12, fontWeight: FontWeight.w500)),
 
                       ],
 
