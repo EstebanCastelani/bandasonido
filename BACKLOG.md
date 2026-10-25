@@ -32,6 +32,10 @@ _(vacío — elegir 3–5 ítems al comenzar cada sprint, ver `PROCESO.md`)_
 | B-21 | P3 | Exportar/importar repertorio y setlist en formatos abiertos (ChordPro, JSON/CSV) | M | Calidad E6 · Q13 | 🔑 decidir formato |
 | B-22 | P3 | Ayuda y primera vez guiada; guía de estilo de textos (voseo/neutro, mayúsculas) | M | Usabilidad E5 | 🔑 decidir registro |
 | B-23 | P3 | Conservación de pedidos por 24 h (limpieza automática en el servidor) | M | Testing · D-08 | plan Blaze 🔑 |
+| B-25 | P1 (Play Store) | **Eliminar la cuenta dentro de la app** (borrar perfil, biblioteca, archivos de Supabase y cuenta de Auth) + enlace web de pedido de borrado; requiere cambiar reglas | L | `PLAY_STORE.md` §7 | 🔑 aprobar el diseño y publicar reglas |
+| B-26 | P2 (Play Store) | Archivos de usuarios en bucket **público** de Supabase: decidir si pasan a privados con enlaces firmados | M | `PLAY_STORE.md` §7 | 🔑 decisión |
+| B-27 | P1 (Play Store) | **Probar la app en un celular Android real** (login con Google, audios, PDFs, sin conexión) | M | `PLAY_STORE.md` §1 | 🔑 un dispositivo |
+| B-28 | P2 (Play Store) | Ícono propio (512 × 512), imagen destacada, capturas y descripciones de la ficha | M | `PLAY_STORE.md` §5 | 🔑 diseño |
 | B-24 | P3 | DF-06: ortografía de acordes según la tonalidad (`Eb` en vez de `D#`) | S | `DEFECTOS.md` | — |
 
 ## Hecho (resumen)

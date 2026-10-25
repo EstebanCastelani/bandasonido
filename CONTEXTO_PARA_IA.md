@@ -709,6 +709,20 @@ registrada sin chequear `esPro` — ver §8 para cómo revertir esto.
     - **Pendiente de tu decisión o de tus claves** (ver `BACKLOG.md`): App Check,
       publicar reglas con validación, D-03, planes de Firebase/Supabase, keystore
       de Android, protección de la rama, dividir `main.dart`.
+34. **Preparación para Google Play (oct-2026)**: ver `PLAY_STORE.md`.
+    - Corregido: falta del permiso `INTERNET` en `AndroidManifest.xml` principal y
+      nombre visible "Sound Check Pro".
+    - `android/app/build.gradle.kts` firma el release con `android/key.properties`
+      (fallback a debug si no existe; **no sirve para la tienda**). `applicationId`
+      sigue siendo `com.soundcheckpro.appsonido_frontend`: cambiarlo exige registrar
+      una app Android nueva en Firebase y un `google-services.json` nuevo.
+    - Verificado: `flutter build apk --release` compila (68 MB, v1.1.0+2, minSdk 24,
+      targetSdk 36). **Nunca se probó en un celular real.**
+    - Bloqueantes de política para Play: no hay eliminación de cuenta dentro de la
+      app (B-25) y los archivos de usuarios están en un bucket público de Supabase
+      (B-26). Borrador de política de privacidad en
+      `docs/politica-de-privacidad-borrador.html` (con campos `[ENTRE CORCHETES]`
+      que completar; no está en `web/` a propósito para no publicarlo incompleto).
 
 ## 6. Modelo de seguridad de las salas — trade-off consciente, no bug
 

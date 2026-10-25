@@ -1,6 +1,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Sin este permiso una versión release no puede hablar con Firebase ni con
+         Supabase (Flutter solo lo agrega a los manifiestos de debug y profile). -->
+    <uses-permission android:name="android.permission.INTERNET"/>
     <application
-        android:label="appsonido_frontend"
+        android:label="Sound Check Pro"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

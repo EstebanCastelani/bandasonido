@@ -1,0 +1,8 @@
+# Copiar este archivo como android/key.properties (ese nombre está en .gitignore:
+# NUNCA subirlo a Git) y completar con los datos de TU keystore de subida.
+# Ver PLAY_STORE.md §3 para crear el keystore.
+storePassword=CAMBIAR
+keyPassword=CAMBIAR
+keyAlias=upload
+# Ruta al archivo .jks, relativa a android/app/ o absoluta. Guardalo FUERA del repositorio.
+storeFile=C:/ruta/segura/upload-keystore.jks

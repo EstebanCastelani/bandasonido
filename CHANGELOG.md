@@ -2,6 +2,15 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). La versión se escribe en `frontend/pubspec.yaml` (`version: X.Y.Z+N`) y en `kVersionApp` de `frontend/lib/main.dart` (una prueba verifica que coincidan); cada versión publicada lleva un tag `vX.Y.Z` en Git. Para volver a una versión anterior ver `OPERACION.md`.
 
+## [Sin publicar]
+
+### Corregido
+- Android: el manifiesto principal no declaraba el permiso de internet, por lo que una versión de release no podía conectarse a Firebase ni a Supabase.
+- Android: el nombre visible de la app era `appsonido_frontend`; ahora es "Sound Check Pro".
+
+### Cambiado
+- Android: la firma de release se lee de `android/key.properties` (si no existe, se usa la clave de depuración solo para pruebas). Ver `PLAY_STORE.md`.
+
 ## [1.1.0] — 2026-10-24
 Primera versión con número propio: reúne todo lo hecho desde el lanzamiento inicial (la versión `1.0.0+1` nunca se había actualizado).
 
