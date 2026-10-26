@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'dart:io' show Directory, File;
+
 import 'dart:math';
 
 import 'package:audioplayers/audioplayers.dart';
@@ -264,6 +266,56 @@ Future<bool?> decidirEntradaSonidista(BuildContext context, String rol) async {
       ],
     ),
   );
+}
+
+/// Nombre estable (16 caracteres hexadecimales) del archivo local de una pista,
+/// calculado desde su URL. Dos hashes de 32 bits distintos para que sea casi
+/// imposible que dos pistas distintas compartan archivo.
+String claveCache(String url) {
+  var a = 0x811c9dc5;
+  var b = 0x01000193;
+  for (final c in url.codeUnits) {
+    a ^= c;
+    a = (a + (a << 1) + (a << 4) + (a << 7) + (a << 8) + (a << 24)) &
+        0xFFFFFFFF;
+    b = ((b * 31) + c) & 0xFFFFFFFF;
+  }
+  return a.toRadixString(16).padLeft(8, '0') +
+      b.toRadixString(16).padLeft(8, '0');
+}
+
+/// Qué archivos de la caché de pistas conviene borrar: las descargas a medias
+/// (.part) con más de [parcialViejo], y las pistas que sobran por encima de
+/// [maximo] (se borran primero las más viejas; las de [conservar] nunca).
+List<String> archivosParaBorrar(
+  List<({String nombre, DateTime fecha})> existentes,
+  Set<String> conservar, {
+  int maximo = 12,
+  Duration parcialViejo = const Duration(days: 1),
+  DateTime? ahora,
+}) {
+  final ahoraReal = ahora ?? DateTime.now();
+  final borrar = <String>[];
+  final pistas = <({String nombre, DateTime fecha})>[];
+  for (final e in existentes) {
+    if (e.nombre.endsWith('.part')) {
+      if (ahoraReal.difference(e.fecha) > parcialViejo) borrar.add(e.nombre);
+    } else {
+      pistas.add(e);
+    }
+  }
+  final protegidas = pistas.where((e) => conservar.contains(e.nombre)).length;
+  var lugar = maximo - protegidas;
+  final otras = pistas.where((e) => !conservar.contains(e.nombre)).toList()
+    ..sort((x, y) => y.fecha.compareTo(x.fecha));
+  for (final e in otras) {
+    if (lugar > 0) {
+      lugar--;
+    } else {
+      borrar.add(e.nombre);
+    }
+  }
+  return borrar;
 }
 
 /// Texto entendible para un error técnico (excepción de Firebase, red...):
@@ -2332,6 +2384,17 @@ class ReproductorSecuencias extends ChangeNotifier {
   final List<StreamSubscription> _subs = [];
   Timer? _sondeo;
 
+  // ---- Caché local de pistas (solo fuera de la web) ----
+  // Las pistas de la sala se bajan al celular apenas aparecen en la lista:
+  // suenan al instante al tocar play y siguen sonando si se corta la red.
+  final Map<String, Future<void>> _descargas = {};
+  final Set<String> _enCache = {};
+  Directory? _dirCache;
+  bool _cacheLimpia = false;
+
+  /// Una pista más grande que esto no se guarda (el límite de subida es 50 MB).
+  static const _maxBytesCache = 120 * 1024 * 1024;
+
   String? idActual;
   PlayerState estado = PlayerState.stopped;
   Duration posicion = Duration.zero;
@@ -2372,6 +2435,104 @@ class ReproductorSecuencias extends ChangeNotifier {
 
   bool estaSonando(String id) =>
       idActual == id && estado == PlayerState.playing;
+
+  /// ¿Esta pista ya está guardada en el celular (suena sin red)?
+  bool estaEnCache(String url) => _enCache.contains(url);
+
+  Future<Directory> _carpetaCache() async {
+    final d =
+        _dirCache ??= Directory('${Directory.systemTemp.path}/sc_secuencias');
+    if (!await d.exists()) await d.create(recursive: true);
+    return d;
+  }
+
+  Future<File> _archivoDe(String url) async =>
+      File('${(await _carpetaCache()).path}/${claveCache(url)}.audio');
+
+  /// Ruta del archivo local de [url] si ya está completo (null en web o si falta).
+  Future<String?> _rutaEnCache(String url) async {
+    if (_web) return null;
+    try {
+      final f = await _archivoDe(url);
+      if (await f.exists() && await f.length() > 0) return f.path;
+    } catch (_) {}
+    return null;
+  }
+
+  /// Baja las pistas de [urls] de a una (si todavía no están) para que suenen
+  /// sin esperar la red. Es seguro llamarla muchas veces con la misma lista.
+  Future<void> precargar(List<String> urls) async {
+    if (_web) return;
+    var bajo = false;
+    for (final url in urls) {
+      if (url.isEmpty) continue;
+      final antes = _enCache.contains(url);
+      await (_descargas[url] ??= _descargar(url));
+      if (!antes && _enCache.contains(url)) bajo = true;
+    }
+    if (bajo || !_cacheLimpia) {
+      _cacheLimpia = true;
+      await _limpiarCache(urls.toSet());
+    }
+  }
+
+  Future<void> _descargar(String url) async {
+    File? parcial;
+    try {
+      final destino = await _archivoDe(url);
+      if (await destino.exists() && await destino.length() > 0) {
+        if (_enCache.add(url)) notifyListeners();
+        return;
+      }
+      parcial = File('${destino.path}.part');
+      final cliente = http.Client();
+      try {
+        final respuesta =
+            await cliente.send(http.Request('GET', Uri.parse(url)));
+        final largo = respuesta.contentLength;
+        if (respuesta.statusCode != 200 ||
+            (largo != null && largo > _maxBytesCache)) {
+          return;
+        }
+        await respuesta.stream.pipe(parcial.openWrite());
+        await parcial.rename(destino.path);
+        parcial = null;
+        _enCache.add(url);
+        notifyListeners();
+      } finally {
+        cliente.close();
+      }
+    } catch (e) {
+      debugPrint('No se pudo guardar la pista en el celular: $e');
+    } finally {
+      _descargas.remove(url);
+      try {
+        if (parcial != null && await parcial.exists()) await parcial.delete();
+      } catch (_) {}
+    }
+  }
+
+  Future<void> _limpiarCache(Set<String> urlsActuales) async {
+    try {
+      final dir = await _carpetaCache();
+      final existentes = <({String nombre, DateTime fecha})>[];
+      await for (final e in dir.list()) {
+        if (e is File) {
+          existentes.add(
+              (nombre: e.uri.pathSegments.last, fecha: await e.lastModified()));
+        }
+      }
+      final conservar =
+          urlsActuales.map((u) => '${claveCache(u)}.audio').toSet();
+      for (final nombre in archivosParaBorrar(existentes, conservar)) {
+        try {
+          await File('${dir.path}/$nombre').delete();
+        } catch (_) {}
+      }
+    } catch (e) {
+      debugPrint('No se pudo limpiar la caché de pistas: $e');
+    }
+  }
 
   /// En web la posición se consulta al reproductor JS mientras suena.
   void _empezarSondeo() {
@@ -2471,7 +2632,10 @@ class ReproductorSecuencias extends ChangeNotifier {
         await _player!
             .setReleaseMode(repetir ? ReleaseMode.loop : ReleaseMode.stop);
         await _player!.setVolume(this.volumen);
-        await _player!.play(UrlSource(url));
+        // Si la pista ya está en el celular suena de ahí (al instante y sin red).
+        final local = await _rutaEnCache(url);
+        await _player!
+            .play(local != null ? DeviceFileSource(local) : UrlSource(url));
         await _player!.setPlaybackRate(this.tempo);
       }
     } finally {
@@ -4437,12 +4601,16 @@ class _CrearSalaScreenState extends State<CrearSalaScreen> {
               child: ListTile(
                 title:
                     Text(context.l10n.tuPinDeSala, textAlign: TextAlign.center),
-                subtitle: Text(_pin,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                        fontSize: 32,
-                        fontWeight: FontWeight.bold,
-                        color: context.acento)),
+                subtitle: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(_pin,
+                      maxLines: 1,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                          fontSize: 32,
+                          fontWeight: FontWeight.bold,
+                          color: context.acento)),
+                ),
                 trailing: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -5250,9 +5418,40 @@ class _RequestScreenState extends State<RequestScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-            '${widget.userName} (${rolParaMostrar(context.l10n, widget.rol)})'),
-
+        title: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: () {
+            Clipboard.setData(ClipboardData(text: widget.codigoSala));
+            ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text(context.l10n.codigoDeSalaCopiado)));
+          },
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                '${widget.userName} (${rolParaMostrar(context.l10n, widget.rol)})',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 16),
+              ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    context.l10n.sala(widget.codigoSala),
+                    maxLines: 1,
+                    style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: context.acento),
+                  ),
+                  const SizedBox(width: 4),
+                  Icon(Icons.copy, size: 12, color: context.acento),
+                ],
+              ),
+            ],
+          ),
+        ),
         centerTitle: true,
 
         leading: IconButton(
@@ -5266,31 +5465,6 @@ class _RequestScreenState extends State<RequestScreen>
         ),
 
         actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: Material(
-              color: context.acento,
-              borderRadius: BorderRadius.circular(20),
-              child: InkWell(
-                borderRadius: BorderRadius.circular(20),
-                onTap: () {
-                  Clipboard.setData(ClipboardData(text: widget.codigoSala));
-
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                      content: Text(context.l10n.codigoDeSalaCopiado)));
-                },
-                child: Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  child: Text(context.l10n.sala(widget.codigoSala),
-                      style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white)),
-                ),
-              ),
-            ),
-          ),
           IconButton(
             icon: Icon(
                 _pantallaEncendida ? Icons.lightbulb : Icons.lightbulb_outline),
@@ -6682,6 +6856,8 @@ class _SecuenciasTabState extends State<SecuenciasTab>
         final docs = snapshot.data!.docs;
         final urlsEnSala =
             docs.map((d) => d.data()['audioUrl'] as String? ?? '').toSet();
+        scheduleMicrotask(() => _reproductor
+            .precargar(urlsEnSala.where((u) => u.isNotEmpty).toList()));
 
         Widget fila(QueryDocumentSnapshot<Map<String, dynamic>> doc, int i) {
           final data = doc.data();
@@ -8901,7 +9077,35 @@ class _SonidistaPageState extends State<SonidistaPage>
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(context.l10n.consola2(widget.codigoSala)),
+        // Dos líneas ("Consola" arriba, el PIN abajo): en un celular no entra
+        // "Consola: PIN" en una sola línea con los cuatro íconos de la derecha.
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              context.l10n
+                  .consola2('')
+                  .replaceAll(RegExp(r'\s*[:：]\s*$'), '')
+                  .trim(),
+              style: TextStyle(
+                  fontSize: 12,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant),
+            ),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: AlignmentDirectional.centerStart,
+              child: Text(
+                widget.codigoSala,
+                maxLines: 1,
+                style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1),
+              ),
+            ),
+          ],
+        ),
 
         leading: IconButton(
           icon: const Icon(Icons.exit_to_app),

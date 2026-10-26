@@ -365,4 +365,61 @@ void main() {
 
   test('tope de largo de un pedido escrito a mano (RQ-21)',
       () => expect(kMaxCaracteresPedido, 200));
+
+  group('Caché de pistas en el celular (RQ-27, disponibilidad)', () {
+    test('claveCache es estable y de 16 caracteres hexadecimales', () {
+      const url =
+          'https://x.supabase.co/storage/v1/object/public/audios/u1/pista.mp3';
+      expect(claveCache(url), claveCache(url));
+      expect(RegExp(r'^[0-9a-f]{16}$').hasMatch(claveCache(url)), isTrue);
+    });
+
+    test('URLs distintas dan claves distintas', () {
+      final claves = {
+        for (var i = 0; i < 2000; i++)
+          claveCache('https://x.co/audios/$i/pista $i.mp3'),
+      };
+      expect(claves, hasLength(2000));
+    });
+
+    final ahora = DateTime(2026, 10, 25, 12);
+    ({String nombre, DateTime fecha}) a(String n, int horasAtras) =>
+        (nombre: n, fecha: ahora.subtract(Duration(hours: horasAtras)));
+
+    test('no borra nada si no se pasa del máximo', () {
+      final r = archivosParaBorrar([a('1.audio', 1), a('2.audio', 2)], {},
+          maximo: 3, ahora: ahora);
+      expect(r, isEmpty);
+    });
+
+    test('borra las más viejas cuando se pasa del máximo', () {
+      final r = archivosParaBorrar(
+        [a('nueva.audio', 1), a('media.audio', 5), a('vieja.audio', 9)],
+        {},
+        maximo: 2,
+        ahora: ahora,
+      );
+      expect(r, ['vieja.audio']);
+    });
+
+    test('nunca borra las pistas de la sala actual, aunque sean viejas', () {
+      final r = archivosParaBorrar(
+        [a('sala1.audio', 100), a('sala2.audio', 90), a('otra.audio', 1)],
+        {'sala1.audio', 'sala2.audio'},
+        maximo: 2,
+        ahora: ahora,
+      );
+      expect(r, ['otra.audio']);
+    });
+
+    test('descargas a medias (.part) solo se borran si tienen más de un día',
+        () {
+      final r = archivosParaBorrar(
+        [a('reciente.part', 2), a('vieja.part', 30), a('ok.audio', 1)],
+        {},
+        ahora: ahora,
+      );
+      expect(r, ['vieja.part']);
+    });
+  });
 }
