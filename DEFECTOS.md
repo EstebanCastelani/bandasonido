@@ -23,9 +23,6 @@ Las consultas en tiempo real de la sala (`snapshots()`) no tenían límite. **He
 - **Decisión relacionada:** D-08.
 - **Prueba:** hay una que fija el valor del tope; falta medir lecturas (Etapa 6).
 
-### DF-12 · Baja · Abierto
-En "Mis salas", el ícono de borrar elimina la entrada al primer toque, sin confirmación ni "Deshacer" (observado en el celular al borrar mi sala de prueba). Mismo patrón que se corrigió en el panel del sonidista.
-
 ## Corregidos
 
 ### DF-01 · Corregido (24-oct-2026, D-04)
@@ -51,3 +48,6 @@ En un celular, el título de la sala del músico quedaba en "QA…" (la "pastill
 
 ### DF-11 · Corregido (25-oct-2026)
 En Android, una secuencia larga tardaba entre 1 y 13 segundos en empezar a sonar al tocar "play" (según la red y si el servidor estaba "frío"). Ahora las pistas de la sala se bajan al celular apenas aparecen en la lista (RQ-27) y suenan desde el archivo local. **Medido en un celular real (Redmi, Android 15, de toque a audio):** 0,9 s la primera pista, 0,23 s la segunda y 0,2 s una pista **con wifi y datos apagados**. Se conservan hasta 12 pistas (las de la sala actual nunca se borran) y las descargas a medias de más de un día se limpian. Limitación: una pista nueva se escucha por red hasta que termina de bajar.
+
+### DF-12 · Corregido (25-oct-2026)
+En "Mis salas", borrar una entrada no pedía confirmación. Ahora aparece el aviso "Sala quitada del historial" con **Deshacer** (5 idiomas).

@@ -58,7 +58,12 @@ service cloud.firestore {
                     && request.auth.token.firebase.sign_in_provider != 'anonymous'
                     && request.resource.data.esPro == resource.data.esPro;
 
-      allow delete: if false;
+      // Eliminar la cuenta (exigido por Google Play): el dueño, con cuenta real,
+      // puede borrar su propio perfil. Antes se borran sus subcolecciones y,
+      // al final, la cuenta de Auth (ver CuentaService en main.dart).
+      allow delete: if request.auth != null
+                    && request.auth.uid == uid
+                    && request.auth.token.firebase.sign_in_provider != 'anonymous';
 
       // Frases predefinidas propias: solo el dueño, con cuenta real, lee y
       // escribe. Los invitados anónimos de una sala usan la lista por

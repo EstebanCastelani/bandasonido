@@ -7,7 +7,12 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). La versió
 ### Agregado
 - Android: las secuencias de la sala se guardan en el celular apenas aparecen en la lista. Empiezan a sonar casi al instante al tocar "play" (0,2 a 0,9 s medidos, antes 1 a 13 s) y siguen sonando sin conexión. Guarda hasta 12 pistas.
 
+### Agregado
+- **Eliminar mi cuenta** (menú de la cuenta): borra el perfil, las frases, el repertorio y las secuencias con sus archivos, el historial de salas y la cuenta de acceso, tras volver a confirmar la identidad (contraseña o Google) y una confirmación final. Requiere publicar las nuevas `firestore.rules` (ver `OPERACION.md`).
+
 ### Corregido
+- "Mis salas": al quitar una sala aparece un aviso con "Deshacer".
+- Código: `flutter analyze` queda sin avisos (se reemplazó `withOpacity` en desuso y se agregaron controles de pantalla activa antes de navegar).
 - Android: el manifiesto principal no declaraba el permiso de internet, por lo que una versión de release no podía conectarse a Firebase ni a Supabase.
 - Android: el nombre visible de la app era `appsonido_frontend`; ahora es "Sound Check Pro".
 

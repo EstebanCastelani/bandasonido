@@ -59,6 +59,8 @@ Plan B para un show: tener el setlist impreso/PDF y un canal alternativo con el 
 
 ## 6. Seguridad pendiente (requiere decisiones tuyas)
 
+0. **Reglas de Firestore (publicadas el 25-oct-2026)**: `firestore.rules` permite que el dueño con cuenta real borre su propio perfil (para "Eliminar mi cuenta"). Para publicar cambios futuros: desde la raíz del repo, `firebase deploy --only firestore:rules` (usa `firebase.json` y `.firebaserc` de la raíz; proyecto `appbandasonido`). Para volver atrás, restaurar la versión anterior del archivo desde Git y publicar de nuevo.
+
 1. **Activar Firebase App Check** 🔑. Hoy `kAppCheckSiteKeyWeb = null` en `main.dart`, o sea que App Check **no está activo** y cualquiera que conozca un PIN puede enviar pedidos sin pasar por la app. Pasos: crear una clave reCAPTCHA v3 (o Enterprise) para el dominio `estebancastelani.github.io`, registrarla en Firebase → App Check, ponerla en `kAppCheckSiteKeyWeb`, y recién después de comprobar el tráfico en modo *monitor* pasar a *exigir*.
 2. **Validar la forma y el tamaño de los pedidos en las reglas.** La app ya limita a 200 caracteres lo que se escribe a mano, pero las reglas todavía aceptan cualquier texto. Propuesta (**NO publicada**; hay que probarla con el emulador de Firebase antes, porque una regla mal escrita deja a todos sin poder pedir y porque las frases guardadas por cada usuario en "Mis frases" no tienen tope):
    ```
