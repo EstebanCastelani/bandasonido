@@ -60,3 +60,6 @@ Con el celular en horizontal, en la pestaña Pedidos las frases rápidas quedaba
 
 ### DF-15 · Corregido (25-oct-2026)
 En una tablet (800 × 1280 dp) las pantallas de ingreso y los formularios estiraban botones y campos de borde a borde. Ahora los formularios se centran con ancho máximo de 480 dp y el resto del contenido con 840 dp (`kAnchoMaximoFormulario`, `kAnchoMaximoContenido`).
+
+### DF-16 · Corregido (25-oct-2026)
+En "Mis salas" (y también en "Mi repertorio" y "Mis secuencias") aparecía "Necesitás iniciar sesión…" aunque ya hubiera una sesión iniciada, y el texto no estaba centrado. Causa: la pantalla leía la sesión una sola vez al abrirse y, justo después de abrir la app, Firebase todavía no la había restaurado. Ahora la pantalla espera y se actualiza cuando la sesión está lista (con un círculo de carga mientras tanto), y el mensaje va centrado. Verificado con análisis y pruebas; **pendiente de confirmar en el celular con una cuenta iniciada**.

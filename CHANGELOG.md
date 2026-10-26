@@ -12,6 +12,7 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). La versió
 - **Eliminar mi cuenta** (menú de la cuenta): borra el perfil, las frases, el repertorio y las secuencias con sus archivos, el historial de salas y la cuenta de acceso, tras volver a confirmar la identidad (contraseña o Google) y una confirmación final. Reglas publicadas y borrado probado. Página web de pedido de eliminación: `eliminar-cuenta.html`.
 
 ### Corregido
+- "Mis salas", "Mi repertorio" y "Mis secuencias": ya no muestran "Necesitás iniciar sesión" cuando la sesión está iniciada pero todavía se está restaurando, y el mensaje queda centrado (DF-16).
 - Pantallas: las pestañas de la sala se deslizan en pantallas angostas o con letra grande; en horizontal las frases rápidas ya no quedan aplastadas; en tablets los formularios y el contenido se centran con ancho máximo (DF-13, DF-14, DF-15).
 - "Mis salas": al quitar una sala aparece un aviso con "Deshacer".
 - Código: `flutter analyze` queda sin avisos (se reemplazó `withOpacity` en desuso y se agregaron controles de pantalla activa antes de navegar).
