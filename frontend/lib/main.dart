@@ -1871,7 +1871,7 @@ class _EliminarCuentaScreenState extends State<EliminarCuentaScreen> {
     return Scaffold(
       appBar: AppBar(title: Text(l.eliminarCuenta)),
       body: ListView(
-        padding: const EdgeInsets.all(24),
+        padding: rellenoFormulario(context),
         children: [
           Icon(Icons.warning_amber_rounded,
               color: Colors.red.shade400, size: 48),
@@ -3316,7 +3316,16 @@ class _SoundCheckProAppState extends State<SoundCheckProApp> {
       onGenerateTitle: (context) => context.l10n.nombreApp,
       builder: (context, child) {
         L10n.t = AppLocalizations.of(context);
-        return child ?? const SizedBox.shrink();
+        return ColoredBox(
+            color: Theme.of(context).scaffoldBackgroundColor,
+            child: Align(
+              alignment: Alignment.topCenter,
+              child: ConstrainedBox(
+                constraints:
+                    const BoxConstraints(maxWidth: kAnchoMaximoContenido),
+                child: child ?? const SizedBox.shrink(),
+              ),
+            ));
       },
 
       home: const SplashScreen(),
@@ -4110,7 +4119,7 @@ class _AuthScreenState extends State<AuthScreen> {
       appBar: AppBar(title: const Text('Sound Check Pro')),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
+          padding: rellenoFormulario(context),
           child: Form(
             key: _formKey,
             child: Column(
@@ -4234,6 +4243,34 @@ class _AuthScreenState extends State<AuthScreen> {
   }
 }
 
+/// Ancho máximo del contenido de la app: en una tablet o un monitor el
+/// contenido se centra en vez de estirarse de borde a borde.
+const double kAnchoMaximoContenido = 840;
+
+/// Ancho máximo de los formularios y menús (botones, campos de texto).
+const double kAnchoMaximoFormulario = 480;
+
+/// Relleno de las pantallas tipo formulario: 24 en un celular y, en pantallas
+/// anchas, el margen necesario para que el contenido quede centrado y no pase
+/// de [kAnchoMaximoFormulario].
+EdgeInsets rellenoFormulario(BuildContext context) {
+  final ancho = MediaQuery.sizeOf(context).width;
+  final lateral = ancho > kAnchoMaximoFormulario + 48
+      ? (ancho - kAnchoMaximoFormulario) / 2
+      : 24.0;
+  return EdgeInsets.symmetric(horizontal: lateral, vertical: 24);
+}
+
+/// ¿Los nombres de las pestañas no entran en el ancho disponible? Con más de
+/// 3 pestañas, o con pantalla angosta y letra grande, la barra se desliza en
+/// vez de cortar los nombres.
+bool pestanasApretadas(BuildContext context, int cantidad) {
+  if (cantidad > 3) return true;
+  final ancho = MediaQuery.sizeOf(context).width;
+  final escala = MediaQuery.textScalerOf(context).scale(1);
+  return ancho / escala < 330;
+}
+
 // --- MENÚ DE INGRESO ---
 
 class IngressMenuScreen extends StatelessWidget {
@@ -4284,7 +4321,7 @@ class IngressMenuScreen extends StatelessWidget {
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) => SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
+            padding: rellenoFormulario(context),
             child: ConstrainedBox(
               constraints:
                   BoxConstraints(minHeight: constraints.maxHeight - 48),
@@ -4831,7 +4868,7 @@ class _CrearSalaScreenState extends State<CrearSalaScreen> {
     return Scaffold(
       appBar: AppBar(title: Text(context.l10n.configurarSala)),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
+        padding: rellenoFormulario(context),
         child: Column(
           children: [
             Card(
@@ -5040,7 +5077,7 @@ class _UnirmeSalaScreenState extends State<UnirmeSalaScreen> {
     return Scaffold(
       appBar: AppBar(title: Text(context.l10n.unirseASala)),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
+        padding: rellenoFormulario(context),
         child: Column(
           children: [
             TextField(
@@ -5744,6 +5781,10 @@ class _RequestScreenState extends State<RequestScreen>
             ? null
             : TabBar(
                 controller: _tabController,
+                isScrollable: pestanasApretadas(context, _pestanas.length),
+                tabAlignment: pestanasApretadas(context, _pestanas.length)
+                    ? TabAlignment.center
+                    : null,
                 tabs: [
                   for (final p in _pestanas) Tab(text: p.etiqueta(context.l10n))
                 ],
@@ -5755,202 +5796,218 @@ class _RequestScreenState extends State<RequestScreen>
           PestanaSala.pedidos: Listener(
             onPointerDown: (e) => _inicioArrastrePedidos = e.position,
             onPointerUp: _manejarSwipeAbajoEnPedidos,
-            child: Column(
-              children: [
-                Expanded(
-                  flex: 3,
-                  child: Builder(builder: (context) {
-                    final user = AuthService.currentUser;
+            child: LayoutBuilder(builder: (context, caja) {
+              final grilla = Builder(builder: (context) {
+                final user = AuthService.currentUser;
 
-                    if (user == null || user.isAnonymous) {
-                      return _construirGridFrases(
-                          AppConstants.pedidosRapidos(context.l10n));
-                    }
+                if (user == null || user.isAnonymous) {
+                  return _construirGridFrases(
+                      AppConstants.pedidosRapidos(context.l10n));
+                }
 
-                    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-                      stream: FrasesService.streamFrases(user.uid),
-                      builder: (context, snapshot) {
-                        final docs = snapshot.data?.docs;
+                return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+                  stream: FrasesService.streamFrases(user.uid),
+                  builder: (context, snapshot) {
+                    final docs = snapshot.data?.docs;
 
-                        final pedidosRapidos = (docs == null || docs.isEmpty)
-                            ? AppConstants.pedidosRapidos(context.l10n)
-                            : docs
-                                .map((d) => d.data()['texto'] as String)
-                                .toList();
+                    final pedidosRapidos = (docs == null || docs.isEmpty)
+                        ? AppConstants.pedidosRapidos(context.l10n)
+                        : docs.map((d) => d.data()['texto'] as String).toList();
 
-                        return _construirGridFrases(pedidosRapidos);
-                      },
-                    );
-                  }),
-                ),
-                Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: _customPedidoController,
-                          style: const TextStyle(fontSize: 14),
-                          inputFormatters: [
-                            LengthLimitingTextInputFormatter(
-                                kMaxCaracteresPedido)
-                          ],
-                          textInputAction: TextInputAction.send,
-                          onSubmitted: (t) {
-                            _enviarMensaje(t);
-
-                            _customPedidoController.clear();
-                          },
-                          decoration: InputDecoration(
-                            hintText: context.l10n.escribirPedidoPersonalizado,
-                            isDense: true,
-                            contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 10),
-                            border: const OutlineInputBorder(),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      IconButton(
-                        icon: Icon(Icons.priority_high,
-                            color: _esUrgente ? Colors.redAccent : Colors.grey),
-                        tooltip: _esUrgente
-                            ? context.l10n.pedidoUrgenteActivado
-                            : context.l10n.marcarElProximoPedidoComo,
-                        onPressed: () =>
-                            setState(() => _esUrgente = !_esUrgente),
-                      ),
-                      const SizedBox(width: 4),
-                      IconButton.filled(
-                        icon: const Icon(Icons.send, size: 18),
-                        style: _esUrgente
-                            ? IconButton.styleFrom(
-                                backgroundColor: Colors.redAccent)
-                            : null,
-                        onPressed: () {
-                          _enviarMensaje(_customPedidoController.text);
+                    return _construirGridFrases(pedidosRapidos);
+                  },
+                );
+              });
+              final entrada = Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _customPedidoController,
+                        style: const TextStyle(fontSize: 14),
+                        inputFormatters: [
+                          LengthLimitingTextInputFormatter(kMaxCaracteresPedido)
+                        ],
+                        textInputAction: TextInputAction.send,
+                        onSubmitted: (t) {
+                          _enviarMensaje(t);
 
                           _customPedidoController.clear();
                         },
+                        decoration: InputDecoration(
+                          hintText: context.l10n.escribirPedidoPersonalizado,
+                          isDense: true,
+                          contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 10),
+                          border: const OutlineInputBorder(),
+                        ),
                       ),
-                    ],
-                  ),
+                    ),
+                    const SizedBox(width: 4),
+                    IconButton(
+                      icon: Icon(Icons.priority_high,
+                          color: _esUrgente ? Colors.redAccent : Colors.grey),
+                      tooltip: _esUrgente
+                          ? context.l10n.pedidoUrgenteActivado
+                          : context.l10n.marcarElProximoPedidoComo,
+                      onPressed: () => setState(() => _esUrgente = !_esUrgente),
+                    ),
+                    const SizedBox(width: 4),
+                    IconButton.filled(
+                      icon: const Icon(Icons.send, size: 18),
+                      style: _esUrgente
+                          ? IconButton.styleFrom(
+                              backgroundColor: Colors.redAccent)
+                          : null,
+                      onPressed: () {
+                        _enviarMensaje(_customPedidoController.text);
+
+                        _customPedidoController.clear();
+                      },
+                    ),
+                  ],
                 ),
-                const Divider(thickness: 1, height: 1),
-                Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 6),
-                    child: Text(context.l10n.misUltimosPedidos,
-                        style: const TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey,
-                            letterSpacing: 1.1))),
-                Expanded(
-                  flex: 2,
-                  child: StreamBuilder<QuerySnapshot>(
-                    stream: FirebaseFirestore.instance
-                        .collection('salas')
-                        .doc(widget.codigoSala)
-                        .collection('pedidos')
-                        .where('nombre', isEqualTo: widget.userName)
-                        .orderBy('createdAt', descending: true)
-                        .limit(10)
-                        .snapshots(),
-                    builder: (context, snapshot) {
-                      if (snapshot.hasError) {
-                        return Center(
-                            child: Text(
-                                context.l10n.error(
-                                    mensajeError(context.l10n, snapshot.error)),
-                                style: const TextStyle(fontSize: 14)));
-                      }
+              );
+              final etiqueta = Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  child: Text(context.l10n.misUltimosPedidos,
+                      style: const TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey,
+                          letterSpacing: 1.1)));
+              final historial = StreamBuilder<QuerySnapshot>(
+                stream: FirebaseFirestore.instance
+                    .collection('salas')
+                    .doc(widget.codigoSala)
+                    .collection('pedidos')
+                    .where('nombre', isEqualTo: widget.userName)
+                    .orderBy('createdAt', descending: true)
+                    .limit(10)
+                    .snapshots(),
+                builder: (context, snapshot) {
+                  if (snapshot.hasError) {
+                    return Center(
+                        child: Text(
+                            context.l10n.error(
+                                mensajeError(context.l10n, snapshot.error)),
+                            style: const TextStyle(fontSize: 14)));
+                  }
 
-                      if (!snapshot.hasData) {
-                        return const Center(child: CircularProgressIndicator());
-                      }
+                  if (!snapshot.hasData) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
 
-                      final docs = snapshot.data!.docs;
+                  final docs = snapshot.data!.docs;
 
-                      if (docs.isEmpty) {
-                        return Center(
-                            child: Text(context.l10n.sinPedidosPropios,
-                                style: const TextStyle(
-                                    color: Colors.grey, fontSize: 14)));
-                      }
+                  if (docs.isEmpty) {
+                    return Center(
+                        child: Text(context.l10n.sinPedidosPropios,
+                            style: const TextStyle(
+                                color: Colors.grey, fontSize: 14)));
+                  }
 
-                      return ListView.builder(
-                        itemCount: docs.length,
-                        itemBuilder: (context, i) {
-                          final doc = docs[i];
+                  return ListView.builder(
+                    itemCount: docs.length,
+                    itemBuilder: (context, i) {
+                      final doc = docs[i];
 
-                          final data = doc.data() as Map<String, dynamic>;
+                      final data = doc.data() as Map<String, dynamic>;
 
-                          final isAtendido = data['atendido'] ?? false;
+                      final isAtendido = data['atendido'] ?? false;
 
-                          final esUrgente = data['urgente'] ?? false;
+                      final esUrgente = data['urgente'] ?? false;
 
-                          final respuestaTecnico = data['respuesta'] ?? '';
+                      final respuestaTecnico = data['respuesta'] ?? '';
 
-                          return GestureDetector(
-                            onLongPress: () async {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(context.l10n
-                                      .eliminandoPedido(data['pedido'])),
-                                  duration: const Duration(seconds: 2),
-                                  backgroundColor: Colors.redAccent,
-                                ),
-                              );
-
-                              await FirestoreService.eliminarPedidoIndividual(
-                                  widget.codigoSala, doc.id);
-                            },
-                            child: ListTile(
-                              dense: true,
-                              visualDensity: VisualDensity.compact,
-                              leading: Icon(
-                                isAtendido
-                                    ? Icons.check_circle
-                                    : (esUrgente
-                                        ? Icons.priority_high
-                                        : Icons.access_time_filled),
-                                color: isAtendido
-                                    ? Colors.green
-                                    : (esUrgente
-                                        ? Colors.redAccent
-                                        : Colors.orange),
-                                size: 16,
-                              ),
-                              title: Text(
-                                "${data['pedido']}",
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: esUrgente && !isAtendido
-                                      ? FontWeight.bold
-                                      : null,
-                                  decoration: isAtendido
-                                      ? TextDecoration.lineThrough
-                                      : null,
-                                ),
-                              ),
-                              subtitle: respuestaTecnico.isNotEmpty
-                                  ? Text(
-                                      context.l10n.consola(respuestaTecnico),
-                                      style: TextStyle(
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.bold,
-                                          color: context.acento),
-                                    )
-                                  : null,
+                      return GestureDetector(
+                        onLongPress: () async {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(context.l10n
+                                  .eliminandoPedido(data['pedido'])),
+                              duration: const Duration(seconds: 2),
+                              backgroundColor: Colors.redAccent,
                             ),
                           );
+
+                          await FirestoreService.eliminarPedidoIndividual(
+                              widget.codigoSala, doc.id);
                         },
+                        child: ListTile(
+                          dense: true,
+                          visualDensity: VisualDensity.compact,
+                          leading: Icon(
+                            isAtendido
+                                ? Icons.check_circle
+                                : (esUrgente
+                                    ? Icons.priority_high
+                                    : Icons.access_time_filled),
+                            color: isAtendido
+                                ? Colors.green
+                                : (esUrgente
+                                    ? Colors.redAccent
+                                    : Colors.orange),
+                            size: 16,
+                          ),
+                          title: Text(
+                            "${data['pedido']}",
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: esUrgente && !isAtendido
+                                  ? FontWeight.bold
+                                  : null,
+                              decoration: isAtendido
+                                  ? TextDecoration.lineThrough
+                                  : null,
+                            ),
+                          ),
+                          subtitle: respuestaTecnico.isNotEmpty
+                              ? Text(
+                                  context.l10n.consola(respuestaTecnico),
+                                  style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.bold,
+                                      color: context.acento),
+                                )
+                              : null,
+                        ),
                       );
                     },
-                  ),
-                ),
-              ],
-            ),
+                  );
+                },
+              );
+              // En horizontal (poca altura) una sola columna no deja lugar para
+              // las frases: se ponen al costado del texto y del historial.
+              if (caja.maxHeight < 360) {
+                return Row(
+                  children: [
+                    Expanded(flex: 3, child: grilla),
+                    Expanded(
+                      flex: 2,
+                      child: Column(
+                        children: [
+                          entrada,
+                          const Divider(thickness: 1, height: 1),
+                          etiqueta,
+                          Expanded(child: historial),
+                        ],
+                      ),
+                    ),
+                  ],
+                );
+              }
+              return Column(
+                children: [
+                  Expanded(flex: 3, child: grilla),
+                  entrada,
+                  const Divider(thickness: 1, height: 1),
+                  etiqueta,
+                  Expanded(flex: 2, child: historial),
+                ],
+              );
+            }),
           ),
           PestanaSala.setlist: SetlistTab(
             codigoSala: widget.codigoSala,
@@ -8862,7 +8919,7 @@ class _SonidistaPinScreenState extends State<SonidistaPinScreen> {
     return Scaffold(
       appBar: AppBar(title: Text(context.l10n.accesoSonidista2)),
       body: Padding(
-        padding: const EdgeInsets.all(24),
+        padding: rellenoFormulario(context),
         child: Column(
           children: [
             TextField(
@@ -9427,10 +9484,10 @@ class _SonidistaPageState extends State<SonidistaPage>
             ? null
             : TabBar(
                 controller: _tabController,
-                // Con 4 pestañas los nombres no entran en el ancho de un
-                // celular: la barra se desliza en vez de cortarlos.
-                isScrollable: _pestanas.length > 3,
-                tabAlignment: _pestanas.length > 3 ? TabAlignment.center : null,
+                isScrollable: pestanasApretadas(context, _pestanas.length),
+                tabAlignment: pestanasApretadas(context, _pestanas.length)
+                    ? TabAlignment.center
+                    : null,
                 tabs: [
                   for (final p in _pestanas) Tab(text: p.etiqueta(context.l10n))
                 ],
