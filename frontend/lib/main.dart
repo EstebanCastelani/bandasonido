@@ -4261,6 +4261,14 @@ EdgeInsets rellenoFormulario(BuildContext context) {
   return EdgeInsets.symmetric(horizontal: lateral, vertical: 24);
 }
 
+/// Mensaje centrado de "hace falta iniciar sesión" para las pantallas de cuenta.
+Widget mensajeNecesitaCuenta(String texto) => Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Text(texto, textAlign: TextAlign.center),
+      ),
+    );
+
 /// ¿Los nombres de las pestañas no entran en el ancho disponible? Con más de
 /// 3 pestañas, o con pantalla angosta y letra grande, la barra se desliza en
 /// vez de cortar los nombres.
@@ -5219,12 +5227,26 @@ class MisSalasScreen extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
-    final user = AuthService.currentUser;
+  Widget build(BuildContext context) => StreamBuilder<User?>(
+        stream: AuthService.authStateChanges(),
+        initialData: AuthService.currentUser,
+        builder: (context, sesion) => _construir(
+            context,
+            sesion.data,
+            sesion.connectionState == ConnectionState.waiting &&
+                sesion.data == null),
+      );
+
+  /// La pantalla se rehace cuando Firebase termina de restaurar la sesión: al
+  /// abrir la app puede tardar un instante y no es que falte iniciar sesión.
+  Widget _construir(BuildContext context, User? user, bool cargando) {
     return Scaffold(
       appBar: AppBar(title: Text(context.l10n.misSalas2)),
       body: (user == null || user.isAnonymous)
-          ? Center(child: Text(context.l10n.necesitasIniciarSesionParaTener))
+          ? (cargando
+              ? const Center(child: CircularProgressIndicator())
+              : mensajeNecesitaCuenta(
+                  context.l10n.necesitasIniciarSesionParaTener))
           : StreamBuilder<bool>(
               stream: UsuarioService.streamEsPro(user.uid),
               builder: (context, proSnapshot) {
@@ -7769,9 +7791,19 @@ class _MiRepertorioScreenState extends State<MiRepertorioScreen> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    final user = AuthService.currentUser;
+  Widget build(BuildContext context) => StreamBuilder<User?>(
+        stream: AuthService.authStateChanges(),
+        initialData: AuthService.currentUser,
+        builder: (context, sesion) => _construir(
+            context,
+            sesion.data,
+            sesion.connectionState == ConnectionState.waiting &&
+                sesion.data == null),
+      );
 
+  /// La pantalla se rehace cuando Firebase termina de restaurar la sesión: al
+  /// abrir la app puede tardar un instante y no es que falte iniciar sesión.
+  Widget _construir(BuildContext context, User? user, bool cargando) {
     return Scaffold(
       appBar: AppBar(
         title: Text(context.l10n.miRepertorio2),
@@ -7785,7 +7817,10 @@ class _MiRepertorioScreenState extends State<MiRepertorioScreen> {
         ],
       ),
       body: (user == null || user.isAnonymous)
-          ? Center(child: Text(context.l10n.necesitasIniciarSesionParaTener2))
+          ? (cargando
+              ? const Center(child: CircularProgressIndicator())
+              : mensajeNecesitaCuenta(
+                  context.l10n.necesitasIniciarSesionParaTener2))
           : Column(
               children: [
                 StreamBuilder<bool>(
@@ -8221,12 +8256,26 @@ class _MisSecuenciasScreenState extends State<MisSecuenciasScreen> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    final user = AuthService.currentUser;
+  Widget build(BuildContext context) => StreamBuilder<User?>(
+        stream: AuthService.authStateChanges(),
+        initialData: AuthService.currentUser,
+        builder: (context, sesion) => _construir(
+            context,
+            sesion.data,
+            sesion.connectionState == ConnectionState.waiting &&
+                sesion.data == null),
+      );
+
+  /// La pantalla se rehace cuando Firebase termina de restaurar la sesión: al
+  /// abrir la app puede tardar un instante y no es que falte iniciar sesión.
+  Widget _construir(BuildContext context, User? user, bool cargando) {
     return Scaffold(
       appBar: AppBar(title: Text(context.l10n.misSecuencias2)),
       body: (user == null || user.isAnonymous)
-          ? Center(child: Text(context.l10n.necesitasIniciarSesionParaTener3))
+          ? (cargando
+              ? const Center(child: CircularProgressIndicator())
+              : mensajeNecesitaCuenta(
+                  context.l10n.necesitasIniciarSesionParaTener3))
           : Column(
               children: [
                 Padding(
