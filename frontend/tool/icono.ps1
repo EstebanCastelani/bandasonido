@@ -52,3 +52,6 @@ function Dibujar([string]$ruta, [bool]$conFondo, [double]$escala) {
 Dibujar (Join-Path $dir 'icon.png') $true 1.0
 Dibujar (Join-Path $dir 'icon_foreground.png') $false 0.78
 "ok"
+
+# Logo para usar dentro de la app (barras sin fondo, ocupan casi todo el cuadro).
+Dibujar (Join-Path $PSScriptRoot '..\assets\images\logo.png') $false 1.2

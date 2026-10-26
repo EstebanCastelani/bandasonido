@@ -4125,8 +4125,7 @@ class _AuthScreenState extends State<AuthScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Icon(Icons.settings_input_component,
-                    size: 64, color: context.acento),
+                const LogoApp(tamano: 72),
                 const SizedBox(height: 16),
                 Text(
                   _modoRegistro
@@ -4243,6 +4242,22 @@ class _AuthScreenState extends State<AuthScreen> {
   }
 }
 
+/// Logo de la app (barras de sonido): el mismo dibujo del ícono, sin fondo.
+class LogoApp extends StatelessWidget {
+  final double tamano;
+  const LogoApp({super.key, required this.tamano});
+
+  @override
+  Widget build(BuildContext context) => Center(
+        child: Image.asset(
+          'assets/images/logo.png',
+          width: tamano,
+          height: tamano,
+          semanticLabel: 'Sound Check Pro',
+        ),
+      );
+}
+
 /// Ancho máximo del contenido de la app: en una tablet o un monitor el
 /// contenido se centra en vez de estirarse de borde a borde.
 const double kAnchoMaximoContenido = 840;
@@ -4337,8 +4352,7 @@ class IngressMenuScreen extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Icon(Icons.settings_input_component,
-                      size: 80, color: context.acento),
+                  const LogoApp(tamano: 96),
                   const SizedBox(height: 24),
                   const Text(
                     'SOUND CHECK PRO',
@@ -4454,14 +4468,9 @@ class MenuHamburguesa extends StatelessWidget {
           PopupMenuItem(
               value: 'secuencias', child: Text(context.l10n.misSecuencias2)),
         ],
-        const _ItemConfiguracion(),
-        if (conCuenta) ...[
+        _ItemConfiguracion(conCuenta: conCuenta),
+        if (conCuenta)
           PopupMenuItem(value: 'salir', child: Text(context.l10n.cerrarSesion)),
-          PopupMenuItem(
-              value: 'eliminar',
-              child: Text(context.l10n.eliminarCuenta,
-                  style: const TextStyle(color: Colors.red))),
-        ],
       ],
     );
   }
@@ -4472,7 +4481,10 @@ class MenuHamburguesa extends StatelessWidget {
 /// está abierta). Al elegir una, el menú se cierra devolviendo 'colores' o
 /// 'idioma' (lo resuelve MenuHamburguesa.onSelected).
 class _ItemConfiguracion extends PopupMenuEntry<String> {
-  const _ItemConfiguracion();
+  /// Con cuenta real se agrega "Eliminar mi cuenta" dentro del desplegable.
+  final bool conCuenta;
+
+  const _ItemConfiguracion({this.conCuenta = false});
 
   @override
   double get height => kMinInteractiveDimension;
@@ -4491,7 +4503,7 @@ class _ItemConfiguracionState extends State<_ItemConfiguracion> {
   Widget build(BuildContext context) {
     final l = context.l10n;
     final color = Theme.of(context).colorScheme.primary;
-    Widget opcion(String valor, String texto) => InkWell(
+    Widget opcion(String valor, String texto, {Color? colorTexto}) => InkWell(
           onTap: () => Navigator.pop(context, valor),
           child: Container(
             height: kMinInteractiveDimension,
@@ -4502,7 +4514,7 @@ class _ItemConfiguracionState extends State<_ItemConfiguracion> {
                   start: BorderSide(
                       color: color.withValues(alpha: 0.5), width: 2)),
             ),
-            child: Text(texto),
+            child: Text(texto, style: TextStyle(color: colorTexto)),
           ),
         );
     return Column(
@@ -4537,6 +4549,9 @@ class _ItemConfiguracionState extends State<_ItemConfiguracion> {
                   children: [
                     opcion('colores', l.colores),
                     opcion('idioma', l.idioma),
+                    if (widget.conCuenta)
+                      opcion('eliminar', l.eliminarCuenta,
+                          colorTexto: Colors.red),
                     Padding(
                       padding: const EdgeInsetsDirectional.only(
                           start: 28, top: 8, bottom: 8, end: 12),
