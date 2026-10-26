@@ -51,3 +51,12 @@ En Android, una secuencia larga tardaba entre 1 y 13 segundos en empezar a sonar
 
 ### DF-12 · Corregido (25-oct-2026)
 En "Mis salas", borrar una entrada no pedía confirmación. Ahora aparece el aviso "Sala quitada del historial" con **Deshacer** (5 idiomas).
+
+### DF-13 · Corregido (25-oct-2026)
+Con pantalla angosta o letra grande del sistema (probado con 320 dp de ancho y letra al 130 %), los nombres de las pestañas de la sala ("PEDIDOS", "SECUENCIAS") quedaban cortados. Ahora la barra de pestañas se desliza cuando los nombres no entran (función `pestanasApretadas`).
+
+### DF-14 · Corregido (25-oct-2026)
+Con el celular en horizontal, en la pestaña Pedidos las frases rápidas quedaban reducidas a una tira de unos 50 px, casi inutilizable. Ahora, con poca altura, las frases van a la izquierda y el campo de texto y el historial a la derecha.
+
+### DF-15 · Corregido (25-oct-2026)
+En una tablet (800 × 1280 dp) las pantallas de ingreso y los formularios estiraban botones y campos de borde a borde. Ahora los formularios se centran con ancho máximo de 480 dp y el resto del contenido con 840 dp (`kAnchoMaximoFormulario`, `kAnchoMaximoContenido`).

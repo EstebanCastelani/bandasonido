@@ -59,6 +59,7 @@ Surgen de `AUDITORIA_CALIDAD_ESTANDARES.md`. Las medidas objetivo de la columna 
 | RQ-26 | Calidad del código | El código propio está formateado de forma uniforme (verificado en la CI), `flutter analyze` sin errores ni warnings, y el repositorio contiene solo el producto | CI | Definido |
 | RQ-27 | Disponibilidad en vivo (Android) | Las secuencias de la sala se guardan en el celular apenas aparecen en la lista: tocar "play" empieza a sonar en ≤ 1 s y sigue sonando si se corta la red. En web no aplica | Prueba en celular + pruebas unitarias de la caché | Definido |
 | RQ-28 | Privacidad (Google Play) | Una persona con cuenta puede **eliminar su cuenta y sus datos desde la app** (perfil, frases, repertorio, secuencias y sus archivos, historial de salas y cuenta de acceso), previa reconfirmación de identidad y confirmación final | Pruebas unitarias de la lógica + prueba manual con una cuenta de prueba | Definido |
+| RQ-29 | Adaptación a pantallas | La app se puede usar en celulares chicos y grandes, en vertical y horizontal, con letra grande del sistema y en tablets: nada se corta ni se vuelve inalcanzable, y en pantallas anchas el contenido se centra | Prueba en celular real simulando tamaños (`wm size/density`, `font_scale`, rotación) | Definido |
 
 ## 2. Decisiones del negocio
 
