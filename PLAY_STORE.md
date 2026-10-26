@@ -13,7 +13,7 @@ Guía paso a paso. 🔑 = lo tenés que hacer vos (cuentas, claves, decisiones).
 | Probado en un celular real | ◐ **Probado el 25-oct-2026** en un Redmi 25078RA3EY (Android 15, 720 × 1600): menú, secuencias (carga y reproducción), crear sala, pedidos, **corte de red con aviso y reenvío**, panel del sonidista, "Borrar todo", cierre y **login con Google** (confirmado por vos). Además, **tamaños y orientación** (RQ-29): simulados en tu celular desde 320 dp de ancho hasta tablet de 800 × 1280 dp, vertical y horizontal, con letra al 130–150 %. Falta: subir un archivo, PDFs y cifrados, y probar en otros modelos reales |
 | Identificador de la app | ◐ `com.soundcheckpro.appsonido_frontend` (ver §2) |
 | Política de privacidad | ✘ Hay un borrador en `docs/politica-de-privacidad-borrador.html` (ver §6) |
-| Eliminar cuenta dentro de la app | ◐ **Implementada** (menú → "Eliminar mi cuenta"). Reglas publicadas, borrado probado y enlace web publicado (ver §7) |
+| Eliminar cuenta dentro de la app | ◐ **Implementada** (menú → Configuración → "Eliminar mi cuenta"). Reglas publicadas, borrado probado y enlace web publicado (ver §7) |
 | Ícono propio, capturas, descripción | ◐ **Ícono de la app hecho** (barras de sonido). Para la ficha de Play falta el ícono de 512 × 512 (`frontend/assets/icon/icon.png` está en 1024 × 1024: se reduce), la imagen destacada, las capturas y las descripciones 🔑 |
 
 ## 1. Primero: probar en un celular real 🔑
@@ -75,7 +75,7 @@ Hay un borrador en `docs/politica-de-privacidad-borrador.html` basado en los dat
 3. Copiarla a `frontend/web/privacidad.html` y publicar: quedará en `https://estebancastelani.github.io/bandasonido/privacidad.html`, que es la URL que pide Play. (No la dejé en `web/` para no publicar una página con datos incompletos.)
 
 ## 7. Bloqueantes de política que hay que resolver antes
-1. **Eliminar la cuenta desde la app.** Play exige una opción **dentro de la app** y un **enlace web** para pedir la eliminación. La opción dentro de la app ya existe (menú de la cuenta → "Eliminar mi cuenta"). Pendientes 🔑: (a) ~~publicar `firestore.rules`~~ **hecho el 25-oct-2026**, (b) ~~probarlo con una cuenta de prueba~~ **probado por el dueño el 25-oct-2026: funciona**, (c) ~~enlace web~~ **publicado**: `https://estebancastelani.github.io/bandasonido/eliminar-cuenta.html` (pegar esa URL en Play Console → Seguridad de los datos).
+1. **Eliminar la cuenta desde la app.** Play exige una opción **dentro de la app** y un **enlace web** para pedir la eliminación. La opción dentro de la app ya existe (menú → Configuración → "Eliminar mi cuenta"). Pendientes 🔑: (a) ~~publicar `firestore.rules`~~ **hecho el 25-oct-2026**, (b) ~~probarlo con una cuenta de prueba~~ **probado por el dueño el 25-oct-2026: funciona**, (c) ~~enlace web~~ **publicado**: `https://estebancastelani.github.io/bandasonido/eliminar-cuenta.html` (pegar esa URL en Play Console → Seguridad de los datos).
 2. **Archivos en un bucket público.** Los PDFs y audios que suben los usuarios quedan en un bucket de Supabase accesible por enlace (la ruta no es adivinable, pero no está protegida). La política de privacidad y el formulario de datos tienen que decirlo con claridad; si preferís que sean privados hay que pasar a enlaces firmados (ítem B-26).
 3. **App Check en Android.** Si activás la exigencia de App Check en Firestore, hay que registrar antes un proveedor para Android (Play Integrity) o la app dejaría de funcionar (ver `OPERACION.md` §6).
 

@@ -5,11 +5,12 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). La versió
 ## [Sin publicar]
 
 ### Agregado
+- El logo de las pantallas de ingreso y de inicio de sesión ahora es el mismo dibujo del ícono (barras de sonido) en vez del conector genérico.
 - Ícono propio de la app (barras de sonido, degradé cian a violeta) para Android (adaptable), web y favicon. Se regenera con `tool/icono.ps1` y `dart run flutter_launcher_icons`.
 - Android: las secuencias de la sala se guardan en el celular apenas aparecen en la lista. Empiezan a sonar casi al instante al tocar "play" (0,2 a 0,9 s medidos, antes 1 a 13 s) y siguen sonando sin conexión. Guarda hasta 12 pistas.
 
 ### Agregado
-- **Eliminar mi cuenta** (menú de la cuenta): borra el perfil, las frases, el repertorio y las secuencias con sus archivos, el historial de salas y la cuenta de acceso, tras volver a confirmar la identidad (contraseña o Google) y una confirmación final. Reglas publicadas y borrado probado. Página web de pedido de eliminación: `eliminar-cuenta.html`.
+- **Eliminar mi cuenta** (menú → Configuración): borra el perfil, las frases, el repertorio y las secuencias con sus archivos, el historial de salas y la cuenta de acceso, tras volver a confirmar la identidad (contraseña o Google) y una confirmación final. Reglas publicadas y borrado probado. Página web de pedido de eliminación: `eliminar-cuenta.html`.
 
 ### Corregido
 - "Mis salas", "Mi repertorio" y "Mis secuencias": ya no muestran "Necesitás iniciar sesión" cuando la sesión está iniciada pero todavía se está restaurando, y el mensaje queda centrado (DF-16).

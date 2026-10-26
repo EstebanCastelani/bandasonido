@@ -743,7 +743,7 @@ registrada sin chequear `esPro` — ver §8 para cómo revertir esto.
     `archivosParaBorrar`). `alternar` reproduce con `DeviceFileSource` si está en caché.
     Se dispara desde la lista de la sala. En web no hace nada. Medido en celular:
     0,2–0,9 s de toque a audio, y funciona con la red apagada (DF-11 corregido).
-37. **Eliminar mi cuenta (RQ-28)**: menú de la cuenta → `EliminarCuentaScreen` →
+37. **Eliminar mi cuenta (RQ-28)**: menú ☰ → Configuración (desplegable, solo con cuenta real) → `EliminarCuentaScreen` →
     `CuentaService.eliminarCuenta`: reautentica (contraseña o Google), borra los
     archivos (`archivosDeCuenta`: Supabase o Firebase Storage según `storageProvider`),
     la presencia en `salas/*/miembros`, las subcolecciones (`frases`, `mi_repertorio`,
