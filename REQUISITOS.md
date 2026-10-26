@@ -57,6 +57,7 @@ Surgen de `AUDITORIA_CALIDAD_ESTANDARES.md`. Las medidas objetivo de la columna 
 | RQ-24 | Atributos con criterio medible | Cada atributo (disponibilidad, rendimiento, escalabilidad, seguridad, desplegabilidad, modificabilidad, interoperabilidad, testeabilidad, usabilidad) tiene un escenario con medida en la §3 de la auditoría de calidad | — | Propuesto; pendiente de validar |
 | RQ-25 | Seguridad frente a abuso | App Check exigido y reglas que validan forma y tamaño de los pedidos | Pruebas de reglas (pendientes) | **Pendiente** (🔑 clave de App Check, ver `BACKLOG.md` B-01/B-02) |
 | RQ-26 | Calidad del código | El código propio está formateado de forma uniforme (verificado en la CI), `flutter analyze` sin errores ni warnings, y el repositorio contiene solo el producto | CI | Definido |
+| RQ-27 | Disponibilidad en vivo (Android) | Las secuencias de la sala se guardan en el celular apenas aparecen en la lista: tocar "play" empieza a sonar en ≤ 1 s y sigue sonando si se corta la red. En web no aplica | Prueba en celular + pruebas unitarias de la caché | Definido |
 
 ## 2. Decisiones del negocio
 

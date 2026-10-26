@@ -723,6 +723,26 @@ registrada sin chequear `esPro` — ver §8 para cómo revertir esto.
       (B-26). Borrador de política de privacidad en
       `docs/politica-de-privacidad-borrador.html` (con campos `[ENTRE CORCHETES]`
       que completar; no está en `web/` a propósito para no publicarlo incompleto).
+35. **Primera prueba en un celular real (25-oct-2026)**: Redmi 25078RA3EY,
+    Android 15, vía `adb` (instalar el APK release, capturas con `screencap` y
+    toques con `input tap`). Funcionó: menú, Configuración con versión, Mis
+    secuencias (carga y reproducción), crear sala, pedidos, **corte de red real
+    (`svc wifi/data disable`): banner "Sin conexión", aviso naranja de pedido en
+    cola y entrega al volver la red**, panel del sonidista, "Borrar todo", cierre
+    de sesión y login con Google (OK con la clave de depuración de esta PC; la
+    SHA-1 de la clave de release hay que registrarla en Firebase aparte).
+    Defectos hallados y corregidos: PIN partido en dos líneas (DF-09) y títulos
+    cortados en sala y panel (DF-10). Abiertos: carga de secuencias ~13 s (DF-11),
+    "Mis salas" sin confirmar el borrado (DF-12). **Pendiente**: subir archivos,
+    PDFs y cifrados en Android, y otros modelos. Las capturas de pantalla se
+    hicieron con la sesión real del dueño: no repetir pruebas de escritura sobre
+    "Mis salas" sin limpiar lo creado.
+36. **Caché local de secuencias (Android, RQ-27)**: `ReproductorSecuencias.precargar`
+    baja las pistas de la sala a `Directory.systemTemp/sc_secuencias/<claveCache(url)>.audio`
+    (archivo `.part` y rename al terminar; tope 120 MB por archivo; máximo 12 pistas,
+    `archivosParaBorrar`). `alternar` reproduce con `DeviceFileSource` si está en caché.
+    Se dispara desde la lista de la sala. En web no hace nada. Medido en celular:
+    0,2–0,9 s de toque a audio, y funciona con la red apagada (DF-11 corregido).
 
 ## 6. Modelo de seguridad de las salas — trade-off consciente, no bug
 

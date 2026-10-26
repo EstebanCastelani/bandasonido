@@ -4,9 +4,14 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). La versió
 
 ## [Sin publicar]
 
+### Agregado
+- Android: las secuencias de la sala se guardan en el celular apenas aparecen en la lista. Empiezan a sonar casi al instante al tocar "play" (0,2 a 0,9 s medidos, antes 1 a 13 s) y siguen sonando sin conexión. Guarda hasta 12 pistas.
+
 ### Corregido
 - Android: el manifiesto principal no declaraba el permiso de internet, por lo que una versión de release no podía conectarse a Firebase ni a Supabase.
 - Android: el nombre visible de la app era `appsonido_frontend`; ahora es "Sound Check Pro".
+
+- Celulares: el PIN de la sala ya no se parte en dos líneas al crearla; el título de la sala muestra nombre, rol y código completos, y el del panel del sonidista muestra "Consola" y el PIN en dos líneas.
 
 ### Cambiado
 - Android: la firma de release se lee de `android/key.properties` (si no existe, se usa la clave de depuración solo para pruebas). Ver `PLAY_STORE.md`.

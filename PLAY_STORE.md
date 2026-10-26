@@ -10,7 +10,7 @@ Guía paso a paso. 🔑 = lo tenés que hacer vos (cuentas, claves, decisiones).
 | Permiso de internet | ✔ **Corregido hoy**: el manifiesto principal no lo declaraba (Flutter solo lo agrega en debug/profile), por lo que una versión de tienda no habría podido conectarse a Firebase ni a Supabase |
 | Nombre visible | ✔ **Corregido hoy**: era `appsonido_frontend`, ahora "Sound Check Pro" |
 | Firma de release | ◐ El build ya lee `android/key.properties` (ejemplo en `android/key.properties.example`). **Sin ese archivo se firma con la clave de depuración y ese archivo NO sirve para Play Store** (verificado: el APK actual figura firmado por "Android Debug") |
-| Probado en un celular real | ✘ **Nunca.** Solo se probó la versión web |
+| Probado en un celular real | ◐ **Probado el 25-oct-2026** en un Redmi 25078RA3EY (Android 15, 720 × 1600): menú, secuencias (carga y reproducción), crear sala, pedidos, **corte de red con aviso y reenvío**, panel del sonidista, "Borrar todo", cierre y **login con Google** (confirmado por vos). Falta: subir un archivo, PDFs y cifrados, y otros modelos de celular |
 | Identificador de la app | ◐ `com.soundcheckpro.appsonido_frontend` (ver §2) |
 | Política de privacidad | ✘ Hay un borrador en `docs/politica-de-privacidad-borrador.html` (ver §6) |
 | Eliminar cuenta dentro de la app | ✘ **No existe** y Play lo exige para apps con cuentas (ver §7) |
@@ -18,6 +18,8 @@ Guía paso a paso. 🔑 = lo tenés que hacer vos (cuentas, claves, decisiones).
 
 ## 1. Primero: probar en un celular real 🔑
 Antes de gastar tiempo en la tienda, comprobá que la app anda en Android:
+> **Ya se hizo una primera ronda en un celular real** (ver §0). Esta sección sirve para repetirla con otros modelos y para lo que falta.
+
 1. En el celular: activá **Opciones de desarrollador → Depuración USB** y conectalo.
 2. En la carpeta `frontend`: `flutter devices` (tiene que aparecer) y luego `flutter run --release`.
 3. Probá como invitado y con cuenta: crear y unirse a una sala, enviar pedidos, el panel del sonidista, cifrados y PDF, secuencias (subir un audio, reproducir, cambiar tono/tempo/volumen), login con Google, cambio de idioma y de paleta, y qué pasa al cortar el wifi (debe aparecer el aviso "Sin conexión").
