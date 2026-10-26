@@ -422,4 +422,35 @@ void main() {
       expect(r, ['vieja.part']);
     });
   });
+
+  group('Eliminar cuenta (RQ-28)', () {
+    test('archivosDeCuenta lista solo los documentos con archivo', () {
+      final r = archivosDeCuenta([
+        {
+          'storagePath': 'usuarios/u1/canciones/a.pdf',
+          'storageProvider': 'supabase'
+        },
+        {
+          'storagePath': 'usuarios/u1/secuencias/b.mp3',
+          'storageProvider': 'supabase'
+        },
+        {'titulo': 'sin archivo'},
+        {'storagePath': ''},
+      ]);
+      expect(r.length, 2);
+      expect(r.first.ruta, 'usuarios/u1/canciones/a.pdf');
+      expect(r.first.proveedor, 'supabase');
+    });
+
+    test('un archivo sin proveedor es de Firebase (los más viejos)', () {
+      final r = archivosDeCuenta([
+        {'storagePath': 'usuarios/u1/canciones/viejo.pdf'},
+      ]);
+      expect(r.single.proveedor, 'firebase');
+    });
+
+    test('sin documentos no hay nada que borrar', () {
+      expect(archivosDeCuenta([]), isEmpty);
+    });
+  });
 }

@@ -1684,6 +1684,232 @@ class MisSalasService {
   }
 }
 
+/// Archivos que hay que borrar del almacenamiento al eliminar una cuenta, a
+/// partir de los documentos de su repertorio y sus secuencias. Cada archivo
+/// dice con qué proveedor se subió ('supabase' o, los más viejos, 'firebase').
+List<({String proveedor, String ruta})> archivosDeCuenta(
+    Iterable<Map<String, dynamic>> documentos) {
+  final archivos = <({String proveedor, String ruta})>[];
+  for (final d in documentos) {
+    final ruta = d['storagePath'] as String? ?? '';
+    if (ruta.isEmpty) continue;
+    archivos.add((
+      proveedor: d['storageProvider'] as String? ?? 'firebase',
+      ruta: ruta,
+    ));
+  }
+  return archivos;
+}
+
+/// Eliminación de la cuenta y de todos sus datos (lo exige Google Play y la
+/// política de privacidad). Orden: 1) volver a confirmar la identidad (si
+/// falla, no se borró nada), 2) archivos del almacenamiento, 3) documentos de
+/// Firestore, 4) la cuenta de Firebase Auth. Los pedidos y salas compartidos
+/// con otras personas no se tocan: no son datos de la cuenta.
+class CuentaService {
+  static const _subcolecciones = [
+    'frases',
+    'mi_repertorio',
+    'mis_secuencias',
+    'mis_salas',
+  ];
+
+  /// True si la cuenta entra con email y contraseña (hay que pedirla).
+  static bool get usaContrasena =>
+      AuthService.currentUser?.providerData
+          .any((p) => p.providerId == 'password') ??
+      false;
+
+  static Future<void> _reautenticar(String? contrasena) async {
+    final user = AuthService.currentUser!;
+    if (usaContrasena) {
+      await user.reauthenticateWithCredential(EmailAuthProvider.credential(
+          email: user.email!, password: contrasena ?? ''));
+    } else if (kIsWeb) {
+      await user.reauthenticateWithPopup(GoogleAuthProvider());
+    } else {
+      final g = await GoogleSignIn().signIn();
+      if (g == null) throw Exception(L10n.t.inicioDeSesionConGoogle);
+      final auth = await g.authentication;
+      await user.reauthenticateWithCredential(GoogleAuthProvider.credential(
+          accessToken: auth.accessToken, idToken: auth.idToken));
+    }
+  }
+
+  static Future<void> _borrarArchivo(
+      ({String proveedor, String ruta}) a) async {
+    try {
+      if (a.proveedor == 'supabase') {
+        await supabase.storage.from(kSupabaseRepertorioBucket).remove([a.ruta]);
+      } else {
+        await FirebaseStorage.instance.ref(a.ruta).delete();
+      }
+    } catch (e) {
+      debugPrint('No se pudo borrar un archivo de la cuenta: $e');
+    }
+  }
+
+  static Future<void> eliminarCuenta({String? contrasena}) async {
+    final user = AuthService.currentUser!;
+    final uid = user.uid;
+    await _reautenticar(contrasena);
+
+    final fs = FirebaseFirestore.instance;
+    final perfil = fs.collection('usuarios').doc(uid);
+    final porColeccion = <String, QuerySnapshot<Map<String, dynamic>>>{};
+    for (final c in _subcolecciones) {
+      porColeccion[c] = await perfil.collection(c).get();
+    }
+
+    final archivos = archivosDeCuenta([
+      for (final c in ['mi_repertorio', 'mis_secuencias'])
+        ...porColeccion[c]!.docs.map((d) => d.data()),
+    ]);
+    for (final a in archivos) {
+      await _borrarArchivo(a);
+    }
+
+    // Presencia en las salas donde estuvo (para que no quede su nombre).
+    for (final sala in porColeccion['mis_salas']!.docs) {
+      try {
+        await fs
+            .collection('salas')
+            .doc(sala.id)
+            .collection('miembros')
+            .doc(uid)
+            .delete();
+      } catch (e) {
+        debugPrint('No se pudo quitar la presencia en ${sala.id}: $e');
+      }
+    }
+
+    for (final snap in porColeccion.values) {
+      for (var i = 0; i < snap.docs.length; i += 400) {
+        final lote = fs.batch();
+        for (final d in snap.docs.skip(i).take(400)) {
+          lote.delete(d.reference);
+        }
+        await lote.commit();
+      }
+    }
+    await perfil.delete();
+    await user.delete();
+    await AuthService.signOut();
+  }
+}
+
+/// Pantalla de "Eliminar mi cuenta" (menú de la cuenta): explica qué se borra,
+/// vuelve a pedir la identidad y pide una confirmación final.
+class EliminarCuentaScreen extends StatefulWidget {
+  const EliminarCuentaScreen({super.key});
+
+  @override
+  State<EliminarCuentaScreen> createState() => _EliminarCuentaScreenState();
+}
+
+class _EliminarCuentaScreenState extends State<EliminarCuentaScreen> {
+  final _contrasena = TextEditingController();
+  bool _eliminando = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    _contrasena.dispose();
+    super.dispose();
+  }
+
+  Future<void> _eliminar() async {
+    final l = context.l10n;
+    final seguro = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(l.eliminarCuentaPregunta),
+        content: Text(l.eliminarCuentaExplicacion),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text(l.cancelar)),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(l.eliminarDefinitivamente,
+                style: const TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+    if (seguro != true || !mounted) return;
+    setState(() {
+      _eliminando = true;
+      _error = null;
+    });
+    final navegador = Navigator.of(context);
+    final mensajero = ScaffoldMessenger.of(context);
+    final textoListo = l.cuentaEliminada;
+    final textoError = l.noSePudoEliminarCuenta;
+    try {
+      await CuentaService.eliminarCuenta(contrasena: _contrasena.text);
+      mensajero.showSnackBar(SnackBar(content: Text(textoListo)));
+      navegador.pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const BienvenidaScreen()),
+        (route) => false,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _eliminando = false;
+        _error = e is FirebaseAuthException &&
+                (e.code == 'wrong-password' || e.code == 'invalid-credential')
+            ? AuthService.mensajeError(e)
+            : textoError;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l = context.l10n;
+    return Scaffold(
+      appBar: AppBar(title: Text(l.eliminarCuenta)),
+      body: ListView(
+        padding: const EdgeInsets.all(24),
+        children: [
+          Icon(Icons.warning_amber_rounded,
+              color: Colors.red.shade400, size: 48),
+          const SizedBox(height: 16),
+          Text(l.eliminarCuentaExplicacion),
+          const SizedBox(height: 24),
+          if (CuentaService.usaContrasena)
+            TextField(
+              controller: _contrasena,
+              obscureText: true,
+              enabled: !_eliminando,
+              decoration: InputDecoration(
+                  labelText: l.eliminarCuentaContrasena,
+                  border: const OutlineInputBorder()),
+            ),
+          if (_error != null) ...[
+            const SizedBox(height: 12),
+            Text(_error!, style: const TextStyle(color: Colors.red)),
+          ],
+          const SizedBox(height: 24),
+          if (_eliminando)
+            Column(children: [
+              const CircularProgressIndicator(),
+              const SizedBox(height: 12),
+              Text(l.eliminandoCuenta),
+            ])
+          else
+            FilledButton(
+              style: FilledButton.styleFrom(backgroundColor: Colors.red),
+              onPressed: _eliminar,
+              child: Text(l.eliminarDefinitivamente),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
 /// Registra el acceso a una sala en el historial de la cuenta (mis_salas) si
 /// el usuario tiene cuenta real y la función Pro está habilitada (o gratis
 /// por ahora vía kFuncionesProGratisPorAhora). No hace nada para invitados
@@ -2806,7 +3032,7 @@ class FilaSecuencia extends StatelessWidget {
             .toDouble()
             .clamp(0.0, maxMs > 0 ? maxMs : 0.0);
         return Container(
-          color: esActual ? context.acento.withOpacity(0.08) : null,
+          color: esActual ? context.acento.withValues(alpha: 0.08) : null,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -2974,6 +3200,7 @@ class SoundCheckProApp extends StatefulWidget {
   @override
   State<SoundCheckProApp> createState() => _SoundCheckProAppState();
 
+  // ignore: library_private_types_in_public_api
   static _SoundCheckProAppState of(BuildContext context) =>
       context.findAncestorStateOfType<_SoundCheckProAppState>()!;
 }
@@ -3383,8 +3610,10 @@ class _FondoEscenario extends StatelessWidget {
             height: radio * 2,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              gradient: RadialGradient(
-                  colors: [color.withOpacity(0.55), color.withOpacity(0)]),
+              gradient: RadialGradient(colors: [
+                color.withValues(alpha: 0.55),
+                color.withValues(alpha: 0)
+              ]),
             ),
           ),
         );
@@ -3503,11 +3732,11 @@ class _BotonBienvenida extends StatelessWidget {
               border: Border.all(
                   color: principal
                       ? const Color(0xFFA5F3FC)
-                      : color.withOpacity(0.7),
+                      : color.withValues(alpha: 0.7),
                   width: 1.3),
               boxShadow: [
                 BoxShadow(
-                    color: color.withOpacity(principal ? 0.55 : 0.25),
+                    color: color.withValues(alpha: principal ? 0.55 : 0.25),
                     blurRadius: principal ? 22 : 14)
               ],
             ),
@@ -3592,7 +3821,7 @@ class _FuncionesDestacadas extends StatelessWidget {
             for (var i = 0; i < items.length; i++) ...[
               if (i > 0)
                 VerticalDivider(
-                    color: Colors.white.withOpacity(0.12),
+                    color: Colors.white.withValues(alpha: 0.12),
                     width: 1,
                     thickness: 1),
               Expanded(
@@ -4163,6 +4392,7 @@ class MenuHamburguesa extends StatelessWidget {
           'secuencias' => const MisSecuenciasScreen(),
           'colores' => const PaletaPickerScreen(),
           'idioma' => const IdiomaPickerScreen(),
+          'eliminar' => const EliminarCuentaScreen(),
           _ => null,
         };
         if (pantalla != null) {
@@ -4180,8 +4410,13 @@ class MenuHamburguesa extends StatelessWidget {
               value: 'secuencias', child: Text(context.l10n.misSecuencias2)),
         ],
         const _ItemConfiguracion(),
-        if (conCuenta)
+        if (conCuenta) ...[
           PopupMenuItem(value: 'salir', child: Text(context.l10n.cerrarSesion)),
+          PopupMenuItem(
+              value: 'eliminar',
+              child: Text(context.l10n.eliminarCuenta,
+                  style: const TextStyle(color: Colors.red))),
+        ],
       ],
     );
   }
@@ -4524,6 +4759,7 @@ class _CrearSalaScreenState extends State<CrearSalaScreen> {
     try {
       await AuthService.asegurarSesion();
 
+      if (!mounted) return;
       final comoSonidista =
           await decidirEntradaSonidista(context, _rolController.text);
 
@@ -4534,6 +4770,7 @@ class _CrearSalaScreenState extends State<CrearSalaScreen> {
       }
 
       if (comoSonidista) {
+        if (!mounted) return;
         await entrarComoSonidista(context, _pin);
 
         return;
@@ -4729,6 +4966,7 @@ class _UnirmeSalaScreenState extends State<UnirmeSalaScreen> {
     try {
       await AuthService.asegurarSesion();
 
+      if (!mounted) return;
       final comoSonidista =
           await decidirEntradaSonidista(context, _rolController.text);
 
@@ -4739,6 +4977,7 @@ class _UnirmeSalaScreenState extends State<UnirmeSalaScreen> {
       }
 
       if (comoSonidista) {
+        if (!mounted) return;
         await entrarComoSonidista(context, pin);
 
         return;
@@ -5021,8 +5260,28 @@ class MisSalasScreen extends StatelessWidget {
                                 icon: const Icon(Icons.delete_outline,
                                     size: 18, color: Colors.red),
                                 tooltip: context.l10n.quitarDelHistorial,
-                                onPressed: () => MisSalasService.quitar(
-                                    user.uid, codigoSala),
+                                onPressed: () async {
+                                  final mensajero =
+                                      ScaffoldMessenger.of(context);
+                                  final aviso =
+                                      context.l10n.salaQuitadaDelHistorial;
+                                  final deshacer = context.l10n.deshacer;
+                                  await MisSalasService.quitar(
+                                      user.uid, codigoSala);
+                                  mensajero.showSnackBar(SnackBar(
+                                    content: Text(aviso),
+                                    action: SnackBarAction(
+                                      label: deshacer,
+                                      onPressed: () => FirebaseFirestore
+                                          .instance
+                                          .collection('usuarios')
+                                          .doc(user.uid)
+                                          .collection('mis_salas')
+                                          .doc(codigoSala)
+                                          .set(data),
+                                    ),
+                                  ));
+                                },
                               ),
                             ],
                           ),
@@ -5398,11 +5657,11 @@ class _RequestScreenState extends State<RequestScreen>
         return ElevatedButton(
           style: ElevatedButton.styleFrom(
             padding: const EdgeInsets.symmetric(horizontal: 2),
-            backgroundColor: context.acento.withOpacity(0.05),
+            backgroundColor: context.acento.withValues(alpha: 0.05),
             elevation: 0,
             shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(6),
-                side: BorderSide(color: context.acento.withOpacity(0.2))),
+                side: BorderSide(color: context.acento.withValues(alpha: 0.2))),
           ),
           onPressed: () => _enviarMensaje(pedido),
           child: Text(pedido,
@@ -6235,13 +6494,13 @@ class SetlistTab extends StatelessWidget {
             return ListTile(
               key: ValueKey(doc.id),
               tileColor: esProximo
-                  ? context.acento.withOpacity(0.06)
-                  : (pausado ? Colors.orange.withOpacity(0.08) : null),
+                  ? context.acento.withValues(alpha: 0.06)
+                  : (pausado ? Colors.orange.withValues(alpha: 0.08) : null),
               leading: PopupMenuButton<String>(
                 tooltip: context.l10n.cambiarEstadoDelTema,
                 icon: Icon(iconosEstado[estado],
                     color: coloresEstado[estado] ??
-                        context.acento.withOpacity(0.5)),
+                        context.acento.withValues(alpha: 0.5)),
                 onSelected: (nuevoEstado) => SetlistService.actualizarEstado(
                     codigoSala, doc.id, nuevoEstado),
                 itemBuilder: (context) => [
@@ -6958,7 +7217,7 @@ class _SecuenciasTabState extends State<SecuenciasTab>
                             children: [
                               Icon(Icons.graphic_eq,
                                   size: 64,
-                                  color: context.acento.withOpacity(0.5)),
+                                  color: context.acento.withValues(alpha: 0.5)),
                               const SizedBox(height: 12),
                               Text(
                                 widget.esSonidista
@@ -7481,7 +7740,7 @@ class _MiRepertorioScreenState extends State<MiRepertorioScreen> {
 
                     return Container(
                       width: double.infinity,
-                      color: context.acento.withOpacity(0.08),
+                      color: context.acento.withValues(alpha: 0.08),
                       padding: const EdgeInsets.symmetric(
                           horizontal: 16, vertical: 10),
                       child: Row(
@@ -8683,7 +8942,8 @@ class _UrgentBlinkState extends State<_UrgentBlink>
       animation: _controller,
       child: widget.child,
       builder: (context, child) => Container(
-        color: Colors.redAccent.withOpacity(0.08 + _controller.value * 0.22),
+        color:
+            Colors.redAccent.withValues(alpha: 0.08 + _controller.value * 0.22),
         child: child,
       ),
     );
@@ -8911,8 +9171,8 @@ class _SonidistaPageState extends State<SonidistaPage>
       tileColor: isAtendido
           ? Colors.transparent
           : (esUrgente
-              ? Colors.redAccent.withOpacity(0.12)
-              : context.acento.withOpacity(0.05)),
+              ? Colors.redAccent.withValues(alpha: 0.12)
+              : context.acento.withValues(alpha: 0.05)),
       leading: esUrgente && !isAtendido
           ? const Icon(Icons.warning_amber_rounded, color: Colors.redAccent)
           : CircleAvatar(
@@ -9232,7 +9492,8 @@ class _SonidistaPageState extends State<SonidistaPage>
                     for (final rol in rolesOrdenados) ...[
                       Container(
                         width: double.infinity,
-                        color: _colorPorRemitente(rol, rol).withOpacity(0.15),
+                        color: _colorPorRemitente(rol, rol)
+                            .withValues(alpha: 0.15),
                         padding: const EdgeInsets.symmetric(
                             horizontal: 12, vertical: 6),
                         child: Text(

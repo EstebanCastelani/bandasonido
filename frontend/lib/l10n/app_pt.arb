@@ -312,5 +312,14 @@
   "noSePudoEnviarPedido": "Não foi possível enviar o pedido.",
   "versionApp": "Versão {version}",
   "compartirEnlaceSala": "Compartilhar link da sala",
-  "enlaceSalaTexto": "Entre na minha sala no Sound Check Pro: {enlace}"
+  "enlaceSalaTexto": "Entre na minha sala no Sound Check Pro: {enlace}",
+  "salaQuitadaDelHistorial": "Sala removida do histórico",
+  "eliminarCuenta": "Excluir minha conta",
+  "eliminarCuentaExplicacion": "Sua conta, perfil, frases, repertório e sequências (com os arquivos que você enviou) e seu histórico de salas serão excluídos permanentemente. Isso não pode ser desfeito. Os pedidos e as salas compartilhados com outras pessoas não são excluídos.",
+  "eliminarCuentaContrasena": "Senha atual (para confirmar)",
+  "eliminarDefinitivamente": "Excluir definitivamente",
+  "eliminarCuentaPregunta": "Excluir sua conta para sempre?",
+  "eliminandoCuenta": "Excluindo sua conta…",
+  "cuentaEliminada": "Sua conta e seus dados foram excluídos",
+  "noSePudoEliminarCuenta": "Não foi possível excluir a conta. Verifique a conexão e tente de novo."
 }

@@ -312,5 +312,14 @@
   "noSePudoEnviarPedido": "The request could not be sent.",
   "versionApp": "Version {version}",
   "compartirEnlaceSala": "Share room link",
-  "enlaceSalaTexto": "Join my room in Sound Check Pro: {enlace}"
+  "enlaceSalaTexto": "Join my room in Sound Check Pro: {enlace}",
+  "salaQuitadaDelHistorial": "Room removed from history",
+  "eliminarCuenta": "Delete my account",
+  "eliminarCuentaExplicacion": "Your account, profile, phrases, repertoire and sequences (including the files you uploaded) and your room history will be permanently deleted. This cannot be undone. Requests and rooms shared with other people are not deleted.",
+  "eliminarCuentaContrasena": "Current password (to confirm)",
+  "eliminarDefinitivamente": "Delete permanently",
+  "eliminarCuentaPregunta": "Delete your account forever?",
+  "eliminandoCuenta": "Deleting your account…",
+  "cuentaEliminada": "Your account and data were deleted",
+  "noSePudoEliminarCuenta": "The account could not be deleted. Check your connection and try again."
 }

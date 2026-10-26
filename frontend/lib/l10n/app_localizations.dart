@@ -1981,6 +1981,60 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'Unite a mi sala en Sound Check Pro: {enlace}'**
   String enlaceSalaTexto(String enlace);
+
+  /// No description provided for @salaQuitadaDelHistorial.
+  ///
+  /// In es, this message translates to:
+  /// **'Sala quitada del historial'**
+  String get salaQuitadaDelHistorial;
+
+  /// No description provided for @eliminarCuenta.
+  ///
+  /// In es, this message translates to:
+  /// **'Eliminar mi cuenta'**
+  String get eliminarCuenta;
+
+  /// No description provided for @eliminarCuentaExplicacion.
+  ///
+  /// In es, this message translates to:
+  /// **'Se van a borrar de forma permanente tu cuenta, tu perfil, tus frases, tu repertorio y tus secuencias (con los archivos que subiste) y tu historial de salas. Esto no se puede deshacer. Los pedidos y las salas que comparten otras personas no se borran.'**
+  String get eliminarCuentaExplicacion;
+
+  /// No description provided for @eliminarCuentaContrasena.
+  ///
+  /// In es, this message translates to:
+  /// **'Contraseña actual (para confirmar)'**
+  String get eliminarCuentaContrasena;
+
+  /// No description provided for @eliminarDefinitivamente.
+  ///
+  /// In es, this message translates to:
+  /// **'Eliminar definitivamente'**
+  String get eliminarDefinitivamente;
+
+  /// No description provided for @eliminarCuentaPregunta.
+  ///
+  /// In es, this message translates to:
+  /// **'¿Eliminar tu cuenta para siempre?'**
+  String get eliminarCuentaPregunta;
+
+  /// No description provided for @eliminandoCuenta.
+  ///
+  /// In es, this message translates to:
+  /// **'Eliminando tu cuenta…'**
+  String get eliminandoCuenta;
+
+  /// No description provided for @cuentaEliminada.
+  ///
+  /// In es, this message translates to:
+  /// **'Tu cuenta y tus datos fueron eliminados'**
+  String get cuentaEliminada;
+
+  /// No description provided for @noSePudoEliminarCuenta.
+  ///
+  /// In es, this message translates to:
+  /// **'No se pudo eliminar la cuenta. Revisá tu conexión y probá de nuevo.'**
+  String get noSePudoEliminarCuenta;
 }
 
 class _AppLocalizationsDelegate

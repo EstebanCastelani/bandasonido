@@ -312,5 +312,14 @@
   "noSePudoEnviarPedido": "La demande n’a pas pu être envoyée.",
   "versionApp": "Version {version}",
   "compartirEnlaceSala": "Partager le lien de la salle",
-  "enlaceSalaTexto": "Rejoignez ma salle sur Sound Check Pro : {enlace}"
+  "enlaceSalaTexto": "Rejoignez ma salle sur Sound Check Pro : {enlace}",
+  "salaQuitadaDelHistorial": "Salle retirée de l’historique",
+  "eliminarCuenta": "Supprimer mon compte",
+  "eliminarCuentaExplicacion": "Votre compte, votre profil, vos phrases, votre répertoire et vos séquences (avec les fichiers importés) ainsi que votre historique de salles seront supprimés définitivement. Cette action est irréversible. Les demandes et les salles partagées avec d’autres personnes ne sont pas supprimées.",
+  "eliminarCuentaContrasena": "Mot de passe actuel (pour confirmer)",
+  "eliminarDefinitivamente": "Supprimer définitivement",
+  "eliminarCuentaPregunta": "Supprimer votre compte pour toujours ?",
+  "eliminandoCuenta": "Suppression de votre compte…",
+  "cuentaEliminada": "Votre compte et vos données ont été supprimés",
+  "noSePudoEliminarCuenta": "Impossible de supprimer le compte. Vérifiez votre connexion et réessayez."
 }

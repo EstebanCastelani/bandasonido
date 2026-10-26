@@ -694,5 +694,14 @@
         "type": "String"
       }
     }
-  }
+  },
+  "salaQuitadaDelHistorial": "Sala quitada del historial",
+  "eliminarCuenta": "Eliminar mi cuenta",
+  "eliminarCuentaExplicacion": "Se van a borrar de forma permanente tu cuenta, tu perfil, tus frases, tu repertorio y tus secuencias (con los archivos que subiste) y tu historial de salas. Esto no se puede deshacer. Los pedidos y las salas que comparten otras personas no se borran.",
+  "eliminarCuentaContrasena": "Contraseña actual (para confirmar)",
+  "eliminarDefinitivamente": "Eliminar definitivamente",
+  "eliminarCuentaPregunta": "¿Eliminar tu cuenta para siempre?",
+  "eliminandoCuenta": "Eliminando tu cuenta…",
+  "cuentaEliminada": "Tu cuenta y tus datos fueron eliminados",
+  "noSePudoEliminarCuenta": "No se pudo eliminar la cuenta. Revisá tu conexión y probá de nuevo."
 }

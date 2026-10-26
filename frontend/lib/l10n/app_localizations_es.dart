@@ -1111,4 +1111,33 @@ class AppLocalizationsEs extends AppLocalizations {
   String enlaceSalaTexto(String enlace) {
     return 'Unite a mi sala en Sound Check Pro: $enlace';
   }
+
+  @override
+  String get salaQuitadaDelHistorial => 'Sala quitada del historial';
+
+  @override
+  String get eliminarCuenta => 'Eliminar mi cuenta';
+
+  @override
+  String get eliminarCuentaExplicacion =>
+      'Se van a borrar de forma permanente tu cuenta, tu perfil, tus frases, tu repertorio y tus secuencias (con los archivos que subiste) y tu historial de salas. Esto no se puede deshacer. Los pedidos y las salas que comparten otras personas no se borran.';
+
+  @override
+  String get eliminarCuentaContrasena => 'Contraseña actual (para confirmar)';
+
+  @override
+  String get eliminarDefinitivamente => 'Eliminar definitivamente';
+
+  @override
+  String get eliminarCuentaPregunta => '¿Eliminar tu cuenta para siempre?';
+
+  @override
+  String get eliminandoCuenta => 'Eliminando tu cuenta…';
+
+  @override
+  String get cuentaEliminada => 'Tu cuenta y tus datos fueron eliminados';
+
+  @override
+  String get noSePudoEliminarCuenta =>
+      'No se pudo eliminar la cuenta. Revisá tu conexión y probá de nuevo.';
 }

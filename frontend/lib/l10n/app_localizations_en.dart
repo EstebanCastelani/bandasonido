@@ -1106,4 +1106,33 @@ class AppLocalizationsEn extends AppLocalizations {
   String enlaceSalaTexto(String enlace) {
     return 'Join my room in Sound Check Pro: $enlace';
   }
+
+  @override
+  String get salaQuitadaDelHistorial => 'Room removed from history';
+
+  @override
+  String get eliminarCuenta => 'Delete my account';
+
+  @override
+  String get eliminarCuentaExplicacion =>
+      'Your account, profile, phrases, repertoire and sequences (including the files you uploaded) and your room history will be permanently deleted. This cannot be undone. Requests and rooms shared with other people are not deleted.';
+
+  @override
+  String get eliminarCuentaContrasena => 'Current password (to confirm)';
+
+  @override
+  String get eliminarDefinitivamente => 'Delete permanently';
+
+  @override
+  String get eliminarCuentaPregunta => 'Delete your account forever?';
+
+  @override
+  String get eliminandoCuenta => 'Deleting your account…';
+
+  @override
+  String get cuentaEliminada => 'Your account and data were deleted';
+
+  @override
+  String get noSePudoEliminarCuenta =>
+      'The account could not be deleted. Check your connection and try again.';
 }
