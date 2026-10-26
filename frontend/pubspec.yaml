@@ -32,6 +32,21 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^4.0.0
+  flutter_launcher_icons: ^0.14.3
+
+# Ícono de la app (se regenera con: dart run flutter_launcher_icons). Las
+# imágenes salen de tool/icono.ps1.
+flutter_launcher_icons:
+  android: true
+  ios: false
+  image_path: assets/icon/icon.png
+  adaptive_icon_background: "#0A0B1E"
+  adaptive_icon_foreground: assets/icon/icon_foreground.png
+  web:
+    generate: true
+    image_path: assets/icon/icon.png
+    background_color: "#0A0B1E"
+    theme_color: "#0A0B1E"
 
 flutter:
   uses-material-design: true

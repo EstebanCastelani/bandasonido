@@ -14,7 +14,7 @@ Guía paso a paso. 🔑 = lo tenés que hacer vos (cuentas, claves, decisiones).
 | Identificador de la app | ◐ `com.soundcheckpro.appsonido_frontend` (ver §2) |
 | Política de privacidad | ✘ Hay un borrador en `docs/politica-de-privacidad-borrador.html` (ver §6) |
 | Eliminar cuenta dentro de la app | ◐ **Implementada** (menú → "Eliminar mi cuenta"). Reglas publicadas, borrado probado y enlace web publicado (ver §7) |
-| Ícono propio, capturas, descripción | ✘ Pendiente 🔑 |
+| Ícono propio, capturas, descripción | ◐ **Ícono de la app hecho** (barras de sonido). Para la ficha de Play falta el ícono de 512 × 512 (`frontend/assets/icon/icon.png` está en 1024 × 1024: se reduce), la imagen destacada, las capturas y las descripciones 🔑 |
 
 ## 1. Primero: probar en un celular real 🔑
 Antes de gastar tiempo en la tienda, comprobá que la app anda en Android:
