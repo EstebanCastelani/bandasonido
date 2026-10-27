@@ -599,7 +599,7 @@ registrada sin chequear `esPro` — ver §8 para cómo revertir esto.
     `configuracion`, `colores`. Para sumar más ajustes, agregar opciones en
     `_ItemConfiguracion`. Con cuenta registrada el menú trae, en orden: Mis
     frases, Mi repertorio, Mis secuencias (ya no son botones del cuerpo del
-    menú principal), Configuración y Cerrar sesión (el icono de logout de la
+    menú principal), Configuración y Cerrar sesión ("Eliminar mi cuenta" va dentro del desplegable de Configuración) (el icono de logout de la
     barra se quitó; el de login para invitados sigue). Sin cuenta: solo
     Configuración. Se sacaron los iconos sueltos de paleta y globo.
     Verificado en web con sesión registrada (orden, desplegar/contraer,
@@ -748,9 +748,58 @@ registrada sin chequear `esPro` — ver §8 para cómo revertir esto.
     archivos (`archivosDeCuenta`: Supabase o Firebase Storage según `storageProvider`),
     la presencia en `salas/*/miembros`, las subcolecciones (`frases`, `mi_repertorio`,
     `mis_secuencias`, `mis_salas`), `usuarios/{uid}` y por último la cuenta de Auth.
-    `firestore.rules` ahora permite `delete` del propio perfil (cuenta real). **Las
-    reglas hay que publicarlas a mano en la consola antes de la versión que lo trae.**
-    Los pedidos/salas compartidos no se tocan.
+    `firestore.rules` permite `delete` del propio perfil (cuenta real): **ya publicadas
+    (25-oct-2026)** y el borrado fue probado por el dueño con una cuenta de prueba.
+    Los pedidos/salas compartidos no se tocan. Página pública para Play:
+    `frontend/web/eliminar-cuenta.html` (URL `.../bandasonido/eliminar-cuenta.html`).
+38. **Ícono y logo (25-oct-2026)**: el dueño eligió un dibujo de 7 barras de sonido
+    (degradé cian→violeta). Se genera con `frontend/tool/icono.ps1` (PowerShell,
+    System.Drawing) → `assets/icon/icon.png`, `icon_foreground.png` y
+    `assets/images/logo.png`; luego `dart run flutter_launcher_icons` (config en
+    `pubspec.yaml`) arma Android adaptable, favicon e íconos web. Dentro de la app
+    el widget `LogoApp` usa `logo.png` (pantalla de ingreso y de login); la
+    pantalla de bienvenida usa su propia foto de fondo.
+39. **Pantallas adaptables (RQ-29) y sesión (25-oct-2026)**: probado en el celular
+    del dueño simulando tamaños con `adb shell wm size/density`, `font_scale` y
+    `user_rotation` (**restaurar siempre al terminar**: `wm size reset`,
+    `wm density reset`, `font_scale 1.0`). Soluciones: `pestanasApretadas` (las
+    pestañas se deslizan si no entran), pestaña Pedidos en horizontal con
+    `LayoutBuilder` (<360 dp de alto: frases a la izquierda, texto e historial a la
+    derecha), `rellenoFormulario` / `kAnchoMaximoFormulario` (480) y
+    `kAnchoMaximoContenido` (840, aplicado en `MaterialApp.builder`) para tablets.
+    "Mis salas", "Mi repertorio" y "Mis secuencias" escuchan
+    `AuthService.authStateChanges()` (con `initialData`) y muestran un círculo de
+    carga mientras Firebase restaura la sesión, en vez de "Necesitás iniciar
+    sesión" (DF-16). "Mis salas" al quitar una entrada muestra "Deshacer" (DF-12).
+    Estado de calidad: `flutter analyze` sin avisos, 109 pruebas, `dart format`
+    limpio. Pendiente: probar en otros modelos reales, subir archivos/PDFs en
+    Android, y la política de privacidad (faltan datos del dueño).
+40. **Uso en vivo (RQ-30, oct-2026)**: bloque "USO EN VIVO" en `main.dart`.
+    - *Alertas*: `AlertasConfig`/`AlertasService` (SharedPreferences `alerta_*`), paquete
+      `vibration` (permiso VIBRATE), `AlertasScreen` (Configuración → Alertas de pedidos y
+      menú ⋮ del sonidista). Un pedido urgente suena 2 veces, vibra más (`patronVibracion`)
+      y dispara `AlertasService.destelloRojo` (lo dibuja `CapasGlobales` en
+      `MaterialApp.builder`, por encima de todo).
+    - *Respuestas rápidas*: chips en `_mostrarDialogoRespuesta` (`respuestasRapidas`); usan
+      `FirestoreService.responderPedido`.
+    - *Visto*: el panel del sonidista pone `visto: true` en los pedidos que ya muestra
+      (pestaña Pedidos visible y app en primer plano; `_marcarVistos`). El músico ve
+      enviado / visto (✓✓ celeste) / atendido (`estadoDePedido`). Las reglas de pedidos ya
+      permiten el `update`.
+    - *Modo show*: `ModoShow.bloqueado` + `_CapaModoShow` (en `CapasGlobales`) + `BloqueoSalida`
+      (PopScope dentro de la barra de la sala: el botón "atrás" no sale). Se sale con
+      pulsación larga del candado. Botón candado en la barra del músico; menú ⋮ del sonidista
+      (que además agrupa "agrupar por rol" y "elegir qué ver").
+    - *Offline*: `CachePdfs` guarda los PDF del setlist en `systemTemp/sc_setlist` (hasta 40,
+      80 MB c/u); `PdfViewerScreen` abre con `SfPdfViewer.file` si hay copia; `EstadoSinConexion`
+      muestra "X de Y temas listos". Los cifrados salen de `cifradoTexto` en Firestore, que en
+      Android/iOS ya persiste sin conexión (no hubo que tocar nada). El sistema puede vaciar
+      el directorio temporal si falta espacio: se vuelve a bajar al reabrir la sala.
+    - Probado en el celular del dueño: alertas (vibración confirmada en `logcat`), modo show
+      (toques absorbidos, "atrás" bloqueado, desbloqueo con pulsación larga), respuestas
+      rápidas + visto entre sonidista y músico, y **PDF abierto con wifi y datos apagados
+      tras reiniciar la app**. **No resuelto**: sin notificaciones push; si la app está en
+      segundo plano o con la pantalla apagada el aviso no llega (para eso haría falta FCM).
 
 ## 6. Modelo de seguridad de las salas — trade-off consciente, no bug
 
@@ -786,11 +835,11 @@ de la app real.
   cambiás, hay que volver a publicarlo o las colecciones nuevas dan
   `permission-denied`.
   **Cómo publicarlo:** el Firebase CLI de la PC del dueño está logueado
-  con su cuenta y tiene acceso a `appbandasonido`. El repo **no tiene
-  `firebase.json`** (a propósito, para no sumar config); se publica desde
-  una carpeta temporal con una copia de `firestore.rules` y un
-  `firebase.json` mínimo (`{"firestore": {"rules": "firestore.rules"}}`):
-  `firebase deploy --only firestore:rules --project appbandasonido`. Es
+  con su cuenta y tiene acceso a `appbandasonido`. El repo tiene el
+  `firebase.json` de hosting en `frontend/`; en la **raíz** del repo hay un `firebase.json` y un
+  `.firebaserc` mínimos solo para las reglas (`frontend/firebase.json` no puede
+  apuntar fuera de su carpeta). Se publica desde la raíz:
+  `firebase deploy --only firestore:rules`. Es
   producción: pedir OK al dueño antes de cada publicación. El compilador
   avisa "sub-expressions are not comparable" en los `salaId != null` —
   es preexistente e inofensivo (siempre da true, el `size() > 0` es el

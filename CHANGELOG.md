@@ -5,6 +5,7 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). La versió
 ## [Sin publicar]
 
 ### Agregado
+- **Uso en vivo** (RQ-30): *Alertas de pedidos* configurables (sonido, volumen, vibración, destello rojo en urgentes; Configuración → Alertas de pedidos y menú ⋮ del sonidista); *respuestas rápidas* de un toque para el sonidista; el músico ve si su pedido fue *enviado, visto o atendido*; *modo show* (candado en la barra del músico y menú ⋮ del sonidista); y los *PDF del setlist se guardan en el celular* para abrirse sin conexión, con el aviso "Sin conexión: X de Y temas listos".
 - El logo de las pantallas de ingreso y de inicio de sesión ahora es el mismo dibujo del ícono (barras de sonido) en vez del conector genérico.
 - Ícono propio de la app (barras de sonido, degradé cian a violeta) para Android (adaptable), web y favicon. Se regenera con `tool/icono.ps1` y `dart run flutter_launcher_icons`.
 - Android: las secuencias de la sala se guardan en el celular apenas aparecen en la lista. Empiezan a sonar casi al instante al tocar "play" (0,2 a 0,9 s medidos, antes 1 a 13 s) y siguen sonando sin conexión. Guarda hasta 12 pistas.
