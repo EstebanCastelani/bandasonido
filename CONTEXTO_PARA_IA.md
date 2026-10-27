@@ -772,8 +772,9 @@ registrada sin chequear `esPro` — ver §8 para cómo revertir esto.
     carga mientras Firebase restaura la sesión, en vez de "Necesitás iniciar
     sesión" (DF-16). "Mis salas" al quitar una entrada muestra "Deshacer" (DF-12).
     Estado de calidad: `flutter analyze` sin avisos, 109 pruebas, `dart format`
-    limpio. Pendiente: probar en otros modelos reales, subir archivos/PDFs en
-    Android, y la política de privacidad (faltan datos del dueño).
+    limpio. Subir PDF y audio, abrir PDF/cifrado y transponer ya se probaron en Android
+    (27-oct-2026, con archivos de prueba que se borraron después). Pendiente: probar en
+    otros modelos reales y la política de privacidad (faltan datos del dueño).
 40. **Uso en vivo (RQ-30, oct-2026)**: bloque "USO EN VIVO" en `main.dart`.
     - *Alertas*: `AlertasConfig`/`AlertasService` (SharedPreferences `alerta_*`), paquete
       `vibration` (permiso VIBRATE), `AlertasScreen` (Configuración → Alertas de pedidos y

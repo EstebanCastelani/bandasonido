@@ -33,8 +33,9 @@ _(vacío — elegir 3–5 ítems al comenzar cada sprint, ver `PROCESO.md`)_
 | B-22 | P3 | Ayuda y primera vez guiada; guía de estilo de textos (voseo/neutro, mayúsculas) | M | Usabilidad E5 | 🔑 decidir registro |
 | B-23 | P3 | Conservación de pedidos por 24 h (limpieza automática en el servidor) | M | Testing · D-08 | plan Blaze 🔑 |
 | B-26 | P2 (Play Store) | Archivos de usuarios en bucket **público** de Supabase: decidir si pasan a privados con enlaces firmados | M | `PLAY_STORE.md` §7 | 🔑 decisión |
-| B-27 | P1 (Play Store) | Completar la prueba en celular real: **subir un archivo**, abrir **PDFs y cifrados**, y repetir en otros modelos (ya probado: menú, secuencias, sala, pedidos, corte de red, panel del sonidista y login con Google) | S–M | `PLAY_STORE.md` §1 | 🔑 un dispositivo |
+| B-27 | P1 (Play Store) | Repetir la prueba en celular real en **otros modelos** (en el Redmi ya se probó todo, incluidos subir un PDF y un audio, abrir PDFs y cifrados, corte de red y login con Google) | S | `PLAY_STORE.md` §1 | 🔑 otro dispositivo |
 | B-28 | P2 (Play Store) | Ícono propio (512 × 512), imagen destacada, capturas y descripciones de la ficha | M | `PLAY_STORE.md` §5 | 🔑 diseño |
+| B-32 | P1 (uso en vivo) | **Notificaciones push (FCM)** para que el sonidista reciba el aviso de un pedido con la app en segundo plano o la pantalla apagada. Requiere pasar el proyecto `appbandasonido` al **plan Blaze** (Cloud Functions) y una función que se dispare al crear un pedido. Decisión del dueño (27-oct-2026): se hace cuando se pague Blaze. Alternativa gratis evaluada: servicio de primer plano de Android (más batería, menos confiable con pantalla bloqueada) | M | `CONTEXTO_PARA_IA.md` ítem 40 | 🔑 plan Blaze |
 | B-24 | P3 | DF-06: ortografía de acordes según la tonalidad (`Eb` en vez de `D#`) | S | `DEFECTOS.md` | — |
 
 ## Hecho (resumen)
