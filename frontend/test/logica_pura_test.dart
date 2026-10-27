@@ -453,4 +453,52 @@ void main() {
       expect(archivosDeCuenta([]), isEmpty);
     });
   });
+
+  group('Uso en vivo (RQ-30)', () {
+    test('el volumen de las alertas siempre queda entre 0 y 1', () {
+      expect(AlertasConfig.volumenValido(0.5), 0.5);
+      expect(AlertasConfig.volumenValido(7), 1.0);
+      expect(AlertasConfig.volumenValido(-3), 0.0);
+      expect(AlertasConfig.volumenValido(double.nan), 1.0);
+      expect(const AlertasConfig().copyWith(volumen: 9).volumen, 1.0);
+    });
+
+    test('las alertas arrancan todas activadas', () {
+      const c = AlertasConfig();
+      expect([c.sonido, c.vibracion, c.destello], everyElement(isTrue));
+      expect(c.volumen, 1.0);
+    });
+
+    test('un pedido urgente vibra más que uno normal', () {
+      int total(List<int> p) => p.fold(0, (a, b) => a + b);
+      expect(total(patronVibracion(urgente: true)),
+          greaterThan(total(patronVibracion(urgente: false))));
+      expect(patronVibracion(urgente: true).first, 0);
+    });
+
+    test('estado del pedido: enviado, visto y atendido', () {
+      expect(estadoDePedido({}), EstadoPedido.enviado);
+      expect(estadoDePedido({'visto': true}), EstadoPedido.visto);
+      expect(estadoDePedido({'visto': true, 'atendido': true}),
+          EstadoPedido.atendido);
+      expect(estadoDePedido({'atendido': true}), EstadoPedido.atendido);
+      expect(estadoDePedido({'visto': false, 'atendido': false}),
+          EstadoPedido.enviado);
+    });
+
+    test('hay 5 respuestas rápidas distintas y con texto', () {
+      final r = respuestasRapidas(AppLocalizationsEs());
+      expect(r.length, 5);
+      expect(r.toSet().length, 5);
+      expect(r, everyElement(isNotEmpty));
+    });
+
+    test('el modo show se activa y se desactiva', () {
+      expect(ModoShow.bloqueado.value, isFalse);
+      ModoShow.bloqueado.value = true;
+      expect(ModoShow.bloqueado.value, isTrue);
+      ModoShow.desactivar();
+      expect(ModoShow.bloqueado.value, isFalse);
+    });
+  });
 }

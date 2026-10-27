@@ -1135,4 +1135,73 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get noSePudoEliminarCuenta =>
       'The account could not be deleted. Check your connection and try again.';
+
+  @override
+  String get alertas => 'Request alerts';
+
+  @override
+  String get alertasExplicacion =>
+      'How the console alerts you when a request arrives. Urgent ones sound twice, vibrate harder and flash red.';
+
+  @override
+  String get alertaSonido => 'Sound';
+
+  @override
+  String get alertaVolumen => 'Alert volume';
+
+  @override
+  String get alertaVibracion => 'Vibration';
+
+  @override
+  String get alertaDestello => 'Red flash on urgent';
+
+  @override
+  String get probarAlerta => 'Test alert';
+
+  @override
+  String get probarAlertaUrgente => 'Test urgent alert';
+
+  @override
+  String get respuestasRapidas => 'Quick replies';
+
+  @override
+  String get respRapidaYaEsta => 'Done';
+
+  @override
+  String get respRapidaUnMomento => 'One moment';
+
+  @override
+  String get respRapidaLoVeo => 'On it';
+
+  @override
+  String get respRapidaNoPuedoAhora => 'Can’t right now';
+
+  @override
+  String get respRapidaRevisaCable => 'Check your cable';
+
+  @override
+  String get pedidoEnviado => 'Sent';
+
+  @override
+  String get pedidoVisto => 'Seen by the sound engineer';
+
+  @override
+  String get pedidoAtendido => 'Done';
+
+  @override
+  String get masOpciones => 'More options';
+
+  @override
+  String get modoShow => 'Show mode (lock screen)';
+
+  @override
+  String get modoShowDesbloquear => 'Press and hold the lock to unlock';
+
+  @override
+  String get alertas2 => 'Alerts';
+
+  @override
+  String listosSinConexion(int listos, int total) {
+    return 'Offline: $listos of $total songs ready';
+  }
 }

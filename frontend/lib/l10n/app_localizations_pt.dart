@@ -1138,4 +1138,74 @@ class AppLocalizationsPt extends AppLocalizations {
   @override
   String get noSePudoEliminarCuenta =>
       'Não foi possível excluir a conta. Verifique a conexão e tente de novo.';
+
+  @override
+  String get alertas => 'Alertas de pedidos';
+
+  @override
+  String get alertasExplicacion =>
+      'Como o console avisa quando chega um pedido. Os urgentes tocam duas vezes, vibram mais forte e piscam em vermelho.';
+
+  @override
+  String get alertaSonido => 'Som';
+
+  @override
+  String get alertaVolumen => 'Volume do aviso';
+
+  @override
+  String get alertaVibracion => 'Vibração';
+
+  @override
+  String get alertaDestello => 'Piscar vermelho nos urgentes';
+
+  @override
+  String get probarAlerta => 'Testar alerta';
+
+  @override
+  String get probarAlertaUrgente => 'Testar alerta urgente';
+
+  @override
+  String get respuestasRapidas => 'Respostas rápidas';
+
+  @override
+  String get respRapidaYaEsta => 'Pronto';
+
+  @override
+  String get respRapidaUnMomento => 'Um momento';
+
+  @override
+  String get respRapidaLoVeo => 'Estou vendo';
+
+  @override
+  String get respRapidaNoPuedoAhora => 'Não posso agora';
+
+  @override
+  String get respRapidaRevisaCable => 'Verifique seu cabo';
+
+  @override
+  String get pedidoEnviado => 'Enviado';
+
+  @override
+  String get pedidoVisto => 'Visto pelo técnico de som';
+
+  @override
+  String get pedidoAtendido => 'Atendido';
+
+  @override
+  String get masOpciones => 'Mais opções';
+
+  @override
+  String get modoShow => 'Modo show (bloquear tela)';
+
+  @override
+  String get modoShowDesbloquear =>
+      'Mantenha o cadeado pressionado para desbloquear';
+
+  @override
+  String get alertas2 => 'Alertas';
+
+  @override
+  String listosSinConexion(int listos, int total) {
+    return 'Sem conexão: $listos de $total músicas prontas';
+  }
 }

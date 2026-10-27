@@ -703,5 +703,37 @@
   "eliminarCuentaPregunta": "¿Eliminar tu cuenta para siempre?",
   "eliminandoCuenta": "Eliminando tu cuenta…",
   "cuentaEliminada": "Tu cuenta y tus datos fueron eliminados",
-  "noSePudoEliminarCuenta": "No se pudo eliminar la cuenta. Revisá tu conexión y probá de nuevo."
+  "noSePudoEliminarCuenta": "No se pudo eliminar la cuenta. Revisá tu conexión y probá de nuevo.",
+  "alertas": "Alertas de pedidos",
+  "alertasExplicacion": "Cómo te avisa la consola cuando llega un pedido. Los urgentes suenan dos veces, vibran más fuerte y hacen un destello rojo.",
+  "alertaSonido": "Sonido",
+  "alertaVolumen": "Volumen del aviso",
+  "alertaVibracion": "Vibración",
+  "alertaDestello": "Destello rojo en urgentes",
+  "probarAlerta": "Probar alerta",
+  "probarAlertaUrgente": "Probar alerta urgente",
+  "respuestasRapidas": "Respuestas rápidas",
+  "respRapidaYaEsta": "Ya está",
+  "respRapidaUnMomento": "Un momento",
+  "respRapidaLoVeo": "Lo veo",
+  "respRapidaNoPuedoAhora": "No puedo ahora",
+  "respRapidaRevisaCable": "Revisá tu cable",
+  "pedidoEnviado": "Enviado",
+  "pedidoVisto": "Visto por el sonidista",
+  "pedidoAtendido": "Atendido",
+  "masOpciones": "Más opciones",
+  "modoShow": "Modo show (bloquear pantalla)",
+  "modoShowDesbloquear": "Mantené apretado el candado para desbloquear",
+  "alertas2": "Alertas",
+  "listosSinConexion": "Sin conexión: {listos} de {total} temas listos",
+  "@listosSinConexion": {
+    "placeholders": {
+      "listos": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  }
 }

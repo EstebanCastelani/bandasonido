@@ -2035,6 +2035,138 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'No se pudo eliminar la cuenta. Revisá tu conexión y probá de nuevo.'**
   String get noSePudoEliminarCuenta;
+
+  /// No description provided for @alertas.
+  ///
+  /// In es, this message translates to:
+  /// **'Alertas de pedidos'**
+  String get alertas;
+
+  /// No description provided for @alertasExplicacion.
+  ///
+  /// In es, this message translates to:
+  /// **'Cómo te avisa la consola cuando llega un pedido. Los urgentes suenan dos veces, vibran más fuerte y hacen un destello rojo.'**
+  String get alertasExplicacion;
+
+  /// No description provided for @alertaSonido.
+  ///
+  /// In es, this message translates to:
+  /// **'Sonido'**
+  String get alertaSonido;
+
+  /// No description provided for @alertaVolumen.
+  ///
+  /// In es, this message translates to:
+  /// **'Volumen del aviso'**
+  String get alertaVolumen;
+
+  /// No description provided for @alertaVibracion.
+  ///
+  /// In es, this message translates to:
+  /// **'Vibración'**
+  String get alertaVibracion;
+
+  /// No description provided for @alertaDestello.
+  ///
+  /// In es, this message translates to:
+  /// **'Destello rojo en urgentes'**
+  String get alertaDestello;
+
+  /// No description provided for @probarAlerta.
+  ///
+  /// In es, this message translates to:
+  /// **'Probar alerta'**
+  String get probarAlerta;
+
+  /// No description provided for @probarAlertaUrgente.
+  ///
+  /// In es, this message translates to:
+  /// **'Probar alerta urgente'**
+  String get probarAlertaUrgente;
+
+  /// No description provided for @respuestasRapidas.
+  ///
+  /// In es, this message translates to:
+  /// **'Respuestas rápidas'**
+  String get respuestasRapidas;
+
+  /// No description provided for @respRapidaYaEsta.
+  ///
+  /// In es, this message translates to:
+  /// **'Ya está'**
+  String get respRapidaYaEsta;
+
+  /// No description provided for @respRapidaUnMomento.
+  ///
+  /// In es, this message translates to:
+  /// **'Un momento'**
+  String get respRapidaUnMomento;
+
+  /// No description provided for @respRapidaLoVeo.
+  ///
+  /// In es, this message translates to:
+  /// **'Lo veo'**
+  String get respRapidaLoVeo;
+
+  /// No description provided for @respRapidaNoPuedoAhora.
+  ///
+  /// In es, this message translates to:
+  /// **'No puedo ahora'**
+  String get respRapidaNoPuedoAhora;
+
+  /// No description provided for @respRapidaRevisaCable.
+  ///
+  /// In es, this message translates to:
+  /// **'Revisá tu cable'**
+  String get respRapidaRevisaCable;
+
+  /// No description provided for @pedidoEnviado.
+  ///
+  /// In es, this message translates to:
+  /// **'Enviado'**
+  String get pedidoEnviado;
+
+  /// No description provided for @pedidoVisto.
+  ///
+  /// In es, this message translates to:
+  /// **'Visto por el sonidista'**
+  String get pedidoVisto;
+
+  /// No description provided for @pedidoAtendido.
+  ///
+  /// In es, this message translates to:
+  /// **'Atendido'**
+  String get pedidoAtendido;
+
+  /// No description provided for @masOpciones.
+  ///
+  /// In es, this message translates to:
+  /// **'Más opciones'**
+  String get masOpciones;
+
+  /// No description provided for @modoShow.
+  ///
+  /// In es, this message translates to:
+  /// **'Modo show (bloquear pantalla)'**
+  String get modoShow;
+
+  /// No description provided for @modoShowDesbloquear.
+  ///
+  /// In es, this message translates to:
+  /// **'Mantené apretado el candado para desbloquear'**
+  String get modoShowDesbloquear;
+
+  /// No description provided for @alertas2.
+  ///
+  /// In es, this message translates to:
+  /// **'Alertas'**
+  String get alertas2;
+
+  /// No description provided for @listosSinConexion.
+  ///
+  /// In es, this message translates to:
+  /// **'Sin conexión: {listos} de {total} temas listos'**
+  String listosSinConexion(int listos, int total);
 }
 
 class _AppLocalizationsDelegate

@@ -321,5 +321,37 @@
   "eliminarCuentaPregunta": "Delete your account forever?",
   "eliminandoCuenta": "Deleting your account…",
   "cuentaEliminada": "Your account and data were deleted",
-  "noSePudoEliminarCuenta": "The account could not be deleted. Check your connection and try again."
+  "noSePudoEliminarCuenta": "The account could not be deleted. Check your connection and try again.",
+  "alertas": "Request alerts",
+  "alertasExplicacion": "How the console alerts you when a request arrives. Urgent ones sound twice, vibrate harder and flash red.",
+  "alertaSonido": "Sound",
+  "alertaVolumen": "Alert volume",
+  "alertaVibracion": "Vibration",
+  "alertaDestello": "Red flash on urgent",
+  "probarAlerta": "Test alert",
+  "probarAlertaUrgente": "Test urgent alert",
+  "respuestasRapidas": "Quick replies",
+  "respRapidaYaEsta": "Done",
+  "respRapidaUnMomento": "One moment",
+  "respRapidaLoVeo": "On it",
+  "respRapidaNoPuedoAhora": "Can’t right now",
+  "respRapidaRevisaCable": "Check your cable",
+  "pedidoEnviado": "Sent",
+  "pedidoVisto": "Seen by the sound engineer",
+  "pedidoAtendido": "Done",
+  "masOpciones": "More options",
+  "modoShow": "Show mode (lock screen)",
+  "modoShowDesbloquear": "Press and hold the lock to unlock",
+  "alertas2": "Alerts",
+  "listosSinConexion": "Offline: {listos} of {total} songs ready",
+  "@listosSinConexion": {
+    "placeholders": {
+      "listos": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  }
 }

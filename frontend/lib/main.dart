@@ -43,6 +43,7 @@ import 'package:syncfusion_flutter_pdf/pdf.dart' as sf_pdf;
 
 import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
 
+import 'package:vibration/vibration.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
 // Lo que corre en JS del navegador (conversor de MP3, reproductor con tono y
@@ -3316,16 +3317,17 @@ class _SoundCheckProAppState extends State<SoundCheckProApp> {
       onGenerateTitle: (context) => context.l10n.nombreApp,
       builder: (context, child) {
         L10n.t = AppLocalizations.of(context);
-        return ColoredBox(
-            color: Theme.of(context).scaffoldBackgroundColor,
-            child: Align(
-              alignment: Alignment.topCenter,
-              child: ConstrainedBox(
-                constraints:
-                    const BoxConstraints(maxWidth: kAnchoMaximoContenido),
-                child: child ?? const SizedBox.shrink(),
-              ),
-            ));
+        return CapasGlobales(
+            child: ColoredBox(
+                color: Theme.of(context).scaffoldBackgroundColor,
+                child: Align(
+                  alignment: Alignment.topCenter,
+                  child: ConstrainedBox(
+                    constraints:
+                        const BoxConstraints(maxWidth: kAnchoMaximoContenido),
+                    child: child ?? const SizedBox.shrink(),
+                  ),
+                )));
       },
 
       home: const SplashScreen(),
@@ -4242,6 +4244,469 @@ class _AuthScreenState extends State<AuthScreen> {
   }
 }
 
+// --- USO EN VIVO: ALERTAS, MODO SHOW Y CACHÉ DE PDFS ---
+
+/// Cómo avisa la consola cuando llega un pedido (ver AlertasScreen).
+class AlertasConfig {
+  final bool sonido;
+  final double volumen;
+  final bool vibracion;
+  final bool destello;
+
+  const AlertasConfig({
+    this.sonido = true,
+    this.volumen = 1.0,
+    this.vibracion = true,
+    this.destello = true,
+  });
+
+  AlertasConfig copyWith(
+          {bool? sonido, double? volumen, bool? vibracion, bool? destello}) =>
+      AlertasConfig(
+        sonido: sonido ?? this.sonido,
+        volumen: volumenValido(volumen ?? this.volumen),
+        vibracion: vibracion ?? this.vibracion,
+        destello: destello ?? this.destello,
+      );
+
+  /// El volumen queda siempre entre 0 y 1: un valor guardado roto no debe
+  /// silenciar ni romper el aviso.
+  static double volumenValido(double v) =>
+      v.isNaN ? 1.0 : v.clamp(0.0, 1.0).toDouble();
+}
+
+/// Vibración (en ms: pausa, vibra, pausa, vibra…) del aviso de un pedido
+/// nuevo. Los urgentes vibran más y más tiempo.
+List<int> patronVibracion({required bool urgente}) =>
+    urgente ? const [0, 400, 150, 400, 150, 400] : const [0, 200];
+
+class AlertasService {
+  static final AudioPlayer _player = AudioPlayer();
+
+  /// Destello rojo de pantalla completa para los pedidos urgentes (lo dibuja
+  /// CapasGlobales por encima de todo, incluso del modo show).
+  static final ValueNotifier<bool> destelloRojo = ValueNotifier(false);
+
+  static Future<AlertasConfig> cargar() async {
+    try {
+      final p = await SharedPreferences.getInstance();
+      return AlertasConfig(
+        sonido: p.getBool('alerta_sonido') ?? true,
+        volumen:
+            AlertasConfig.volumenValido(p.getDouble('alerta_volumen') ?? 1.0),
+        vibracion: p.getBool('alerta_vibracion') ?? true,
+        destello: p.getBool('alerta_destello') ?? true,
+      );
+    } catch (_) {
+      return const AlertasConfig();
+    }
+  }
+
+  static Future<void> guardar(AlertasConfig c) async {
+    try {
+      final p = await SharedPreferences.getInstance();
+      await p.setBool('alerta_sonido', c.sonido);
+      await p.setDouble('alerta_volumen', c.volumen);
+      await p.setBool('alerta_vibracion', c.vibracion);
+      await p.setBool('alerta_destello', c.destello);
+    } catch (e) {
+      debugPrint('No se pudieron guardar las alertas: $e');
+    }
+  }
+
+  /// Sonido y vibración del aviso (el destello lo pide quien llama).
+  static Future<void> avisar(AlertasConfig c, {required bool urgente}) async {
+    if (c.vibracion) {
+      try {
+        if (await Vibration.hasVibrator() == true) {
+          Vibration.vibrate(pattern: patronVibracion(urgente: urgente));
+        } else {
+          HapticFeedback.vibrate();
+        }
+      } catch (_) {}
+    }
+    if (c.sonido && c.volumen > 0) {
+      try {
+        await _player.setVolume(c.volumen);
+        await _player.play(AssetSource('sounds/pedido_nuevo.wav'));
+        if (urgente) {
+          await Future.delayed(const Duration(milliseconds: 700));
+          await _player.play(AssetSource('sounds/pedido_nuevo.wav'));
+        }
+      } catch (e) {
+        debugPrint('No se pudo reproducir la alerta: $e');
+      }
+    }
+  }
+
+  static Future<void> destellar() async {
+    for (var i = 0; i < 3; i++) {
+      destelloRojo.value = true;
+      await Future.delayed(const Duration(milliseconds: 250));
+      destelloRojo.value = false;
+      await Future.delayed(const Duration(milliseconds: 200));
+    }
+  }
+}
+
+/// Pantalla "Alertas de pedidos": cómo avisa la consola de un pedido nuevo.
+class AlertasScreen extends StatefulWidget {
+  const AlertasScreen({super.key});
+
+  @override
+  State<AlertasScreen> createState() => _AlertasScreenState();
+}
+
+class _AlertasScreenState extends State<AlertasScreen> {
+  AlertasConfig _c = const AlertasConfig();
+
+  @override
+  void initState() {
+    super.initState();
+    AlertasService.cargar().then((c) {
+      if (mounted) setState(() => _c = c);
+    });
+  }
+
+  void _cambiar(AlertasConfig nueva) {
+    setState(() => _c = nueva);
+    AlertasService.guardar(nueva);
+  }
+
+  Future<void> _probar({required bool urgente}) async {
+    // El destello va a la vez que el sonido y la vibración, como en un pedido real.
+    final aviso = AlertasService.avisar(_c, urgente: urgente);
+    if (urgente && _c.destello) await AlertasService.destellar();
+    await aviso;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l = context.l10n;
+    return Scaffold(
+      appBar: AppBar(title: Text(l.alertas)),
+      body: ListView(
+        padding: rellenoFormulario(context),
+        children: [
+          Text(l.alertasExplicacion,
+              style: TextStyle(
+                  fontSize: 13,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant)),
+          const SizedBox(height: 12),
+          SwitchListTile(
+            title: Text(l.alertaSonido),
+            value: _c.sonido,
+            onChanged: (v) => _cambiar(_c.copyWith(sonido: v)),
+          ),
+          ListTile(
+            enabled: _c.sonido,
+            title: Text(l.alertaVolumen),
+            subtitle: Slider(
+              value: _c.volumen,
+              divisions: 10,
+              label: '${(_c.volumen * 100).round()}%',
+              onChanged:
+                  _c.sonido ? (v) => _cambiar(_c.copyWith(volumen: v)) : null,
+            ),
+          ),
+          SwitchListTile(
+            title: Text(l.alertaVibracion),
+            value: _c.vibracion,
+            onChanged: (v) => _cambiar(_c.copyWith(vibracion: v)),
+          ),
+          SwitchListTile(
+            title: Text(l.alertaDestello),
+            value: _c.destello,
+            onChanged: (v) => _cambiar(_c.copyWith(destello: v)),
+          ),
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            icon: const Icon(Icons.notifications_active_outlined),
+            label: Text(l.probarAlerta),
+            onPressed: () => _probar(urgente: false),
+          ),
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            icon: const Icon(Icons.warning_amber_rounded, color: Colors.red),
+            label: Text(l.probarAlertaUrgente),
+            onPressed: () => _probar(urgente: true),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Estado de un pedido para quien lo mandó: enviado, visto por el sonidista
+/// (su consola lo mostró en pantalla) o atendido.
+enum EstadoPedido { enviado, visto, atendido }
+
+EstadoPedido estadoDePedido(Map<String, dynamic> data) {
+  if (data['atendido'] == true) return EstadoPedido.atendido;
+  if (data['visto'] == true) return EstadoPedido.visto;
+  return EstadoPedido.enviado;
+}
+
+/// Respuestas de un toque del sonidista (ver _mostrarDialogoRespuesta).
+List<String> respuestasRapidas(AppLocalizations l) => [
+      l.respRapidaYaEsta,
+      l.respRapidaLoVeo,
+      l.respRapidaUnMomento,
+      l.respRapidaNoPuedoAhora,
+      l.respRapidaRevisaCable,
+    ];
+
+/// Modo show: oscurece la pantalla y ignora los toques para que nada se
+/// toque sin querer en el escenario. Se sale manteniendo apretado el candado.
+class ModoShow {
+  static final ValueNotifier<bool> bloqueado = ValueNotifier(false);
+
+  static void activar() {
+    WakelockPlus.enable();
+    bloqueado.value = true;
+  }
+
+  static void desactivar() => bloqueado.value = false;
+}
+
+/// Impide salir de la sala con el botón "atrás" mientras está el modo show.
+/// Se pone dentro de la barra de la sala (ocupa 0 de espacio).
+class BloqueoSalida extends StatelessWidget {
+  const BloqueoSalida({super.key});
+
+  @override
+  Widget build(BuildContext context) => ValueListenableBuilder<bool>(
+        valueListenable: ModoShow.bloqueado,
+        builder: (_, bloqueado, __) =>
+            PopScope(canPop: !bloqueado, child: const SizedBox.shrink()),
+      );
+}
+
+/// Capas que van por encima de todas las pantallas: el modo show y el
+/// destello rojo de los pedidos urgentes.
+class CapasGlobales extends StatelessWidget {
+  final Widget child;
+  const CapasGlobales({super.key, required this.child});
+
+  @override
+  Widget build(BuildContext context) => Stack(
+        fit: StackFit.expand,
+        children: [
+          child,
+          ValueListenableBuilder<bool>(
+            valueListenable: ModoShow.bloqueado,
+            builder: (_, activo, __) =>
+                activo ? const _CapaModoShow() : const SizedBox.shrink(),
+          ),
+          ValueListenableBuilder<bool>(
+            valueListenable: AlertasService.destelloRojo,
+            builder: (_, encendido, __) => IgnorePointer(
+              child: AnimatedOpacity(
+                opacity: encendido ? 0.45 : 0,
+                duration: const Duration(milliseconds: 80),
+                child: const ColoredBox(color: Colors.red),
+              ),
+            ),
+          ),
+        ],
+      );
+}
+
+class _CapaModoShow extends StatelessWidget {
+  const _CapaModoShow();
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      type: MaterialType.transparency,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          AbsorbPointer(
+            child: ColoredBox(color: Colors.black.withValues(alpha: 0.8)),
+          ),
+          SafeArea(
+            child: Align(
+              alignment: Alignment.bottomCenter,
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: 24, left: 24, right: 24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      context.l10n.modoShowDesbloquear,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(color: Colors.white70),
+                    ),
+                    const SizedBox(height: 12),
+                    GestureDetector(
+                      onLongPress: ModoShow.desactivar,
+                      child: Container(
+                        width: 72,
+                        height: 72,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white54, width: 2),
+                        ),
+                        child: const Icon(Icons.lock,
+                            color: Colors.white, size: 32),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Guarda en el celular los PDF del setlist de la sala para que se abran sin
+/// red (mismo criterio que la caché de secuencias; en web no hace nada).
+/// Los cifrados (texto) ya quedan guardados por Firestore en el celular.
+class CachePdfs {
+  /// URLs que ya están completas en el celular.
+  static final ValueNotifier<Set<String>> listos = ValueNotifier({});
+
+  static final Map<String, Future<void>> _descargas = {};
+  static Directory? _dir;
+  static bool _limpia = false;
+  static const _maxBytes = 80 * 1024 * 1024;
+  static const _maxArchivos = 40;
+
+  static Future<Directory> _carpeta() async {
+    final d = _dir ??= Directory('${Directory.systemTemp.path}/sc_setlist');
+    if (!await d.exists()) await d.create(recursive: true);
+    return d;
+  }
+
+  static Future<File> _archivo(String url) async =>
+      File('${(await _carpeta()).path}/${claveCache(url)}.pdf');
+
+  /// Ruta del PDF guardado de [url], o null si no está (o en web).
+  static Future<String?> ruta(String url) async {
+    if (kIsWeb || url.isEmpty) return null;
+    try {
+      final f = await _archivo(url);
+      if (await f.exists() && await f.length() > 0) return f.path;
+    } catch (_) {}
+    return null;
+  }
+
+  static Future<void> borrar(String url) async {
+    try {
+      final f = await _archivo(url);
+      if (await f.exists()) await f.delete();
+      listos.value = {...listos.value}..remove(url);
+    } catch (_) {}
+  }
+
+  static Future<void> precargar(List<String> urls) async {
+    if (kIsWeb) return;
+    var bajo = false;
+    for (final url in urls) {
+      final antes = listos.value.contains(url);
+      await (_descargas[url] ??= _descargar(url));
+      if (!antes && listos.value.contains(url)) bajo = true;
+    }
+    if (bajo || !_limpia) {
+      _limpia = true;
+      await _limpiar(urls.toSet());
+    }
+  }
+
+  static Future<void> _descargar(String url) async {
+    File? parcial;
+    try {
+      final destino = await _archivo(url);
+      if (await destino.exists() && await destino.length() > 0) {
+        listos.value = {...listos.value, url};
+        return;
+      }
+      parcial = File('${destino.path}.part');
+      final cliente = http.Client();
+      try {
+        final r = await cliente.send(http.Request('GET', Uri.parse(url)));
+        final largo = r.contentLength;
+        if (r.statusCode != 200 || (largo != null && largo > _maxBytes)) return;
+        await r.stream.pipe(parcial.openWrite());
+        await parcial.rename(destino.path);
+        parcial = null;
+        listos.value = {...listos.value, url};
+      } finally {
+        cliente.close();
+      }
+    } catch (e) {
+      debugPrint('No se pudo guardar el PDF en el celular: $e');
+    } finally {
+      _descargas.remove(url);
+      try {
+        if (parcial != null && await parcial.exists()) await parcial.delete();
+      } catch (_) {}
+    }
+  }
+
+  static Future<void> _limpiar(Set<String> actuales) async {
+    try {
+      final dir = await _carpeta();
+      final existentes = <({String nombre, DateTime fecha})>[];
+      await for (final e in dir.list()) {
+        if (e is File) {
+          existentes.add(
+              (nombre: e.uri.pathSegments.last, fecha: await e.lastModified()));
+        }
+      }
+      final conservar = actuales.map((u) => '${claveCache(u)}.pdf').toSet();
+      for (final nombre
+          in archivosParaBorrar(existentes, conservar, maximo: _maxArchivos)) {
+        try {
+          await File('${dir.path}/$nombre').delete();
+        } catch (_) {}
+      }
+    } catch (e) {
+      debugPrint('No se pudo limpiar la caché de PDFs: $e');
+    }
+  }
+}
+
+/// "Sin conexión: 3 de 5 temas listos" sobre el setlist (solo fuera de la web).
+class EstadoSinConexion extends StatelessWidget {
+  final List<String> urls;
+  const EstadoSinConexion({super.key, required this.urls});
+
+  @override
+  Widget build(BuildContext context) {
+    if (kIsWeb || urls.isEmpty) return const SizedBox.shrink();
+    return ValueListenableBuilder<Set<String>>(
+      valueListenable: CachePdfs.listos,
+      builder: (context, listos, _) {
+        final n = urls.where(listos.contains).length;
+        final completo = n == urls.length;
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(16, 6, 16, 2),
+          child: Row(
+            children: [
+              Icon(completo ? Icons.offline_pin : Icons.downloading,
+                  size: 16, color: completo ? Colors.green : Colors.orange),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  context.l10n.listosSinConexion(n, urls.length),
+                  style: TextStyle(
+                      fontSize: 12,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
 /// Logo de la app (barras de sonido): el mismo dibujo del ícono, sin fondo.
 class LogoApp extends StatelessWidget {
   final double tamano;
@@ -4451,6 +4916,7 @@ class MenuHamburguesa extends StatelessWidget {
           'secuencias' => const MisSecuenciasScreen(),
           'colores' => const PaletaPickerScreen(),
           'idioma' => const IdiomaPickerScreen(),
+          'alertas' => const AlertasScreen(),
           'eliminar' => const EliminarCuentaScreen(),
           _ => null,
         };
@@ -4549,6 +5015,7 @@ class _ItemConfiguracionState extends State<_ItemConfiguracion> {
                   children: [
                     opcion('colores', l.colores),
                     opcion('idioma', l.idioma),
+                    opcion('alertas', l.alertas),
                     if (widget.conCuenta)
                       opcion('eliminar', l.eliminarCuenta,
                           colorTexto: Colors.red),
@@ -5811,6 +6278,12 @@ class _RequestScreenState extends State<RequestScreen>
             tooltip: context.l10n.elegirQueVerEnLa,
             onPressed: _elegirPestanas,
           ),
+          IconButton(
+            icon: const Icon(Icons.lock_outline),
+            tooltip: context.l10n.modoShow,
+            onPressed: ModoShow.activar,
+          ),
+          const BloqueoSalida(),
         ],
 
         // Con una sola pestaña elegida no hace falta la barra.
@@ -5975,19 +6448,34 @@ class _RequestScreenState extends State<RequestScreen>
                         child: ListTile(
                           dense: true,
                           visualDensity: VisualDensity.compact,
-                          leading: Icon(
-                            isAtendido
-                                ? Icons.check_circle
-                                : (esUrgente
-                                    ? Icons.priority_high
-                                    : Icons.access_time_filled),
-                            color: isAtendido
-                                ? Colors.green
-                                : (esUrgente
-                                    ? Colors.redAccent
-                                    : Colors.orange),
-                            size: 16,
-                          ),
+                          leading: Builder(builder: (context) {
+                            final estado = estadoDePedido(data);
+                            final l = context.l10n;
+                            return Tooltip(
+                              message: switch (estado) {
+                                EstadoPedido.atendido => l.pedidoAtendido,
+                                EstadoPedido.visto => l.pedidoVisto,
+                                EstadoPedido.enviado => l.pedidoEnviado,
+                              },
+                              child: Icon(
+                                switch (estado) {
+                                  EstadoPedido.atendido => Icons.check_circle,
+                                  EstadoPedido.visto => Icons.done_all,
+                                  EstadoPedido.enviado => esUrgente
+                                      ? Icons.priority_high
+                                      : Icons.access_time_filled,
+                                },
+                                color: switch (estado) {
+                                  EstadoPedido.atendido => Colors.green,
+                                  EstadoPedido.visto => Colors.lightBlue,
+                                  EstadoPedido.enviado => esUrgente
+                                      ? Colors.redAccent
+                                      : Colors.orange,
+                                },
+                                size: 16,
+                              ),
+                            );
+                          }),
                           title: Text(
                             "${data['pedido']}",
                             style: TextStyle(
@@ -6529,6 +7017,15 @@ class SetlistTab extends StatelessWidget {
             return Center(child: Text(context.l10n.todaviaNoHayTemasEn));
           }
 
+          // Los PDF del setlist se guardan en el celular para abrirlos sin red.
+          final urlsPdf = docs
+              .map((d) => d.data()['pdfUrl'] as String? ?? '')
+              .where((u) => u.isNotEmpty)
+              .toSet()
+              .toList();
+
+          scheduleMicrotask(() => CachePdfs.precargar(urlsPdf));
+
           final setlistItems = docs.map((d) {
             final m = d.data();
 
@@ -6701,25 +7198,31 @@ class SetlistTab extends StatelessWidget {
             );
           }
 
-          if (esSonidista) {
-            return ListView.builder(
-                itemCount: docs.length, itemBuilder: construirItem);
-          }
+          final Widget lista = esSonidista
+              ? ListView.builder(
+                  itemCount: docs.length, itemBuilder: construirItem)
+              : ReorderableListView.builder(
+                  itemCount: docs.length,
+                  onReorder: (oldIndex, newIndex) {
+                    final idsEnOrden = docs.map((d) => d.id).toList();
 
-          return ReorderableListView.builder(
-            itemCount: docs.length,
-            onReorder: (oldIndex, newIndex) {
-              final idsEnOrden = docs.map((d) => d.id).toList();
+                    final ajustado =
+                        newIndex > oldIndex ? newIndex - 1 : newIndex;
 
-              final ajustado = newIndex > oldIndex ? newIndex - 1 : newIndex;
+                    final id = idsEnOrden.removeAt(oldIndex);
 
-              final id = idsEnOrden.removeAt(oldIndex);
+                    idsEnOrden.insert(ajustado, id);
 
-              idsEnOrden.insert(ajustado, id);
+                    SetlistService.reordenarSetlist(codigoSala, idsEnOrden);
+                  },
+                  itemBuilder: construirItem,
+                );
 
-              SetlistService.reordenarSetlist(codigoSala, idsEnOrden);
-            },
-            itemBuilder: construirItem,
+          return Column(
+            children: [
+              EstadoSinConexion(urls: urlsPdf),
+              Expanded(child: lista),
+            ],
           );
         },
       ),
@@ -8799,6 +9302,24 @@ class PdfViewerScreen extends StatefulWidget {
 class _PdfViewerScreenState extends State<PdfViewerScreen> {
   String? _error;
 
+  /// Copia del PDF guardada en el celular (se abre sin red) y si ya se buscó.
+  String? _rutaLocal;
+
+  bool _resuelto = kIsWeb;
+
+  @override
+  void initState() {
+    super.initState();
+    CachePdfs.ruta(widget.pdfUrl).then((r) {
+      if (mounted) {
+        setState(() {
+          _rutaLocal = r;
+          _resuelto = true;
+        });
+      }
+    });
+  }
+
   final _swipe = DetectorSwipe();
 
   /// Nivel de zoom actual del PDF. Con zoom, un dedo que arrastra sirve para
@@ -8903,14 +9424,29 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
                   ),
                 ),
               )
-            : SfPdfViewer.network(
-                widget.pdfUrl,
-                controller: _pdfController,
-                onZoomLevelChanged: (details) => _zoom = details.newZoomLevel,
-                onDocumentLoadFailed: (details) {
-                  setState(() => _error = details.description);
-                },
-              ),
+            : !_resuelto
+                ? const Center(child: CircularProgressIndicator())
+                : _rutaLocal != null
+                    ? SfPdfViewer.file(
+                        File(_rutaLocal!),
+                        controller: _pdfController,
+                        onZoomLevelChanged: (details) =>
+                            _zoom = details.newZoomLevel,
+                        onDocumentLoadFailed: (details) {
+                          // Copia dañada: se descarta y se abre por la red.
+                          CachePdfs.borrar(widget.pdfUrl);
+                          setState(() => _rutaLocal = null);
+                        },
+                      )
+                    : SfPdfViewer.network(
+                        widget.pdfUrl,
+                        controller: _pdfController,
+                        onZoomLevelChanged: (details) =>
+                            _zoom = details.newZoomLevel,
+                        onDocumentLoadFailed: (details) {
+                          setState(() => _error = details.description);
+                        },
+                      ),
       ),
     );
   }
@@ -9081,12 +9617,16 @@ class SonidistaPage extends StatefulWidget {
 }
 
 class _SonidistaPageState extends State<SonidistaPage>
-    with TickerProviderStateMixin {
+    with TickerProviderStateMixin, WidgetsBindingObserver {
   bool _pantallaEncendida = true;
 
   bool _agruparPorRol = false;
 
-  final AudioPlayer _alertaPlayer = AudioPlayer();
+  AlertasConfig _alertas = const AlertasConfig();
+
+  /// Últimos pedidos recibidos, para marcarlos como vistos cuando la pestaña
+  /// de Pedidos está a la vista.
+  List<QueryDocumentSnapshot> _ultimosPedidos = [];
 
   StreamSubscription<QuerySnapshot>? _pedidosSub;
 
@@ -9119,12 +9659,19 @@ class _SonidistaPageState extends State<SonidistaPage>
 
     WakelockPlus.enable();
 
+    WidgetsBinding.instance.addObserver(this);
+
+    AlertasService.cargar().then((c) {
+      if (mounted) setState(() => _alertas = c);
+    });
+
     MiembrosSalaService.registrarPresencia(widget.codigoSala).catchError(
         (e) => debugPrint('No se pudo registrar presencia en la sala: $e'));
 
     _escucharPedidosNuevos();
 
-    _tabController = TabController(length: _pestanas.length, vsync: this);
+    _tabController = TabController(length: _pestanas.length, vsync: this)
+      ..addListener(_alCambiarPestana);
 
     PestanasSalaService.cargar('sonidista', _todasLasPestanas).then((elegidas) {
       if (mounted) _aplicarPestanas(elegidas);
@@ -9135,9 +9682,9 @@ class _SonidistaPageState extends State<SonidistaPage>
   void dispose() {
     WakelockPlus.disable();
 
-    _pedidosSub?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
 
-    _alertaPlayer.dispose();
+    _pedidosSub?.cancel();
 
     _tabController.dispose();
 
@@ -9157,7 +9704,8 @@ class _SonidistaPageState extends State<SonidistaPage>
       _tabController = TabController(
           length: nuevas.length,
           vsync: this,
-          initialIndex: indice < 0 ? 0 : indice);
+          initialIndex: indice < 0 ? 0 : indice)
+        ..addListener(_alCambiarPestana);
     });
   }
 
@@ -9208,24 +9756,85 @@ class _SonidistaPageState extends State<SonidistaPage>
         .limit(kMaximoPedidosVisibles)
         .snapshots()
         .listen((snapshot) {
+      _ultimosPedidos = snapshot.docs;
+
+      _marcarVistos();
+
       if (_primerSnapshotPedidos) {
         _primerSnapshotPedidos = false;
 
         return;
       }
 
-      final hayPedidoNuevo =
-          snapshot.docChanges.any((c) => c.type == DocumentChangeType.added);
+      final nuevos = snapshot.docChanges
+          .where((c) => c.type == DocumentChangeType.added)
+          .toList();
 
-      if (hayPedidoNuevo) _notificarPedidoNuevo();
+      if (nuevos.isNotEmpty) {
+        final urgente = nuevos.any((c) => c.doc.data()?['urgente'] == true);
+
+        _notificarPedidoNuevo(urgente: urgente);
+      }
     });
   }
 
-  void _notificarPedidoNuevo() {
-    HapticFeedback
-        .vibrate(); // No-op en la mayoría de navegadores web; útil cuando haya app Android/iOS.
+  void _notificarPedidoNuevo({required bool urgente}) {
+    AlertasService.avisar(_alertas, urgente: urgente);
 
-    _alertaPlayer.play(AssetSource('sounds/pedido_nuevo.wav'));
+    if (urgente && _alertas.destello) AlertasService.destellar();
+  }
+
+  void _alCambiarPestana() {
+    if (!_tabController.indexIsChanging) _marcarVistos();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState estado) {
+    if (estado == AppLifecycleState.resumed) _marcarVistos();
+  }
+
+  /// Marca como "vistos" los pedidos que la consola ya muestra en pantalla
+  /// (pestaña de Pedidos a la vista y app en primer plano), para que el
+  /// músico sepa que el sonidista los vio.
+  Future<void> _marcarVistos() async {
+    if (!mounted) return;
+
+    final ciclo = WidgetsBinding.instance.lifecycleState;
+
+    if (ciclo != null && ciclo != AppLifecycleState.resumed) return;
+
+    final pedidos = _pestanas.indexOf(PestanaSala.pedidos);
+
+    if (pedidos < 0 || _tabController.index != pedidos) return;
+
+    final sinVer = _ultimosPedidos.where((d) {
+      final m = d.data() as Map<String, dynamic>;
+
+      return m['visto'] != true && m['atendido'] != true;
+    }).toList();
+
+    if (sinVer.isEmpty) return;
+
+    try {
+      final lote = FirebaseFirestore.instance.batch();
+
+      for (final d in sinVer.take(400)) {
+        lote.update(d.reference, {'visto': true});
+      }
+
+      await lote.commit();
+    } catch (e) {
+      debugPrint('No se pudieron marcar los pedidos como vistos: $e');
+    }
+  }
+
+  Future<void> _abrirAlertas() async {
+    await Navigator.push(
+        context, MaterialPageRoute(builder: (_) => const AlertasScreen()));
+
+    final c = await AlertasService.cargar();
+
+    if (mounted) setState(() => _alertas = c);
   }
 
   void _togglePantallaEncendida() {
@@ -9415,24 +10024,46 @@ class _SonidistaPageState extends State<SonidistaPage>
       builder: (context) => AlertDialog(
         title: Text(context.l10n.responderA(musico),
             style: const TextStyle(fontSize: 16)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(context.l10n.pedido(pedidoTexto),
-                style: const TextStyle(
-                    fontStyle: FontStyle.italic,
-                    color: Colors.grey,
-                    fontSize: 13)),
-            const SizedBox(height: 12),
-            TextField(
-              controller: controller,
-              decoration: InputDecoration(
-                labelText: context.l10n.escribirRespuestaPrivada,
-                border: const OutlineInputBorder(),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(context.l10n.pedido(pedidoTexto),
+                  style: const TextStyle(
+                      fontStyle: FontStyle.italic,
+                      color: Colors.grey,
+                      fontSize: 13)),
+              const SizedBox(height: 12),
+              Text(context.l10n.respuestasRapidas,
+                  style: const TextStyle(fontSize: 12, color: Colors.grey)),
+              const SizedBox(height: 6),
+              Wrap(
+                spacing: 8,
+                runSpacing: 4,
+                children: [
+                  for (final r in respuestasRapidas(context.l10n))
+                    ActionChip(
+                      label: Text(r),
+                      onPressed: () async {
+                        await FirestoreService.responderPedido(
+                            widget.codigoSala, pedidoId, r);
+
+                        if (context.mounted) Navigator.pop(context);
+                      },
+                    ),
+                ],
               ),
-            ),
-          ],
+              const SizedBox(height: 12),
+              TextField(
+                controller: controller,
+                decoration: InputDecoration(
+                  labelText: context.l10n.escribirRespuestaPrivada,
+                  border: const OutlineInputBorder(),
+                ),
+              ),
+            ],
+          ),
         ),
         actions: [
           TextButton(
@@ -9522,25 +10153,39 @@ class _SonidistaPageState extends State<SonidistaPage>
               }),
           IconButton(
             icon: Icon(
-                _agruparPorRol ? Icons.groups : Icons.format_list_bulleted),
-            tooltip: _agruparPorRol
-                ? context.l10n.agrupadoPorRolActivado
-                : context.l10n.verAgrupadoPorRol,
-            onPressed: () => setState(() => _agruparPorRol = !_agruparPorRol),
-          ),
-          IconButton(
-            icon: Icon(
                 _pantallaEncendida ? Icons.lightbulb : Icons.lightbulb_outline),
             tooltip: _pantallaEncendida
                 ? context.l10n.pantallaSiempreEncendidaActivado
                 : context.l10n.pantallaSiempreEncendidaDesactivado,
             onPressed: _togglePantallaEncendida,
           ),
-          IconButton(
-            icon: const Icon(Icons.view_carousel_outlined),
-            tooltip: context.l10n.elegirQueVerEnLa,
-            onPressed: _elegirPestanas,
+          PopupMenuButton<String>(
+            tooltip: context.l10n.masOpciones,
+            onSelected: (v) {
+              switch (v) {
+                case 'alertas':
+                  _abrirAlertas();
+                case 'show':
+                  ModoShow.activar();
+                case 'agrupar':
+                  setState(() => _agruparPorRol = !_agruparPorRol);
+                case 'pestanas':
+                  _elegirPestanas();
+              }
+            },
+            itemBuilder: (c) => [
+              PopupMenuItem(value: 'alertas', child: Text(c.l10n.alertas)),
+              PopupMenuItem(value: 'show', child: Text(c.l10n.modoShow)),
+              PopupMenuItem(
+                  value: 'agrupar',
+                  child: Text(_agruparPorRol
+                      ? c.l10n.agrupadoPorRolActivado
+                      : c.l10n.verAgrupadoPorRol)),
+              PopupMenuItem(
+                  value: 'pestanas', child: Text(c.l10n.elegirQueVerEnLa)),
+            ],
           ),
+          const BloqueoSalida(),
         ],
 
         // Con una sola pestaña elegida no hace falta la barra.

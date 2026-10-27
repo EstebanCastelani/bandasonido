@@ -1140,4 +1140,73 @@ class AppLocalizationsIt extends AppLocalizations {
   @override
   String get noSePudoEliminarCuenta =>
       'Impossibile eliminare l’account. Controlla la connessione e riprova.';
+
+  @override
+  String get alertas => 'Avvisi delle richieste';
+
+  @override
+  String get alertasExplicacion =>
+      'Come ti avvisa la console quando arriva una richiesta. Quelle urgenti suonano due volte, vibrano più forte e lampeggiano in rosso.';
+
+  @override
+  String get alertaSonido => 'Suono';
+
+  @override
+  String get alertaVolumen => 'Volume dell’avviso';
+
+  @override
+  String get alertaVibracion => 'Vibrazione';
+
+  @override
+  String get alertaDestello => 'Lampeggio rosso se urgente';
+
+  @override
+  String get probarAlerta => 'Prova avviso';
+
+  @override
+  String get probarAlertaUrgente => 'Prova avviso urgente';
+
+  @override
+  String get respuestasRapidas => 'Risposte rapide';
+
+  @override
+  String get respRapidaYaEsta => 'Fatto';
+
+  @override
+  String get respRapidaUnMomento => 'Un momento';
+
+  @override
+  String get respRapidaLoVeo => 'Ci penso io';
+
+  @override
+  String get respRapidaNoPuedoAhora => 'Ora non posso';
+
+  @override
+  String get respRapidaRevisaCable => 'Controlla il cavo';
+
+  @override
+  String get pedidoEnviado => 'Inviato';
+
+  @override
+  String get pedidoVisto => 'Visto dal fonico';
+
+  @override
+  String get pedidoAtendido => 'Gestito';
+
+  @override
+  String get masOpciones => 'Altre opzioni';
+
+  @override
+  String get modoShow => 'Modalità show (blocca schermo)';
+
+  @override
+  String get modoShowDesbloquear => 'Tieni premuto il lucchetto per sbloccare';
+
+  @override
+  String get alertas2 => 'Avvisi';
+
+  @override
+  String listosSinConexion(int listos, int total) {
+    return 'Offline: $listos di $total brani pronti';
+  }
 }

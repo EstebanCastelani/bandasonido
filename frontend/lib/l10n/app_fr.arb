@@ -321,5 +321,37 @@
   "eliminarCuentaPregunta": "Supprimer votre compte pour toujours ?",
   "eliminandoCuenta": "Suppression de votre compte…",
   "cuentaEliminada": "Votre compte et vos données ont été supprimés",
-  "noSePudoEliminarCuenta": "Impossible de supprimer le compte. Vérifiez votre connexion et réessayez."
+  "noSePudoEliminarCuenta": "Impossible de supprimer le compte. Vérifiez votre connexion et réessayez.",
+  "alertas": "Alertes de demandes",
+  "alertasExplicacion": "Comment la console vous prévient à l’arrivée d’une demande. Les urgentes sonnent deux fois, vibrent plus fort et clignotent en rouge.",
+  "alertaSonido": "Son",
+  "alertaVolumen": "Volume de l’alerte",
+  "alertaVibracion": "Vibration",
+  "alertaDestello": "Clignotement rouge si urgent",
+  "probarAlerta": "Tester l’alerte",
+  "probarAlertaUrgente": "Tester l’alerte urgente",
+  "respuestasRapidas": "Réponses rapides",
+  "respRapidaYaEsta": "C’est fait",
+  "respRapidaUnMomento": "Un instant",
+  "respRapidaLoVeo": "Je m’en occupe",
+  "respRapidaNoPuedoAhora": "Pas possible maintenant",
+  "respRapidaRevisaCable": "Vérifie ton câble",
+  "pedidoEnviado": "Envoyé",
+  "pedidoVisto": "Vu par l’ingénieur son",
+  "pedidoAtendido": "Traité",
+  "masOpciones": "Plus d’options",
+  "modoShow": "Mode concert (verrouiller l’écran)",
+  "modoShowDesbloquear": "Maintenez le cadenas pour déverrouiller",
+  "alertas2": "Alertes",
+  "listosSinConexion": "Hors ligne : {listos} sur {total} morceaux prêts",
+  "@listosSinConexion": {
+    "placeholders": {
+      "listos": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  }
 }

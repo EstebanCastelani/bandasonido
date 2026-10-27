@@ -321,5 +321,37 @@
   "eliminarCuentaPregunta": "Eliminare il tuo account per sempre?",
   "eliminandoCuenta": "Eliminazione dell’account…",
   "cuentaEliminada": "Il tuo account e i tuoi dati sono stati eliminati",
-  "noSePudoEliminarCuenta": "Impossibile eliminare l’account. Controlla la connessione e riprova."
+  "noSePudoEliminarCuenta": "Impossibile eliminare l’account. Controlla la connessione e riprova.",
+  "alertas": "Avvisi delle richieste",
+  "alertasExplicacion": "Come ti avvisa la console quando arriva una richiesta. Quelle urgenti suonano due volte, vibrano più forte e lampeggiano in rosso.",
+  "alertaSonido": "Suono",
+  "alertaVolumen": "Volume dell’avviso",
+  "alertaVibracion": "Vibrazione",
+  "alertaDestello": "Lampeggio rosso se urgente",
+  "probarAlerta": "Prova avviso",
+  "probarAlertaUrgente": "Prova avviso urgente",
+  "respuestasRapidas": "Risposte rapide",
+  "respRapidaYaEsta": "Fatto",
+  "respRapidaUnMomento": "Un momento",
+  "respRapidaLoVeo": "Ci penso io",
+  "respRapidaNoPuedoAhora": "Ora non posso",
+  "respRapidaRevisaCable": "Controlla il cavo",
+  "pedidoEnviado": "Inviato",
+  "pedidoVisto": "Visto dal fonico",
+  "pedidoAtendido": "Gestito",
+  "masOpciones": "Altre opzioni",
+  "modoShow": "Modalità show (blocca schermo)",
+  "modoShowDesbloquear": "Tieni premuto il lucchetto per sbloccare",
+  "alertas2": "Avvisi",
+  "listosSinConexion": "Offline: {listos} di {total} brani pronti",
+  "@listosSinConexion": {
+    "placeholders": {
+      "listos": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  }
 }

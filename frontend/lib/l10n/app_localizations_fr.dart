@@ -1145,4 +1145,73 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get noSePudoEliminarCuenta =>
       'Impossible de supprimer le compte. Vérifiez votre connexion et réessayez.';
+
+  @override
+  String get alertas => 'Alertes de demandes';
+
+  @override
+  String get alertasExplicacion =>
+      'Comment la console vous prévient à l’arrivée d’une demande. Les urgentes sonnent deux fois, vibrent plus fort et clignotent en rouge.';
+
+  @override
+  String get alertaSonido => 'Son';
+
+  @override
+  String get alertaVolumen => 'Volume de l’alerte';
+
+  @override
+  String get alertaVibracion => 'Vibration';
+
+  @override
+  String get alertaDestello => 'Clignotement rouge si urgent';
+
+  @override
+  String get probarAlerta => 'Tester l’alerte';
+
+  @override
+  String get probarAlertaUrgente => 'Tester l’alerte urgente';
+
+  @override
+  String get respuestasRapidas => 'Réponses rapides';
+
+  @override
+  String get respRapidaYaEsta => 'C’est fait';
+
+  @override
+  String get respRapidaUnMomento => 'Un instant';
+
+  @override
+  String get respRapidaLoVeo => 'Je m’en occupe';
+
+  @override
+  String get respRapidaNoPuedoAhora => 'Pas possible maintenant';
+
+  @override
+  String get respRapidaRevisaCable => 'Vérifie ton câble';
+
+  @override
+  String get pedidoEnviado => 'Envoyé';
+
+  @override
+  String get pedidoVisto => 'Vu par l’ingénieur son';
+
+  @override
+  String get pedidoAtendido => 'Traité';
+
+  @override
+  String get masOpciones => 'Plus d’options';
+
+  @override
+  String get modoShow => 'Mode concert (verrouiller l’écran)';
+
+  @override
+  String get modoShowDesbloquear => 'Maintenez le cadenas pour déverrouiller';
+
+  @override
+  String get alertas2 => 'Alertes';
+
+  @override
+  String listosSinConexion(int listos, int total) {
+    return 'Hors ligne : $listos sur $total morceaux prêts';
+  }
 }

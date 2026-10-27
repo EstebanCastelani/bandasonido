@@ -321,5 +321,37 @@
   "eliminarCuentaPregunta": "Excluir sua conta para sempre?",
   "eliminandoCuenta": "Excluindo sua conta…",
   "cuentaEliminada": "Sua conta e seus dados foram excluídos",
-  "noSePudoEliminarCuenta": "Não foi possível excluir a conta. Verifique a conexão e tente de novo."
+  "noSePudoEliminarCuenta": "Não foi possível excluir a conta. Verifique a conexão e tente de novo.",
+  "alertas": "Alertas de pedidos",
+  "alertasExplicacion": "Como o console avisa quando chega um pedido. Os urgentes tocam duas vezes, vibram mais forte e piscam em vermelho.",
+  "alertaSonido": "Som",
+  "alertaVolumen": "Volume do aviso",
+  "alertaVibracion": "Vibração",
+  "alertaDestello": "Piscar vermelho nos urgentes",
+  "probarAlerta": "Testar alerta",
+  "probarAlertaUrgente": "Testar alerta urgente",
+  "respuestasRapidas": "Respostas rápidas",
+  "respRapidaYaEsta": "Pronto",
+  "respRapidaUnMomento": "Um momento",
+  "respRapidaLoVeo": "Estou vendo",
+  "respRapidaNoPuedoAhora": "Não posso agora",
+  "respRapidaRevisaCable": "Verifique seu cabo",
+  "pedidoEnviado": "Enviado",
+  "pedidoVisto": "Visto pelo técnico de som",
+  "pedidoAtendido": "Atendido",
+  "masOpciones": "Mais opções",
+  "modoShow": "Modo show (bloquear tela)",
+  "modoShowDesbloquear": "Mantenha o cadeado pressionado para desbloquear",
+  "alertas2": "Alertas",
+  "listosSinConexion": "Sem conexão: {listos} de {total} músicas prontas",
+  "@listosSinConexion": {
+    "placeholders": {
+      "listos": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  }
 }
