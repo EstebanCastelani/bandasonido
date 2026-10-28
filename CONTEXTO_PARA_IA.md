@@ -806,7 +806,8 @@ registrada sin chequear `esPro` — ver §8 para cómo revertir esto.
     ("Tono: G", "Key of Am", "(Dm)" al final de una de las 3 primeras líneas); si no, puntúa las
     24 tonalidades por cuántos acordes encajan (diatónicos, con V mayor en menor), con bonus si
     arranca/termina en la tónica, y **devuelve null si no hay evidencia suficiente** (menos de
-    4 acordes, poca ventaja, o ambigüedad mayor/relativa menor sin cierre claro). Medido con 144
+    4 acordes o poca ventaja). Si mayor y su relativa menor empatan pero destacan claramente
+    sobre las demás, gana la que tiene como tónica el primer acorde (DF-19). Medido con 144
     progresiones sintéticas en las 24 tonalidades: 91 correctas, 53 sin respuesta (null),
     **0 equivocadas**; además la canción real "alístate" da Dm. Es una sugerencia: el diálogo
     "Nueva canción" deja editar ambos campos. No se usa al editar una canción existente.

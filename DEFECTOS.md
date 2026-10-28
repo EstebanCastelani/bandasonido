@@ -69,3 +69,6 @@ Al subir "Enganchado coritos" (cifrado real en Re menor) la app sugirió la tona
 
 ### DF-18 · Corregido (27-oct-2026)
 Los acordes opcionales entre paréntesis ("(Bb)") **no se transponían** en el visor de cifrados: al subir el tono quedaban en el valor original. Ahora se transponen como los demás ("(Bb)" +2 pasa a "(C)"). Verificado en el celular.
+
+### DF-19 · Corregido (27-oct-2026)
+Al subir "Padre nuestro, mi mayor necesidad, yo adoro al Rey" la app no sugería ninguna tonalidad. El cifrado usa los acordes E, F#, A, B, C#m, F#m y G#m, que son los **mismos para Mi mayor y su relativa Do# menor**, y el detector prefería no arriesgar. Ahora, cuando esas dos tonalidades destacan claramente sobre las demás, elige la que tiene como tónica el **primer acorde** de la canción (aquí **E**, la que ya usabas). Con una progresión corta y ambigua sigue sin sugerir nada. Límite conocido: si una canción empieza en el acorde menor relativo pero se siente en la mayor (o al revés), la sugerencia será la relativa; en pruebas con 180 progresiones esto pasó en 12, y ninguna sugerencia fue ajena a la tonalidad ni a su relativa. Siempre se puede corregir a mano.
