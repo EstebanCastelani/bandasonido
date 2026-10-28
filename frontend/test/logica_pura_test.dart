@@ -659,4 +659,65 @@ Un corazón que alaba a Cristo
       expect(ChordTransposer.transponerTexto('(coro)', 2), '(coro)');
     });
   });
+
+  group('Enganchado Padre nuestro / Mi mayor necesidad / Yo adoro al Rey', () {
+    const padre = '''
+Intro E C#m A x2
+Verso
+        E E F#
+Padre Nuestro del cielo
+     A            B
+Tu Nombre santo es
+      E E F#
+Que venga tu reino
+   A         B
+Y has tu voluntad
+
+Coro
+ A         F#m     C#m
+Aquí como es en el cielo
+         B
+Que el cielo venga
+ A         F#m      C#m
+Aquí como es en el cielo
+     B           E
+El cielo venga aquí
+Puente¹
+            A
+//El Cielo aquí,
+        C#m   B
+Tu reino aquí//
+Instrumental C#m A E B  x4
+              C#m
+////Espíritu Santo,
+        A
+Te anhelamos
+          E
+Te necesitamos
+         B
+Ven a reinar////
+
+Instrumental C#m  F#m  G#m  C#m  x4
+C#m             F#m
+////Levanto mis manos
+G#m               C#m
+Tu rostro quiero ver////
+         C#m      F#m
+////Oh Señor, oh Señor
+     Eb°     G#⁷       C#m
+Tu gloria llena la tierra///
+''';
+
+    test(
+        'Mi mayor y Do# menor usan los mismos acordes: se elige por el primero',
+        () {
+      expect(DetectorTonalidad.detectar(padre), 'E');
+    });
+
+    test('empezando por el Do# menor se elige Do# menor', () {
+      final alReves =
+          padre.replaceFirst('Intro E C#m A x2', 'Intro C#m A E x2');
+      expect(DetectorTonalidad.detectar(alReves), 'C#m');
+    });
+  });
 }

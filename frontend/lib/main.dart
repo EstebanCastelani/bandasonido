@@ -4914,8 +4914,22 @@ class DetectorTonalidad {
     // acordes: ahí se pide más ventaja antes de arriesgar.
     final relativas = _sonRelativas(mejor.$1, segundo.$1);
     final ventaja = relativas ? 4.0 : 1.5;
-    if (mejor.$2 - segundo.$2 < ventaja) return null;
-    return mejor.$1;
+    if (mejor.$2 - segundo.$2 >= ventaja) return mejor.$1;
+    // Mayor y relativa menor se reparten los mismos acordes (Mi mayor / Do#
+    // menor): si las dos destacan claramente sobre el resto, se elige la que
+    // tiene como tónica el primer acorde de la canción.
+    if (relativas && segundo.$2 - puntajes[2].$2 >= 3) {
+      final primero = acordes.first;
+      for (final candidata in [mejor.$1, segundo.$1]) {
+        final menor = candidata.endsWith('m');
+        if (primero.nota == _nota(candidata) &&
+            (primero.tipo == 'm') == menor &&
+            primero.tipo != 'd') {
+          return candidata;
+        }
+      }
+    }
+    return null;
   }
 }
 
