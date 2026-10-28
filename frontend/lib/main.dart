@@ -149,6 +149,16 @@ void main() async {
   try {
     await Firebase.initializeApp(options: firebaseOptions);
 
+    // Setlist, cifrados y pedidos quedan guardados en el dispositivo para
+    // seguir viéndose sin red (en Android/iOS ya era así; en web hay que
+    // pedirlo). Si el navegador no lo permite, la app sigue igual.
+    try {
+      FirebaseFirestore.instance.settings =
+          const Settings(persistenceEnabled: true);
+    } catch (e) {
+      debugPrint('No se pudo activar el guardado sin conexión: $e');
+    }
+
     await _activarAppCheckSiCorresponde();
   } catch (e) {
     debugPrint("Error inicializando Firebase: $e");
@@ -2582,6 +2592,14 @@ Future<({Uint8List bytes, int kbps})> convertirAMp3(
 
 const bool reproductorWebDisponible = false;
 
+bool get cacheArchivosDisponible => false;
+Future<List<String>> cachePrecargar(String nombre, List<String> urls) =>
+    throw UnsupportedError('Solo en la versión web.');
+Future<Uint8List?> cacheBytes(String nombre, String url) =>
+    throw UnsupportedError('Solo en la versión web.');
+Future<void> cacheBorrar(String nombre, String url) =>
+    throw UnsupportedError('Solo en la versión web.');
+
 Never _soloWeb() => throw UnsupportedError(
     'El reproductor con tono y tempo solo está disponible en la versión web.');
 void rwDesbloquear() => _soloWeb();
@@ -2700,7 +2718,18 @@ class ReproductorSecuencias extends ChangeNotifier {
   /// Baja las pistas de [urls] de a una (si todavía no están) para que suenen
   /// sin esperar la red. Es seguro llamarla muchas veces con la misma lista.
   Future<void> precargar(List<String> urls) async {
-    if (_web) return;
+    if (_web) {
+      if (!puente.cacheArchivosDisponible) return;
+      try {
+        final listas = await puente.cachePrecargar('sc-audio', urls);
+        final antes = _enCache.length;
+        _enCache.addAll(listas);
+        if (_enCache.length != antes) notifyListeners();
+      } catch (e) {
+        debugPrint('No se pudieron guardar las pistas en el navegador: $e');
+      }
+      return;
+    }
     var bajo = false;
     for (final url in urls) {
       if (url.isEmpty) continue;
@@ -4597,6 +4626,16 @@ class CachePdfs {
       File('${(await _carpeta()).path}/${claveCache(url)}.pdf');
 
   /// Ruta del PDF guardado de [url], o null si no está (o en web).
+  /// Solo web: el PDF guardado en el navegador, o null si no está.
+  static Future<Uint8List?> bytes(String url) async {
+    if (!kIsWeb || url.isEmpty || !puente.cacheArchivosDisponible) return null;
+    try {
+      return await puente.cacheBytes('sc-pdfs', url);
+    } catch (_) {
+      return null;
+    }
+  }
+
   static Future<String?> ruta(String url) async {
     if (kIsWeb || url.isEmpty) return null;
     try {
@@ -4607,6 +4646,15 @@ class CachePdfs {
   }
 
   static Future<void> borrar(String url) async {
+    if (kIsWeb) {
+      try {
+        if (puente.cacheArchivosDisponible) {
+          await puente.cacheBorrar('sc-pdfs', url);
+        }
+        listos.value = {...listos.value}..remove(url);
+      } catch (_) {}
+      return;
+    }
     try {
       final f = await _archivo(url);
       if (await f.exists()) await f.delete();
@@ -4615,7 +4663,16 @@ class CachePdfs {
   }
 
   static Future<void> precargar(List<String> urls) async {
-    if (kIsWeb) return;
+    if (kIsWeb) {
+      if (!puente.cacheArchivosDisponible) return;
+      try {
+        final guardadas = await puente.cachePrecargar('sc-pdfs', urls);
+        listos.value = {...listos.value, ...guardadas};
+      } catch (e) {
+        debugPrint('No se pudieron guardar los PDF en el navegador: $e');
+      }
+      return;
+    }
     var bajo = false;
     for (final url in urls) {
       final antes = listos.value.contains(url);
@@ -4689,7 +4746,9 @@ class EstadoSinConexion extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (kIsWeb || urls.isEmpty) return const SizedBox.shrink();
+    if (urls.isEmpty || (kIsWeb && !puente.cacheArchivosDisponible)) {
+      return const SizedBox.shrink();
+    }
     return ValueListenableBuilder<Set<String>>(
       valueListenable: CachePdfs.listos,
       builder: (context, listos, _) {
@@ -9507,15 +9566,21 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
   /// Copia del PDF guardada en el celular (se abre sin red) y si ya se buscó.
   String? _rutaLocal;
 
-  bool _resuelto = kIsWeb;
+  /// Lo mismo en la web: el PDF guardado en el navegador.
+  Uint8List? _bytesLocal;
+
+  bool _resuelto = false;
 
   @override
   void initState() {
     super.initState();
-    CachePdfs.ruta(widget.pdfUrl).then((r) {
+    Future(() async {
+      final ruta = await CachePdfs.ruta(widget.pdfUrl);
+      final bytes = ruta == null ? await CachePdfs.bytes(widget.pdfUrl) : null;
       if (mounted) {
         setState(() {
-          _rutaLocal = r;
+          _rutaLocal = ruta;
+          _bytesLocal = bytes;
           _resuelto = true;
         });
       }
@@ -9628,27 +9693,38 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
               )
             : !_resuelto
                 ? const Center(child: CircularProgressIndicator())
-                : _rutaLocal != null
-                    ? SfPdfViewer.file(
-                        File(_rutaLocal!),
+                : _bytesLocal != null
+                    ? SfPdfViewer.memory(
+                        _bytesLocal!,
                         controller: _pdfController,
                         onZoomLevelChanged: (details) =>
                             _zoom = details.newZoomLevel,
                         onDocumentLoadFailed: (details) {
-                          // Copia dañada: se descarta y se abre por la red.
                           CachePdfs.borrar(widget.pdfUrl);
-                          setState(() => _rutaLocal = null);
+                          setState(() => _bytesLocal = null);
                         },
                       )
-                    : SfPdfViewer.network(
-                        widget.pdfUrl,
-                        controller: _pdfController,
-                        onZoomLevelChanged: (details) =>
-                            _zoom = details.newZoomLevel,
-                        onDocumentLoadFailed: (details) {
-                          setState(() => _error = details.description);
-                        },
-                      ),
+                    : _rutaLocal != null
+                        ? SfPdfViewer.file(
+                            File(_rutaLocal!),
+                            controller: _pdfController,
+                            onZoomLevelChanged: (details) =>
+                                _zoom = details.newZoomLevel,
+                            onDocumentLoadFailed: (details) {
+                              // Copia dañada: se descarta y se abre por la red.
+                              CachePdfs.borrar(widget.pdfUrl);
+                              setState(() => _rutaLocal = null);
+                            },
+                          )
+                        : SfPdfViewer.network(
+                            widget.pdfUrl,
+                            controller: _pdfController,
+                            onZoomLevelChanged: (details) =>
+                                _zoom = details.newZoomLevel,
+                            onDocumentLoadFailed: (details) {
+                              setState(() => _error = details.description);
+                            },
+                          ),
       ),
     );
   }

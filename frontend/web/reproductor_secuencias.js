@@ -136,7 +136,9 @@ window.reproductorSecuencias = {
     termino = false;
     fundir(0, 0.005);
     reiniciarTono();
-    audio.src = url;
+    // Si la pista ya está guardada en el navegador (cache_archivos.js) se
+    // usa esa copia: suena al instante y sin red. Es sincrónico a propósito.
+    audio.src = (window.__blobUrls && window.__blobUrls.get(url)) || url;
     // Cambiar de pista vuelve la velocidad a la de por defecto.
     audio.defaultPlaybackRate = tempo;
     audio.playbackRate = tempo;

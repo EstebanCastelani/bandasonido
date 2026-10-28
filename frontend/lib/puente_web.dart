@@ -104,3 +104,34 @@ void rwFadeOut(double segundos) => _reproductor.fadeOut(segundos.toJS);
     termino: e.termino.toDart,
   );
 }
+
+// --- ARCHIVOS GUARDADOS EN EL NAVEGADOR (SIN CONEXIÓN) ---
+// web/cache_archivos.js (Cache Storage). Nombres: 'sc-pdfs' y 'sc-audio'.
+
+@JS('cacheArchivos')
+external _CacheJs? get _cache;
+
+extension type _CacheJs._(JSObject _) implements JSObject {
+  external JSBoolean get disponible;
+  external JSPromise<JSArray<JSString>> precargar(
+      JSString nombre, JSArray<JSString> urls);
+  external JSPromise<JSUint8Array?> bytes(JSString nombre, JSString url);
+  external JSPromise<JSAny?> borrar(JSString nombre, JSString url);
+}
+
+bool get cacheArchivosDisponible => _cache?.disponible.toDart ?? false;
+
+/// Baja y guarda las [urls] que falten; devuelve las que quedaron guardadas.
+Future<List<String>> cachePrecargar(String nombre, List<String> urls) async {
+  final lista = await _cache!
+      .precargar(nombre.toJS, [for (final u in urls) u.toJS].toJS)
+      .toDart;
+  return [for (final u in lista.toDart) u.toDart];
+}
+
+Future<Uint8List?> cacheBytes(String nombre, String url) async =>
+    (await _cache!.bytes(nombre.toJS, url.toJS).toDart)?.toDart;
+
+Future<void> cacheBorrar(String nombre, String url) async {
+  await _cache!.borrar(nombre.toJS, url.toJS).toDart;
+}
