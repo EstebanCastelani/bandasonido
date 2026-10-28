@@ -4741,6 +4741,176 @@ EdgeInsets rellenoFormulario(BuildContext context) {
   return EdgeInsets.symmetric(horizontal: lateral, vertical: 24);
 }
 
+/// Detecta la tonalidad de un cifrado (texto con acordes) para sugerirla al
+/// subir una canción. Solo devuelve una tonalidad cuando está bastante segura:
+/// 1) si el texto la declara ("Tono: G", "Key of Am") o la trae al final del
+/// título ("Jesús es el nombre (Dm)"); 2) si no, la deduce de los acordes
+/// (cuántos encajan en cada tonalidad, y si arranca o termina en el acorde de
+/// la tonalidad). Si no alcanza la evidencia devuelve null y se deja vacío.
+class DetectorTonalidad {
+  static const _mayores = [
+    'C', 'Db', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B' //
+  ];
+  static const _menores = [
+    'Cm', 'C#m', 'Dm', 'Ebm', 'Em', 'Fm', 'F#m', 'Gm', 'G#m', 'Am', 'Bbm',
+    'Bm' //
+  ];
+  static const _notas = {
+    'C': 0, 'D': 2, 'E': 4, 'F': 5, 'G': 7, 'A': 9, 'B': 11, //
+    'Do': 0, 'Re': 2, 'Mi': 4, 'Fa': 5, 'Sol': 7, 'La': 9, 'Si': 11,
+  };
+
+  static final RegExp _acorde = RegExp(
+    r'^(Do|Re|Mi|Fa|Sol|La|Si|[A-G])(#|b)?(maj|min|dim|aug|sus|add|m)?[0-9]*(?:[#b][0-9]+)?(?:sus[0-9]*|add[0-9]+|\+)?(?:/(?:Do|Re|Mi|Fa|Sol|La|Si|[A-G])(?:#|b)?)?$',
+  );
+  static final RegExp _declarada = RegExp(
+    r'\b(?:tonalidad|tono|key)\b\s*(?:de|of)?\s*[:=\-–]?\s*([A-Za-z#♯♭]+)',
+    caseSensitive: false,
+  );
+  static final RegExp _enTitulo = RegExp(r'\(([A-G][#b]?m?)\)\s*$');
+  static final RegExp _entreCorchetes = RegExp(r'\[([^\]]+)\]');
+
+  /// Acorde -> (nota 0..11, tipo): 'M' mayor, 'm' menor, 'd' disminuido.
+  static ({int nota, String tipo})? _parsear(String token) {
+    final m = _acorde.firstMatch(token);
+    if (m == null) return null;
+    var nota = _notas[m.group(1)!]!;
+    if (m.group(2) == '#') nota++;
+    if (m.group(2) == 'b') nota--;
+    final suf = m.group(3);
+    final tipo = suf == 'dim'
+        ? 'd'
+        : (suf == 'm' || suf == 'min')
+            ? 'm'
+            : 'M';
+    return (nota: (nota + 12) % 12, tipo: tipo);
+  }
+
+  static String? _nombre(int nota, bool menor) =>
+      menor ? _menores[nota % 12] : _mayores[nota % 12];
+
+  /// La tonalidad que declara el propio texto, normalizada ("Am", "Bb").
+  static String? _declaradaEnTexto(String texto) {
+    final lineas =
+        texto.split('\n').where((l) => l.trim().isNotEmpty).take(4).toList();
+    for (final l in lineas) {
+      final t = _declarada.firstMatch(l);
+      if (t != null) {
+        final a = _parsear(t.group(1)!);
+        if (a != null && a.tipo != 'd') return _nombre(a.nota, a.tipo == 'm');
+      }
+    }
+    for (final l in lineas.take(3)) {
+      final t = _enTitulo.firstMatch(l.trim());
+      if (t != null) {
+        final a = _parsear(t.group(1)!)!;
+        return _nombre(a.nota, a.tipo == 'm');
+      }
+    }
+    return null;
+  }
+
+  static List<({int nota, String tipo})> _acordesDe(String texto) {
+    final lista = <({int nota, String tipo})>[];
+    for (final linea in texto.split('\n')) {
+      final corchetes = _entreCorchetes.allMatches(linea).toList();
+      final tokens = corchetes.isNotEmpty
+          ? corchetes.map((m) => m.group(1)!)
+          : (ChordTransposer.esLineaDeAcordes(linea)
+              ? linea.trim().split(RegExp(r'\s+'))
+              : <String>[]);
+      for (final t in tokens) {
+        final a = _parsear(t);
+        if (a != null) lista.add(a);
+      }
+    }
+    return lista;
+  }
+
+  /// ¿El acorde [a] encaja en la tonalidad de tónica [t] (mayor o menor)?
+  static bool _encaja(({int nota, String tipo}) a, int t, bool menor) {
+    final g = (a.nota - t + 12) % 12;
+    if (!menor) {
+      return switch (g) {
+        0 || 5 || 7 => a.tipo == 'M',
+        2 || 4 || 9 => a.tipo == 'm',
+        11 => a.tipo == 'd' || a.tipo == 'm',
+        _ => false,
+      };
+    }
+    return switch (g) {
+      0 || 5 => a.tipo == 'm',
+      7 => a.tipo == 'm' || a.tipo == 'M',
+      3 || 8 || 10 => a.tipo == 'M',
+      2 => a.tipo == 'd' || a.tipo == 'm',
+      _ => false,
+    };
+  }
+
+  static int _nota(String nombre) {
+    final i = _mayores.indexOf(nombre);
+    return i >= 0 ? i : _menores.indexOf(nombre);
+  }
+
+  /// ¿Una es la mayor y la otra su relativa menor (3 semitonos más abajo)?
+  static bool _sonRelativas(String a, String b) {
+    final aMenor = a.endsWith('m');
+    final bMenor = b.endsWith('m');
+    if (aMenor == bMenor) return false;
+    final mayor = aMenor ? _nota(b) : _nota(a);
+    final menor = aMenor ? _nota(a) : _nota(b);
+    return (mayor - menor + 12) % 12 == 3;
+  }
+
+  /// Tonalidad del cifrado ("Dm", "Bb", "G"…) o null si no se puede asegurar.
+  static String? detectar(String texto) {
+    final declarada = _declaradaEnTexto(texto);
+    if (declarada != null) return declarada;
+
+    final acordes = _acordesDe(texto);
+    if (acordes.length < 4) return null;
+
+    final puntajes = <(String, double)>[];
+    for (var t = 0; t < 12; t++) {
+      for (final menor in [false, true]) {
+        var p = 0.0;
+        var tonicas = 0;
+        for (final a in acordes) {
+          p += _encaja(a, t, menor) ? 1 : -1;
+          if (a.nota == t && (a.tipo == 'm') == menor && a.tipo != 'd') {
+            tonicas++;
+          }
+        }
+        bool esTonica(({int nota, String tipo}) a) =>
+            a.nota == t && (a.tipo == 'm') == menor && a.tipo != 'd';
+        if (esTonica(acordes.first)) p += 2;
+        if (esTonica(acordes.last)) p += 3;
+        p += tonicas / acordes.length * 4;
+        puntajes.add((_nombre(t, menor)!, p));
+      }
+    }
+    puntajes.sort((x, y) => y.$2.compareTo(x.$2));
+    final mejor = puntajes[0];
+    final segundo = puntajes[1];
+    final minimo = acordes.length * 0.7;
+    if (mejor.$2 < minimo) return null;
+    // Una tonalidad mayor y su relativa menor (Do y La menor) usan los mismos
+    // acordes: ahí se pide más ventaja antes de arriesgar.
+    final relativas = _sonRelativas(mejor.$1, segundo.$1);
+    final ventaja = relativas ? 4.0 : 1.5;
+    if (mejor.$2 - segundo.$2 < ventaja) return null;
+    return mejor.$1;
+  }
+}
+
+/// Título sugerido para un archivo que se sube: su nombre sin la extensión
+/// (la persona puede cambiarlo antes de guardar).
+String tituloDesdeArchivo(String nombreArchivo) {
+  final nombre = nombreArchivo.trim();
+  final punto = nombre.lastIndexOf('.');
+  return punto > 0 ? nombre.substring(0, punto).trim() : nombre;
+}
+
 /// Mensaje centrado de "hace falta iniciar sesión" para las pantallas de cuenta.
 Widget mensajeNecesitaCuenta(String texto) => Center(
       child: Padding(
@@ -8088,8 +8258,11 @@ class _MiRepertorioScreenState extends State<MiRepertorioScreen> {
 
     if (!mounted) return;
 
-    final datos =
-        await _pedirDatosCancion(context, cifradoInicial: cifradoExtraido);
+    final datos = await _pedirDatosCancion(context,
+        esNueva: true,
+        tituloInicial: tituloDesdeArchivo(archivo.name),
+        tonalidadInicial: DetectorTonalidad.detectar(cifradoExtraido),
+        cifradoInicial: cifradoExtraido);
 
     if (datos == null) return;
 
@@ -8122,6 +8295,7 @@ class _MiRepertorioScreenState extends State<MiRepertorioScreen> {
     String? tituloInicial,
     String? tonalidadInicial,
     String? cifradoInicial,
+    bool esNueva = false,
   }) async {
     final tituloController = TextEditingController(text: tituloInicial ?? '');
 
@@ -8135,7 +8309,7 @@ class _MiRepertorioScreenState extends State<MiRepertorioScreen> {
     return showDialog<(String, String, String)>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(tituloInicial == null
+        title: Text(esNueva || tituloInicial == null
             ? context.l10n.nuevaCancion
             : context.l10n.editarCancion),
         content: SizedBox(
@@ -8654,9 +8828,7 @@ class _MisSecuenciasScreenState extends State<MisSecuenciasScreen> {
         if (archivo.bytes == null) continue;
         final contador =
             aSubir.length > 1 ? ' (${i + 1}/${aSubir.length})' : '';
-        final punto = archivo.name.lastIndexOf('.');
-        final titulo =
-            punto > 0 ? archivo.name.substring(0, punto) : archivo.name;
+        final titulo = tituloDesdeArchivo(archivo.name);
         var nombreArchivo = archivo.name;
         var bytes = archivo.bytes!;
         try {

@@ -501,4 +501,101 @@ void main() {
       expect(ModoShow.bloqueado.value, isFalse);
     });
   });
+
+  group('Título sugerido al subir un archivo', () {
+    test('es el nombre del archivo sin la extensión', () {
+      expect(
+          tituloDesdeArchivo('Jesús es el nombre.pdf'), 'Jesús es el nombre');
+      expect(tituloDesdeArchivo('QA_prueba.PDF'), 'QA_prueba');
+    });
+
+    test('solo quita la última extensión', () {
+      expect(tituloDesdeArchivo('Canción v2.final.pdf'), 'Canción v2.final');
+    });
+
+    test('sin extensión o con nombre que empieza con punto no se rompe', () {
+      expect(tituloDesdeArchivo('sin_extension'), 'sin_extension');
+      expect(tituloDesdeArchivo('.oculto'), '.oculto');
+      expect(tituloDesdeArchivo('  espacio .pdf '), 'espacio');
+      expect(tituloDesdeArchivo(''), '');
+    });
+  });
+
+  group('Detección de tonalidad al subir una canción', () {
+    String? k(String texto) => DetectorTonalidad.detectar(texto);
+
+    test('respeta la tonalidad que declara el texto', () {
+      expect(k('Tono: G\nC G Am F'), 'G');
+      expect(k('Key of Am\nletra'), 'Am');
+      expect(k('Tonalidad Bb'), 'Bb');
+      expect(k('Jesús es el nombre (Dm)\nletra sin acordes'), 'Dm');
+      expect(k('QA Prueba (G)\n\nG D\nhola'), 'G');
+    });
+
+    test('una palabra suelta después de "tono" no cuenta como tonalidad', () {
+      expect(k('Tono bajo y suave\nletra'), isNull);
+    });
+
+    test('alístate (acordes reales) es Dm', () {
+      const texto = '''
+Intro Dm Gm A Dm
+
+Verso1
+  Dm
+Alístate, que pronto viene el Rey
+    Gm
+En majestad, ya pronto viene el Rey
+      A
+Él viene ya, Él viene ya, Él viene ya
+    A   G  F  E  Dm  A/C# C G/B
+El Rey pronto vendrá
+
+Coro
+      Dm  A/C#    C  G/B
+//Hay gozo en los cielos
+     Dm   A/C#    C  G/B
+ Hay fiesta en la tierra
+        Gm        A
+El Rey pronto vendrá//
+''';
+      expect(k(texto), 'Dm');
+    });
+
+    test('canción clásica en sol mayor', () {
+      expect(k('G  G7  C  G\nAmazing\nEm  D  G\ngrace'), 'G');
+    });
+
+    test('Am F C G suelto es ambiguo (Do mayor o La menor): no se arriesga',
+        () {
+      expect(k('Am F C G\nletra\nAm F C G'), isNull);
+    });
+
+    test('si termina en el acorde de la tónica, se decide por ella', () {
+      expect(k('Am F C G\nletra\nAm F C G Am'), 'Am');
+      expect(k('C G Am F\nletra\nC G Am F C'), 'C');
+    });
+
+    test('bemoles: Bb F Gm Eb', () {
+      expect(k('Bb F Gm Eb\nletra\nBb F Eb Bb'), 'Bb');
+    });
+
+    test('acordes entre corchetes', () {
+      expect(k('[G]Sobre [D]el [Em]mar [C]va\n[G]la [D]luz [C]y [G]sol'), 'G');
+    });
+
+    test('notación latina', () {
+      expect(k('Rem Sol La Rem\nletra\nRem Sol La Rem'), 'Dm');
+    });
+
+    test('con pocos acordes no se arriesga', () {
+      expect(k('C G'), isNull);
+      expect(k('letra sin ningún acorde'), isNull);
+      expect(k(''), isNull);
+    });
+
+    test('si hay dudas entre dos tonalidades devuelve null', () {
+      // C y F alternando sin pista de cuál es la tónica
+      expect(k('C F\nF C\nC F'), anyOf(isNull, 'C', 'F'));
+    });
+  });
 }
