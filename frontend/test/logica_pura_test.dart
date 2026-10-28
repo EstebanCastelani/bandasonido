@@ -598,4 +598,65 @@ El Rey pronto vendrá//
       expect(k('C F\nF C\nC F'), anyOf(isNull, 'C', 'F'));
     });
   });
+
+  group('Cifrados con acordes opcionales entre paréntesis (Enganchado coritos)',
+      () {
+    const enganchado = '''
+Dm
+//Hay victoria, hay victoria
+                    (Bb)
+Hay victoria en el Nombre
+      A
+De Jesús
+
+  Dm                    D⁷
+No podrá, el enemigo dañar
+            Gm
+A nuestras almas
+
+Porque hay victoria
+              Dm
+Porque hay victoria
+       A
+Hay victoria en el Nombre
+    Dm
+De Jesús
+
+   Dm
+//No puede está triste
+                 (Bb)       A
+Un corazón que alaba a Cristo
+ Dm              (Bb)     A
+//Ven,ven,ven Espíritu divino
+''';
+
+    test('una línea que es solo "(Bb)" no se toma como tonalidad: es Dm', () {
+      expect(DetectorTonalidad.detectar(enganchado), 'Dm');
+    });
+
+    test('un título con la tonalidad entre paréntesis sigue valiendo', () {
+      expect(
+          DetectorTonalidad.detectar('Enganchado coritos (Dm)\nletra'), 'Dm');
+    });
+
+    test('la tonalidad entre paréntesis solo vale en la primera línea', () {
+      expect(DetectorTonalidad.detectar('Dm\nSiento gozo (Bb)\nletra'), isNull);
+    });
+
+    test('los acordes con superíndice (D⁷) cuentan como acordes', () {
+      expect(
+          DetectorTonalidad.detectar('Dm D⁷ Gm Dm\nletra\nDm A Dm D⁷ Gm A Dm'),
+          'Dm');
+    });
+
+    test('el transpositor también transpone los acordes entre paréntesis', () {
+      expect(ChordTransposer.transponerTexto('Dm        (Bb)    A', 2),
+          'Em        (C)     B');
+      expect(ChordTransposer.hayAcordes('  (Bb)  '), isTrue);
+    });
+
+    test('un paréntesis que no es acorde se deja igual', () {
+      expect(ChordTransposer.transponerTexto('(coro)', 2), '(coro)');
+    });
+  });
 }

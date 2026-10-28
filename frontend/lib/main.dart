@@ -1190,6 +1190,7 @@ class ChordTransposer {
     // "Si", "Mi", "La" o "Sol" solos son palabras comunes: la notación latina
     // solo cuenta como acorde en una línea con al menos dos elementos.
     final acordes = palabras
+        .map(_sinParentesis)
         .where((w) =>
             _tokenAcorde.hasMatch(w) ||
             (palabras.length >= 2 && _tokenLatino.hasMatch(w)))
@@ -1214,7 +1215,17 @@ class ChordTransposer {
     return false;
   }
 
+  /// "(Bb)" -> "Bb": en los cifrados un acorde entre paréntesis es opcional.
+  static String _sinParentesis(String w) =>
+      (w.length > 2 && w.startsWith('(') && w.endsWith(')'))
+          ? w.substring(1, w.length - 1)
+          : w;
+
   static String? _transponerToken(String token, int semitonos) {
+    if (_sinParentesis(token) != token) {
+      final dentro = _transponerToken(_sinParentesis(token), semitonos);
+      return dentro == null ? null : '($dentro)';
+    }
     final match = _tokenAcorde.firstMatch(token);
     if (match != null) {
       final raiz = match.group(1)!;
@@ -4761,13 +4772,16 @@ class DetectorTonalidad {
   };
 
   static final RegExp _acorde = RegExp(
-    r'^(Do|Re|Mi|Fa|Sol|La|Si|[A-G])(#|b)?(maj|min|dim|aug|sus|add|m)?[0-9]*(?:[#b][0-9]+)?(?:sus[0-9]*|add[0-9]+|\+)?(?:/(?:Do|Re|Mi|Fa|Sol|La|Si|[A-G])(?:#|b)?)?$',
+    r'^(Do|Re|Mi|Fa|Sol|La|Si|[A-G])(#|b)?(maj|min|dim|aug|sus|add|m)?[0-9⁰¹²³⁴⁵⁶⁷⁸⁹]*(?:[#b][0-9]+)?(?:sus[0-9]*|add[0-9]+|\+)?(?:/(?:Do|Re|Mi|Fa|Sol|La|Si|[A-G])(?:#|b)?)?$',
   );
   static final RegExp _declarada = RegExp(
     r'\b(?:tonalidad|tono|key)\b\s*(?:de|of)?\s*[:=\-–]?\s*([A-Za-z#♯♭]+)',
     caseSensitive: false,
   );
-  static final RegExp _enTitulo = RegExp(r'\(([A-G][#b]?m?)\)\s*$');
+  // "Jesús es el nombre (Dm)": solo en la primera línea y con texto delante;
+  // una línea que es solo "(Bb)" es un acorde opcional, no la tonalidad.
+  static final RegExp _enTitulo =
+      RegExp(r'^\s*\S.*[A-Za-zÁ-ú]{3}.*\s\(([A-G][#b]?m?)\)\s*$');
   static final RegExp _entreCorchetes = RegExp(r'\[([^\]]+)\]');
 
   /// Acorde -> (nota 0..11, tipo): 'M' mayor, 'm' menor, 'd' disminuido.
@@ -4800,8 +4814,10 @@ class DetectorTonalidad {
         if (a != null && a.tipo != 'd') return _nombre(a.nota, a.tipo == 'm');
       }
     }
-    for (final l in lineas.take(3)) {
-      final t = _enTitulo.firstMatch(l.trim());
+    for (final l in lineas.take(1)) {
+      final t = ChordTransposer.esLineaDeAcordes(l)
+          ? null
+          : _enTitulo.firstMatch(l.trim());
       if (t != null) {
         final a = _parsear(t.group(1)!)!;
         return _nombre(a.nota, a.tipo == 'm');
@@ -4820,7 +4836,7 @@ class DetectorTonalidad {
               ? linea.trim().split(RegExp(r'\s+'))
               : <String>[]);
       for (final t in tokens) {
-        final a = _parsear(t);
+        final a = _parsear(ChordTransposer._sinParentesis(t));
         if (a != null) lista.add(a);
       }
     }
