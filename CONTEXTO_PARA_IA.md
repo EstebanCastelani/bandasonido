@@ -801,6 +801,15 @@ registrada sin chequear `esPro` — ver §8 para cómo revertir esto.
       rápidas + visto entre sonidista y músico, y **PDF abierto con wifi y datos apagados
       tras reiniciar la app**. **No resuelto**: sin notificaciones push; si la app está en
       segundo plano o con la pantalla apagada el aviso no llega (para eso haría falta FCM).
+41. **Sugerencias al subir un PDF (27-oct-2026)**: `tituloDesdeArchivo` (nombre sin extensión)
+    y `DetectorTonalidad.detectar` (tonalidad). El detector prefiere lo que el texto declara
+    ("Tono: G", "Key of Am", "(Dm)" al final de una de las 3 primeras líneas); si no, puntúa las
+    24 tonalidades por cuántos acordes encajan (diatónicos, con V mayor en menor), con bonus si
+    arranca/termina en la tónica, y **devuelve null si no hay evidencia suficiente** (menos de
+    4 acordes, poca ventaja, o ambigüedad mayor/relativa menor sin cierre claro). Medido con 144
+    progresiones sintéticas en las 24 tonalidades: 91 correctas, 53 sin respuesta (null),
+    **0 equivocadas**; además la canción real "alístate" da Dm. Es una sugerencia: el diálogo
+    "Nueva canción" deja editar ambos campos. No se usa al editar una canción existente.
 
 ## 6. Modelo de seguridad de las salas — trade-off consciente, no bug
 
