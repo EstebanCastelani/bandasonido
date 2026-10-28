@@ -5,6 +5,7 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). La versió
 ## [Sin publicar]
 
 ### Agregado
+- **La web también funciona sin conexión** (RQ-31): los PDF del setlist y las secuencias de la sala se guardan en el navegador (Cache Storage), con el aviso "Sin conexión: X de Y temas listos"; el setlist y los cifrados quedan guardados por Firestore. Ya no es solo de Android.
 - Al subir un PDF a "Mi repertorio", el título se completa solo con el nombre del archivo (sin la extensión) y la **tonalidad se sugiere** a partir del cifrado (`DetectorTonalidad`): primero la que declara el texto ("Tono: G", "(Dm)" en el título) y, si no, la que mejor encaja con los acordes. Si no está segura, la deja vacía. Ambos campos se pueden cambiar antes de guardar.
 - **Uso en vivo** (RQ-30): *Alertas de pedidos* configurables (sonido, volumen, vibración, destello rojo en urgentes; Configuración → Alertas de pedidos y menú ⋮ del sonidista); *respuestas rápidas* de un toque para el sonidista; el músico ve si su pedido fue *enviado, visto o atendido*; *modo show* (candado en la barra del músico y menú ⋮ del sonidista); y los *PDF del setlist se guardan en el celular* para abrirse sin conexión, con el aviso "Sin conexión: X de Y temas listos".
 - El logo de las pantallas de ingreso y de inicio de sesión ahora es el mismo dibujo del ícono (barras de sonido) en vez del conector genérico.

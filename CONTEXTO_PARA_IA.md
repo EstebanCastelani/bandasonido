@@ -811,6 +811,20 @@ registrada sin chequear `esPro` — ver §8 para cómo revertir esto.
     progresiones sintéticas en las 24 tonalidades: 91 correctas, 53 sin respuesta (null),
     **0 equivocadas**; además la canción real "alístate" da Dm. Es una sugerencia: el diálogo
     "Nueva canción" deja editar ambos campos. No se usa al editar una canción existente.
+42. **Paridad Android / web de lo "sin conexión" (RQ-31, 27-oct-2026)**: `web/cache_archivos.js`
+    (Cache Storage: `sc-pdfs` hasta 40 archivos de 80 MB, `sc-audio` hasta 12 de 120 MB; pide
+    `navigator.storage.persist()`) + puente en `lib/puente_web.dart` (`cachePrecargar`,
+    `cacheBytes`, `cacheBorrar`, `cacheArchivosDisponible`) con sus versiones "no disponible" en
+    `main.dart`. `CachePdfs` y `ReproductorSecuencias.precargar` usan el puente en web; el visor
+    abre con `SfPdfViewer.memory`. Las pistas de audio se dejan además como blob URL en
+    `window.__blobUrls` y `reproductor_secuencias.js` las usa **sin await** (los navegadores de
+    celular solo dejan arrancar audio dentro de un toque). Firestore: `persistenceEnabled: true`
+    también en web (setlist y cifrados sin red). Probado en el navegador: guardar/leer/borrar,
+    "Sin conexión: 1 de 1 temas listos", PDF abierto con las llamadas a Supabase bloqueadas y
+    reproducción de una pista desde la caché. **No se pudo probar**: el segundo navegador sin red
+    real ni el reinicio completo del navegador sin conexión. Diferencias que quedan por la
+    plataforma: la vibración solo en celulares con Chrome; "atrás" del navegador en modo show.
+    Los ítems 36 y 40 que dicen "en web no hace nada" están superados por este.
 
 ## 6. Modelo de seguridad de las salas — trade-off consciente, no bug
 
