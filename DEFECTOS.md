@@ -63,3 +63,9 @@ En una tablet (800 × 1280 dp) las pantallas de ingreso y los formularios estira
 
 ### DF-16 · Corregido (25-oct-2026)
 En "Mis salas" (y también en "Mi repertorio" y "Mis secuencias") aparecía "Necesitás iniciar sesión…" aunque ya hubiera una sesión iniciada, y el texto no estaba centrado. Causa: la pantalla leía la sesión una sola vez al abrirse y, justo después de abrir la app, Firebase todavía no la había restaurado. Ahora la pantalla espera y se actualiza cuando la sesión está lista (con un círculo de carga mientras tanto), y el mensaje va centrado. Verificado con análisis y pruebas y **confirmado en el celular por el dueño (25-oct-2026)**.
+
+### DF-17 · Corregido (27-oct-2026)
+Al subir "Enganchado coritos" (cifrado real en Re menor) la app sugirió la tonalidad **Bb**: una línea que era solo "(Bb)" (un acorde opcional) se tomó como la tonalidad declarada. Ahora un "(X)" solo cuenta como tonalidad si está en la **primera línea** y tiene texto delante ("Título (Dm)"), y los acordes entre paréntesis y con superíndice (D⁷) se cuentan como acordes. El resultado para esa canción es Dm. **La tonalidad ya guardada en tu canción sigue siendo Bb: hay que corregirla a mano (lápiz).**
+
+### DF-18 · Corregido (27-oct-2026)
+Los acordes opcionales entre paréntesis ("(Bb)") **no se transponían** en el visor de cifrados: al subir el tono quedaban en el valor original. Ahora se transponen como los demás ("(Bb)" +2 pasa a "(C)"). Verificado en el celular.
