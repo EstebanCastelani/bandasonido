@@ -1210,4 +1210,54 @@ class AppLocalizationsEs extends AppLocalizations {
   String listosSinConexion(int listos, int total) {
     return 'Sin conexión: $listos de $total temas listos';
   }
+
+  @override
+  String get aceptarYSubir => 'Aceptar y subir';
+
+  @override
+  String get omitirEste => 'Omitir este';
+
+  @override
+  String get cancelarTodos => 'Cancelar todos';
+
+  @override
+  String get subiendoArchivo => 'Subiendo…';
+
+  @override
+  String progresoCola(int actual, int total) {
+    return '$actual de $total';
+  }
+
+  @override
+  String resumenSubidos(int cantidad) {
+    String _temp0 = intl.Intl.pluralLogic(
+      cantidad,
+      locale: localeName,
+      other: '$cantidad subidos',
+      one: '1 subido',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String resumenOmitidos(int cantidad) {
+    String _temp0 = intl.Intl.pluralLogic(
+      cantidad,
+      locale: localeName,
+      other: '$cantidad omitidos',
+      one: '1 omitido',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String resumenSinProcesar(int cantidad) {
+    String _temp0 = intl.Intl.pluralLogic(
+      cantidad,
+      locale: localeName,
+      other: '$cantidad sin procesar',
+      one: '1 sin procesar',
+    );
+    return '$_temp0';
+  }
 }

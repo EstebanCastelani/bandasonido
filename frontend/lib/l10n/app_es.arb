@@ -735,5 +735,44 @@
         "type": "int"
       }
     }
+  },
+  "aceptarYSubir": "Aceptar y subir",
+  "omitirEste": "Omitir este",
+  "cancelarTodos": "Cancelar todos",
+  "subiendoArchivo": "Subiendo…",
+  "progresoCola": "{actual} de {total}",
+  "@progresoCola": {
+    "placeholders": {
+      "actual": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "resumenSubidos": "{cantidad, plural, =1{1 subido} other{{cantidad} subidos}}",
+  "@resumenSubidos": {
+    "placeholders": {
+      "cantidad": {
+        "type": "int"
+      }
+    }
+  },
+  "resumenOmitidos": "{cantidad, plural, =1{1 omitido} other{{cantidad} omitidos}}",
+  "@resumenOmitidos": {
+    "placeholders": {
+      "cantidad": {
+        "type": "int"
+      }
+    }
+  },
+  "resumenSinProcesar": "{cantidad, plural, =1{1 sin procesar} other{{cantidad} sin procesar}}",
+  "@resumenSinProcesar": {
+    "placeholders": {
+      "cantidad": {
+        "type": "int"
+      }
+    }
   }
 }

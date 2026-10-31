@@ -2167,6 +2167,54 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'Sin conexión: {listos} de {total} temas listos'**
   String listosSinConexion(int listos, int total);
+
+  /// No description provided for @aceptarYSubir.
+  ///
+  /// In es, this message translates to:
+  /// **'Aceptar y subir'**
+  String get aceptarYSubir;
+
+  /// No description provided for @omitirEste.
+  ///
+  /// In es, this message translates to:
+  /// **'Omitir este'**
+  String get omitirEste;
+
+  /// No description provided for @cancelarTodos.
+  ///
+  /// In es, this message translates to:
+  /// **'Cancelar todos'**
+  String get cancelarTodos;
+
+  /// No description provided for @subiendoArchivo.
+  ///
+  /// In es, this message translates to:
+  /// **'Subiendo…'**
+  String get subiendoArchivo;
+
+  /// No description provided for @progresoCola.
+  ///
+  /// In es, this message translates to:
+  /// **'{actual} de {total}'**
+  String progresoCola(int actual, int total);
+
+  /// No description provided for @resumenSubidos.
+  ///
+  /// In es, this message translates to:
+  /// **'{cantidad, plural, =1{1 subido} other{{cantidad} subidos}}'**
+  String resumenSubidos(int cantidad);
+
+  /// No description provided for @resumenOmitidos.
+  ///
+  /// In es, this message translates to:
+  /// **'{cantidad, plural, =1{1 omitido} other{{cantidad} omitidos}}'**
+  String resumenOmitidos(int cantidad);
+
+  /// No description provided for @resumenSinProcesar.
+  ///
+  /// In es, this message translates to:
+  /// **'{cantidad, plural, =1{1 sin procesar} other{{cantidad} sin procesar}}'**
+  String resumenSinProcesar(int cantidad);
 }
 
 class _AppLocalizationsDelegate

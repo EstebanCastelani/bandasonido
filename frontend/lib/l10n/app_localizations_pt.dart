@@ -1208,4 +1208,54 @@ class AppLocalizationsPt extends AppLocalizations {
   String listosSinConexion(int listos, int total) {
     return 'Sem conexão: $listos de $total músicas prontas';
   }
+
+  @override
+  String get aceptarYSubir => 'Aceitar e enviar';
+
+  @override
+  String get omitirEste => 'Ignorar este';
+
+  @override
+  String get cancelarTodos => 'Cancelar todos';
+
+  @override
+  String get subiendoArchivo => 'Enviando…';
+
+  @override
+  String progresoCola(int actual, int total) {
+    return '$actual de $total';
+  }
+
+  @override
+  String resumenSubidos(int cantidad) {
+    String _temp0 = intl.Intl.pluralLogic(
+      cantidad,
+      locale: localeName,
+      other: '$cantidad enviados',
+      one: '1 enviado',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String resumenOmitidos(int cantidad) {
+    String _temp0 = intl.Intl.pluralLogic(
+      cantidad,
+      locale: localeName,
+      other: '$cantidad ignorados',
+      one: '1 ignorado',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String resumenSinProcesar(int cantidad) {
+    String _temp0 = intl.Intl.pluralLogic(
+      cantidad,
+      locale: localeName,
+      other: '$cantidad não processados',
+      one: '1 não processado',
+    );
+    return '$_temp0';
+  }
 }

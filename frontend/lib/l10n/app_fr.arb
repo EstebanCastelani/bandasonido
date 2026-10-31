@@ -353,5 +353,44 @@
         "type": "int"
       }
     }
+  },
+  "aceptarYSubir": "Accepter et envoyer",
+  "omitirEste": "Ignorer celui-ci",
+  "cancelarTodos": "Tout annuler",
+  "subiendoArchivo": "Envoi…",
+  "progresoCola": "{actual} sur {total}",
+  "@progresoCola": {
+    "placeholders": {
+      "actual": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "resumenSubidos": "{cantidad, plural, =1{1 envoyé} other{{cantidad} envoyés}}",
+  "@resumenSubidos": {
+    "placeholders": {
+      "cantidad": {
+        "type": "int"
+      }
+    }
+  },
+  "resumenOmitidos": "{cantidad, plural, =1{1 ignoré} other{{cantidad} ignorés}}",
+  "@resumenOmitidos": {
+    "placeholders": {
+      "cantidad": {
+        "type": "int"
+      }
+    }
+  },
+  "resumenSinProcesar": "{cantidad, plural, =1{1 non traité} other{{cantidad} non traités}}",
+  "@resumenSinProcesar": {
+    "placeholders": {
+      "cantidad": {
+        "type": "int"
+      }
+    }
   }
 }

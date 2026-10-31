@@ -720,4 +720,188 @@ Tu gloria llena la tierra///
       expect(DetectorTonalidad.detectar(alReves), 'C#m');
     });
   });
+
+  group('Cifrado desde PDF: respaldo por corridas (Grande y fuerte)', () {
+    // Datos reales de un PDF exportado de un editor en línea: el extractor con
+    // posiciones mezclaba las letras de los acordes con las de la letra.
+    final layout = [
+      'intro Am F E x4',
+      '',
+      'verso',
+      ' Am F E Am F E',
+      '////Grande y fuerte es nuestro Dios////',
+      '',
+      'coro',
+      'Dm G',
+      'Vestido en Majestad',
+    ];
+    final corridas = [
+      'intro Am F ',
+      'E',
+      ' ',
+      'x4',
+      ' ',
+      ' ',
+      'verso',
+      ' ',
+      '   ',
+      'Am         ',
+      'F ',
+      '  ',
+      'E',
+      '       ',
+      '  ',
+      '  ',
+      'Am  F ',
+      'E',
+      ' ',
+      '////Grande y fuerte es nuestro Dios////',
+      ' ',
+      ' ',
+      'coro',
+      ' ',
+      'Dm',
+      '            ',
+      'G',
+      ' ',
+      'Vestido en Majestad',
+      ' ',
+    ];
+
+    test('conserva los espacios exactos entre acordes y no agrega sangría', () {
+      expect(CifradoPdfExtractor.reconstruirFilas(layout, corridas), [
+        'intro Am F E x4',
+        '',
+        'verso',
+        '   Am         F   E           Am  F E',
+        '////Grande y fuerte es nuestro Dios////',
+        '',
+        'coro',
+        'Dm            G',
+        'Vestido en Majestad',
+      ]);
+    });
+
+    test('si los caracteres no coinciden no inventa nada (null)', () {
+      expect(
+          CifradoPdfExtractor.reconstruirFilas(
+              layout, ['otra cosa', 'distinta']),
+          isNull);
+    });
+
+    test('mismosCaracteres detecta letras perdidas o mezcladas', () {
+      expect(CifradoPdfExtractor.mismosCaracteres('Dm G\nHola', 'Hola  Dm  G'),
+          isTrue);
+      expect(
+          CifradoPdfExtractor.mismosCaracteres(
+              'Dm G Hola mundo cruel', 'Dm G Hola'),
+          isFalse);
+      expect(CifradoPdfExtractor.mismosCaracteres('', ''), isFalse);
+    });
+  });
+
+  group('Acordes dentro de paréntesis y con "x2"', () {
+    test('un grupo que se repite se transpone entero: (Am F E)x2', () {
+      expect(ChordTransposer.transponerTexto('F  G  (Am F E)x2', 2),
+          'G  A  (Bm G F#)x2');
+    });
+
+    test('los acordes opcionales siguen funcionando: (Bb)', () {
+      expect(
+          ChordTransposer.transponerTexto('Dm   (Bb)   A', 2), 'Em   (C)    B');
+    });
+
+    test('"x4" y otras palabras no se tocan', () {
+      expect(ChordTransposer.transponerTexto('intro Am F E x4', 2),
+          'intro Bm G F# x4');
+    });
+
+    test('el detector de tonalidad cuenta los acordes del grupo', () {
+      expect(
+          DetectorTonalidad.detectar(
+              'Am F E Am\nletra\nDm G (Am F E)x2\nAm F E Am'),
+          isNotNull);
+    });
+  });
+
+  group('Cola de subida de varios PDF (de a uno)', () {
+    Future<ResumenCola> correr(
+      List<String> archivos, {
+      required Map<String, AccionCola> decisiones,
+      Set<String> fallan = const {},
+      Set<String> reintentos = const {},
+      List<String>? subidos,
+      List<String>? orden,
+    }) {
+      final intentos = <String, int>{};
+      return procesarColaDeSubida<String>(
+        archivos,
+        confirmar: (a, i, total) async {
+          orden?.add('confirmar $a ${i + 1}/$total');
+          return decisiones[a] ?? AccionCola.aceptar;
+        },
+        subir: (a) async {
+          intentos[a] = (intentos[a] ?? 0) + 1;
+          // Falla la primera vez si está en "fallan".
+          if (fallan.contains(a) && intentos[a] == 1) {
+            throw Exception('sin red');
+          }
+          if (fallan.contains(a) && !reintentos.contains(a)) {
+            throw Exception('sin red');
+          }
+          subidos?.add(a);
+        },
+        reintentarAlFallar: (a, e) async => reintentos.contains(a),
+      );
+    }
+
+    test('acepta todos y los sube en orden, uno por vez', () async {
+      final orden = <String>[];
+      final subidos = <String>[];
+      final r = await correr(['a', 'b', 'c'],
+          decisiones: {}, subidos: subidos, orden: orden);
+      expect(subidos, ['a', 'b', 'c']);
+      expect(orden, ['confirmar a 1/3', 'confirmar b 2/3', 'confirmar c 3/3']);
+      expect((r.subidos, r.omitidos, r.sinProcesar), (3, 0, 0));
+    });
+
+    test('omitir uno sigue con el próximo', () async {
+      final subidos = <String>[];
+      final r = await correr(['a', 'b', 'c'],
+          decisiones: {'b': AccionCola.omitir}, subidos: subidos);
+      expect(subidos, ['a', 'c']);
+      expect((r.subidos, r.omitidos, r.sinProcesar), (2, 1, 0));
+    });
+
+    test('cancelar todos descarta los que quedan y conserva lo ya subido',
+        () async {
+      final subidos = <String>[];
+      final r = await correr(['a', 'b', 'c', 'd'],
+          decisiones: {'c': AccionCola.cancelarTodos}, subidos: subidos);
+      expect(subidos, ['a', 'b']);
+      expect((r.subidos, r.omitidos, r.sinProcesar), (2, 0, 2));
+    });
+
+    test('si una subida falla y se reintenta, se sube y la cola sigue',
+        () async {
+      final subidos = <String>[];
+      final r = await correr(['a', 'b', 'c'],
+          decisiones: {}, fallan: {'b'}, reintentos: {'b'}, subidos: subidos);
+      expect(subidos, ['a', 'b', 'c']);
+      expect((r.subidos, r.omitidos, r.sinProcesar), (3, 0, 0));
+    });
+
+    test('si una subida falla y se omite, no se pierde el resto', () async {
+      final subidos = <String>[];
+      final r = await correr(['a', 'b', 'c'],
+          decisiones: {}, fallan: {'b'}, subidos: subidos);
+      expect(subidos, ['a', 'c']);
+      expect((r.subidos, r.omitidos, r.sinProcesar), (2, 1, 0));
+    });
+
+    test('una cola vacía no hace nada', () async {
+      final r = await correr([], decisiones: {});
+      expect((r.subidos, r.omitidos, r.sinProcesar), (0, 0, 0));
+    });
+  });
 }

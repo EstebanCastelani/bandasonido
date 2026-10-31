@@ -1225,16 +1225,27 @@ class ChordTransposer {
     return false;
   }
 
-  /// "(Bb)" -> "Bb": en los cifrados un acorde entre paréntesis es opcional.
-  static String _sinParentesis(String w) =>
-      (w.length > 2 && w.startsWith('(') && w.endsWith(')'))
-          ? w.substring(1, w.length - 1)
-          : w;
+  /// Un acorde puede venir envuelto: "(Bb)" (opcional) o dentro de un grupo
+  /// que se repite, "(Am" ... "E)x2". Separa lo de adelante, el acorde y lo de
+  /// atrás.
+  static final RegExp _envuelto = RegExp(r'^(\(*)(.*?)(\)*(?:[xX]\d+)?)$');
+
+  /// El acorde sin los paréntesis ni el "x2" que lo rodean ("E)x2" -> "E").
+  static String _sinParentesis(String w) {
+    final m = _envuelto.firstMatch(w);
+    if (m == null || m.group(2)!.isEmpty) return w;
+    return m.group(2)!;
+  }
 
   static String? _transponerToken(String token, int semitonos) {
-    if (_sinParentesis(token) != token) {
-      final dentro = _transponerToken(_sinParentesis(token), semitonos);
-      return dentro == null ? null : '($dentro)';
+    final envuelto = _envuelto.firstMatch(token);
+    if (envuelto != null &&
+        envuelto.group(2)!.isNotEmpty &&
+        (envuelto.group(1)!.isNotEmpty || envuelto.group(3)!.isNotEmpty)) {
+      final dentro = _transponerToken(envuelto.group(2)!, semitonos);
+      return dentro == null
+          ? null
+          : '${envuelto.group(1)}$dentro${envuelto.group(3)}';
     }
     final match = _tokenAcorde.firstMatch(token);
     if (match != null) {
@@ -1291,10 +1302,11 @@ class ChordTransposer {
 
 /// Versión del formato del cifrado guardado (campo 'cifradoVersion' en
 /// mi_repertorio y en setlist). 2 = armado con la posición real de los
-/// acordes (CifradoPdfExtractor). Los documentos sin el campo vienen del
+/// acordes (CifradoPdfExtractor). 3 = además, respaldo por corridas para los
+/// PDF en los que la extracción con posiciones mezclaba letras y acordes. Los documentos sin el campo vienen del
 /// extractor viejo y CifradoViewerScreen los vuelve a extraer del PDF al
 /// abrirlos. Si algún día cambia el formato otra vez, subir este número.
-const int kVersionCifrado = 2;
+const int kVersionCifrado = 3;
 
 /// Un carácter del PDF con su posición horizontal original.
 class _GlifoPdf {
@@ -1333,6 +1345,93 @@ class CifradoPdfExtractor {
       if (texto.trim().isNotEmpty) paginas.add(texto);
     }
     return paginas.join('\n\n').trim();
+  }
+
+  /// Caracteres sin espacios de un texto (para comparar dos extracciones).
+  static String _sinEspacios(String t) => t.replaceAll(RegExp(r'\s'), '');
+
+  /// ¿Las dos extracciones tienen casi los mismos caracteres? Se usa para
+  /// detectar PDF en los que la extracción con posiciones pierde o cambia de
+  /// lugar letras y acordes (el texto "plano" del PDF sí viene completo).
+  static bool mismosCaracteres(String a, String b) {
+    final ca = <String, int>{};
+    final cb = <String, int>{};
+    for (final c in _sinEspacios(a).split('')) {
+      ca[c] = (ca[c] ?? 0) + 1;
+    }
+    for (final c in _sinEspacios(b).split('')) {
+      cb[c] = (cb[c] ?? 0) + 1;
+    }
+    var diferencia = 0;
+    var total = 0;
+    for (final c in {...ca.keys, ...cb.keys}) {
+      diferencia += ((ca[c] ?? 0) - (cb[c] ?? 0)).abs();
+      total += max(ca[c] ?? 0, cb[c] ?? 0);
+    }
+    return total > 0 && diferencia <= total * 0.02;
+  }
+
+  /// Respaldo para esos PDF: los renglones salen del texto con "layout" del
+  /// extractor (completo y en orden) y el espaciado de cada renglón, de las
+  /// "corridas" de texto del PDF, que conservan los espacios exactos entre
+  /// acordes y la sangría.
+  static String extraerPorCorridas(sf_pdf.PdfDocument documento) {
+    final extractor = sf_pdf.PdfTextExtractor(documento);
+    final paginas = <String>[];
+    for (var i = 0; i < documento.pages.count; i++) {
+      final layout = extractor
+          .extractText(startPageIndex: i, endPageIndex: i, layoutText: true)
+          .split(RegExp(r'\r?\n'));
+      final corridas = extractor
+          .extractText(startPageIndex: i, endPageIndex: i)
+          .split(RegExp(r'\r?\n'));
+      final filas = reconstruirFilas(layout, corridas) ?? layout;
+      final texto = filas.join('\n').trimRight();
+      if (texto.trim().isNotEmpty) paginas.add(texto);
+    }
+    return paginas.join('\n\n').trim();
+  }
+
+  /// Arma los renglones: [filasLayout] dicen qué texto va en cada renglón y
+  /// [corridas] (en el orden del PDF) con qué espaciado. Devuelve null si no
+  /// coinciden los caracteres.
+  static List<String>? reconstruirFilas(
+      List<String> filasLayout, List<String> corridas) {
+    var j = 0;
+    final salida = <String>[];
+    for (final fila in filasLayout) {
+      final objetivo = _sinEspacios(fila);
+      if (objetivo.isEmpty) {
+        salida.add('');
+        continue;
+      }
+      // Un espacio suelto antes del renglón es el que cierra el anterior.
+      while (j < corridas.length &&
+          corridas[j].isNotEmpty &&
+          corridas[j].trim().isEmpty &&
+          corridas[j].length <= 1) {
+        j++;
+      }
+      while (j < corridas.length && corridas[j].isEmpty) {
+        j++;
+      }
+      final sb = StringBuffer();
+      var acumulado = 0;
+      var coincide = true;
+      while (j < corridas.length && acumulado < objetivo.length) {
+        final c = corridas[j++];
+        final sinEsp = _sinEspacios(c);
+        if (!objetivo.startsWith(sinEsp, acumulado)) {
+          coincide = false;
+          break;
+        }
+        sb.write(c);
+        acumulado += sinEsp.length;
+      }
+      if (!coincide || acumulado != objetivo.length) return null;
+      salida.add(sb.toString().trimRight());
+    }
+    return salida;
   }
 
   static String _armarPagina(List<sf_pdf.TextLine> lineasPdf) {
@@ -2102,7 +2201,15 @@ class RepertorioService {
       try {
         // Reconstruye el layout con la posición real de cada acorde.
         final conPosiciones = CifradoPdfExtractor.extraer(documento);
-        if (conPosiciones.isNotEmpty) return conPosiciones;
+        final plano = sf_pdf.PdfTextExtractor(documento).extractText();
+        if (conPosiciones.isNotEmpty &&
+            CifradoPdfExtractor.mismosCaracteres(conPosiciones, plano)) {
+          return conPosiciones;
+        }
+        // La extracción con posiciones perdió o mezcló caracteres (pasa con
+        // algunos PDF exportados de editores en línea): se arma por corridas.
+        final porCorridas = CifradoPdfExtractor.extraerPorCorridas(documento);
+        if (porCorridas.isNotEmpty) return porCorridas;
       } catch (e) {
         debugPrint(
             'No se pudo reconstruir el layout del PDF, uso extracción simple: $e');
@@ -4992,6 +5099,83 @@ class DetectorTonalidad {
   }
 }
 
+/// Qué decide la persona sobre un archivo de la cola de subida.
+enum AccionCola { aceptar, omitir, cancelarTodos }
+
+/// Cuántos archivos terminaron cada cosa al acabar la cola.
+class ResumenCola {
+  final int subidos;
+  final int omitidos;
+
+  /// Los que quedaron sin tratar porque se canceló todo.
+  final int sinProcesar;
+  const ResumenCola(this.subidos, this.omitidos, this.sinProcesar);
+
+  @override
+  String toString() =>
+      'ResumenCola(subidos: $subidos, omitidos: $omitidos, sinProcesar: $sinProcesar)';
+}
+
+/// Procesa [elementos] de a uno: pregunta qué hacer con cada uno
+/// ([confirmar]), lo sube ([subir]) y recién entonces pasa al siguiente. Si
+/// una subida falla se pregunta ([reintentarAlFallar]) si se reintenta (true) o
+/// se omite (false), sin perder el resto. Cancelar descarta los que quedan.
+Future<ResumenCola> procesarColaDeSubida<T>(
+  List<T> elementos, {
+  required Future<AccionCola> Function(T elemento, int indice, int total)
+      confirmar,
+  required Future<void> Function(T elemento) subir,
+  required Future<bool> Function(T elemento, Object error) reintentarAlFallar,
+}) async {
+  var subidos = 0;
+  var omitidos = 0;
+  for (var i = 0; i < elementos.length; i++) {
+    final elemento = elementos[i];
+    final accion = await confirmar(elemento, i, elementos.length);
+    if (accion == AccionCola.cancelarTodos) {
+      return ResumenCola(subidos, omitidos, elementos.length - i);
+    }
+    if (accion == AccionCola.omitir) {
+      omitidos++;
+      continue;
+    }
+    var terminado = false;
+    while (!terminado) {
+      try {
+        await subir(elemento);
+        subidos++;
+        terminado = true;
+      } catch (e) {
+        if (await reintentarAlFallar(elemento, e)) continue;
+        omitidos++;
+        terminado = true;
+      }
+    }
+  }
+  return ResumenCola(subidos, omitidos, 0);
+}
+
+/// Un PDF elegido para subir, con lo que se va a guardar de él.
+class PdfPorSubir {
+  final String nombre;
+  final Uint8List bytes;
+  String titulo;
+  String tonalidad = '';
+  String cifrado = '';
+  bool preparado = false;
+
+  PdfPorSubir(this.nombre, this.bytes) : titulo = tituloDesdeArchivo(nombre);
+
+  /// Extrae el cifrado y sugiere título y tonalidad. Se hace recién cuando le
+  /// toca el turno (extraer el texto de un PDF es lo que más tarda).
+  void preparar() {
+    if (preparado) return;
+    preparado = true;
+    cifrado = RepertorioService.extraerTextoPdf(bytes);
+    tonalidad = DetectorTonalidad.detectar(cifrado) ?? '';
+  }
+}
+
 /// Título sugerido para un archivo que se sube: su nombre sin la extensión
 /// (la persona puede cambiarlo antes de guardar).
 String tituloDesdeArchivo(String nombreArchivo) {
@@ -6843,6 +7027,9 @@ class SetlistTab extends StatelessWidget {
   });
 
   Future<void> _agregarCancion(BuildContext context) async {
+    // Si algún campo (ej. el de pedidos) tenía el foco, el teclado no debe
+    // seguir abierto ni reaparecer al volver de las hojas de abajo.
+    FocusManager.instance.primaryFocus?.unfocus();
     final opcion = await showModalBottomSheet<String>(
       context: context,
       builder: (context) => SafeArea(
@@ -6871,6 +7058,7 @@ class SetlistTab extends StatelessWidget {
     } else {
       await _buscarEntreCompaneros(context);
     }
+    FocusManager.instance.primaryFocus?.unfocus();
   }
 
   Future<void> _elegirDesdeBiblioteca(BuildContext context) async {
@@ -6930,7 +7118,6 @@ class SetlistTab extends StatelessWidget {
                           Expanded(
                             child: TextField(
                               controller: controllerTitulo,
-                              autofocus: true,
                               onChanged: (_) => setModalState(() {}),
                               decoration: InputDecoration(
                                 hintText: context.l10n.titulo,
@@ -7040,7 +7227,6 @@ class SetlistTab extends StatelessWidget {
                         Expanded(
                           child: TextField(
                             controller: controllerTitulo,
-                            autofocus: true,
                             decoration: InputDecoration(
                               hintText: context.l10n.titulo,
                               prefixIcon: const Icon(Icons.search),
@@ -8334,49 +8520,155 @@ class _MiRepertorioScreenState extends State<MiRepertorioScreen> {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['pdf'],
+      allowMultiple: true,
       withData: true,
     );
 
-    if (result == null || result.files.single.bytes == null) return;
+    if (result == null) return;
 
-    final archivo = result.files.single;
+    final cola = [
+      for (final f in result.files)
+        if (f.bytes != null) PdfPorSubir(f.name, f.bytes!),
+    ];
+
+    if (cola.isEmpty || !mounted) return;
+
+    final resumen = await procesarColaDeSubida<PdfPorSubir>(
+      cola,
+      confirmar: (pdf, indice, total) async {
+        if (!mounted) return AccionCola.cancelarTodos;
+        pdf.preparar();
+        return _confirmarPdf(pdf, indice + 1, total);
+      },
+      subir: (pdf) async {
+        if (mounted) setState(() => _subiendo = true);
+        try {
+          await RepertorioService.subirCancion(
+            uid: uid,
+            titulo: pdf.titulo,
+            tonalidad: pdf.tonalidad,
+            nombreArchivo: pdf.nombre,
+            bytes: pdf.bytes,
+            cifradoTexto: pdf.cifrado,
+          );
+        } finally {
+          if (mounted) setState(() => _subiendo = false);
+        }
+      },
+      reintentarAlFallar: (pdf, error) async {
+        if (!mounted) return false;
+        return await showDialog<bool>(
+              context: context,
+              barrierDismissible: false,
+              builder: (context) => AlertDialog(
+                title: Text(pdf.nombre),
+                content: Text(context.l10n.errorAlSubir(error)),
+                actions: [
+                  TextButton(
+                      onPressed: () => Navigator.pop(context, false),
+                      child: Text(context.l10n.omitirEste)),
+                  FilledButton(
+                      onPressed: () => Navigator.pop(context, true),
+                      child: Text(context.l10n.reintentar)),
+                ],
+              ),
+            ) ??
+            false;
+      },
+    );
 
     if (!mounted) return;
 
-    final cifradoExtraido = RepertorioService.extraerTextoPdf(archivo.bytes!);
-
-    if (!mounted) return;
-
-    final datos = await _pedirDatosCancion(context,
-        esNueva: true,
-        tituloInicial: tituloDesdeArchivo(archivo.name),
-        tonalidadInicial: DetectorTonalidad.detectar(cifradoExtraido),
-        cifradoInicial: cifradoExtraido);
-
-    if (datos == null) return;
-
-    setState(() => _subiendo = true);
-
-    try {
-      await RepertorioService.subirCancion(
-        uid: uid,
-        titulo: datos.$1,
-        tonalidad: datos.$2,
-        nombreArchivo: archivo.name,
-        bytes: archivo.bytes!,
-        cifradoTexto: datos.$3,
-      );
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-              content: Text(context.l10n.errorAlSubir(e)),
-              backgroundColor: Colors.redAccent),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _subiendo = false);
+    final l = context.l10n;
+    final partes = [
+      if (resumen.subidos > 0) l.resumenSubidos(resumen.subidos),
+      if (resumen.omitidos > 0) l.resumenOmitidos(resumen.omitidos),
+      if (resumen.sinProcesar > 0) l.resumenSinProcesar(resumen.sinProcesar),
+    ];
+    if (partes.isNotEmpty) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(partes.join(', '))));
     }
+  }
+
+  /// Pregunta qué hacer con un PDF de la cola: ajustar título y tonalidad
+  /// (ya vienen sugeridos) y subirlo, omitirlo o cancelar todos. Sin
+  /// autofocus: el teclado solo se abre cuando se toca un campo.
+  Future<AccionCola> _confirmarPdf(
+      PdfPorSubir pdf, int actual, int total) async {
+    final tituloController = TextEditingController(text: pdf.titulo);
+    final tonalidadController = TextEditingController(text: pdf.tonalidad);
+    final formKey = GlobalKey<FormState>();
+    final accion = await showDialog<AccionCola>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: Text(context.l10n.nuevaCancion),
+        content: SizedBox(
+          width: 400,
+          child: Form(
+            key: formKey,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (total > 1)
+                    Text(context.l10n.progresoCola(actual, total),
+                        style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: context.acento)),
+                  Text(pdf.nombre,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                          fontSize: 12,
+                          color:
+                              Theme.of(context).colorScheme.onSurfaceVariant)),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: tituloController,
+                    decoration: InputDecoration(
+                        labelText: context.l10n.titulo2,
+                        border: const OutlineInputBorder()),
+                    validator: (v) => (v == null || v.trim().isEmpty)
+                        ? context.l10n.requerido
+                        : null,
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: tonalidadController,
+                    decoration: InputDecoration(
+                        labelText: context.l10n.tonalidadOpcional,
+                        border: const OutlineInputBorder()),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context, AccionCola.cancelarTodos),
+              child: Text(context.l10n.cancelarTodos)),
+          TextButton(
+              onPressed: () => Navigator.pop(context, AccionCola.omitir),
+              child: Text(context.l10n.omitirEste)),
+          FilledButton(
+            onPressed: () {
+              if (!(formKey.currentState?.validate() ?? false)) return;
+              pdf.titulo = tituloController.text.trim();
+              pdf.tonalidad = tonalidadController.text.trim();
+              Navigator.pop(context, AccionCola.aceptar);
+            },
+            child: Text(context.l10n.aceptarYSubir),
+          ),
+        ],
+      ),
+    );
+    tituloController.dispose();
+    tonalidadController.dispose();
+    return accion ?? AccionCola.cancelarTodos;
   }
 
   Future<(String, String, String)?> _pedirDatosCancion(
@@ -8411,7 +8703,6 @@ class _MiRepertorioScreenState extends State<MiRepertorioScreen> {
                 children: [
                   TextFormField(
                     controller: tituloController,
-                    autofocus: true,
                     decoration: InputDecoration(
                         labelText: context.l10n.titulo2,
                         border: const OutlineInputBorder()),

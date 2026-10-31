@@ -1209,4 +1209,54 @@ class AppLocalizationsIt extends AppLocalizations {
   String listosSinConexion(int listos, int total) {
     return 'Offline: $listos di $total brani pronti';
   }
+
+  @override
+  String get aceptarYSubir => 'Accetta e carica';
+
+  @override
+  String get omitirEste => 'Salta questo';
+
+  @override
+  String get cancelarTodos => 'Annulla tutti';
+
+  @override
+  String get subiendoArchivo => 'Caricamento…';
+
+  @override
+  String progresoCola(int actual, int total) {
+    return '$actual di $total';
+  }
+
+  @override
+  String resumenSubidos(int cantidad) {
+    String _temp0 = intl.Intl.pluralLogic(
+      cantidad,
+      locale: localeName,
+      other: '$cantidad caricati',
+      one: '1 caricato',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String resumenOmitidos(int cantidad) {
+    String _temp0 = intl.Intl.pluralLogic(
+      cantidad,
+      locale: localeName,
+      other: '$cantidad saltati',
+      one: '1 saltato',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String resumenSinProcesar(int cantidad) {
+    String _temp0 = intl.Intl.pluralLogic(
+      cantidad,
+      locale: localeName,
+      other: '$cantidad non elaborati',
+      one: '1 non elaborato',
+    );
+    return '$_temp0';
+  }
 }

@@ -353,5 +353,44 @@
         "type": "int"
       }
     }
+  },
+  "aceptarYSubir": "Accept and upload",
+  "omitirEste": "Skip this one",
+  "cancelarTodos": "Cancel all",
+  "subiendoArchivo": "Uploading…",
+  "progresoCola": "{actual} of {total}",
+  "@progresoCola": {
+    "placeholders": {
+      "actual": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "resumenSubidos": "{cantidad, plural, =1{1 uploaded} other{{cantidad} uploaded}}",
+  "@resumenSubidos": {
+    "placeholders": {
+      "cantidad": {
+        "type": "int"
+      }
+    }
+  },
+  "resumenOmitidos": "{cantidad, plural, =1{1 skipped} other{{cantidad} skipped}}",
+  "@resumenOmitidos": {
+    "placeholders": {
+      "cantidad": {
+        "type": "int"
+      }
+    }
+  },
+  "resumenSinProcesar": "{cantidad, plural, =1{1 not processed} other{{cantidad} not processed}}",
+  "@resumenSinProcesar": {
+    "placeholders": {
+      "cantidad": {
+        "type": "int"
+      }
+    }
   }
 }
