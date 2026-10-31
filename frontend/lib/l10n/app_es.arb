@@ -774,5 +774,21 @@
         "type": "int"
       }
     }
+  },
+  "cantidadCanciones": "{cantidad, plural, =1{1 canción} other{{cantidad} canciones}}",
+  "@cantidadCanciones": {
+    "placeholders": {
+      "cantidad": {
+        "type": "int"
+      }
+    }
+  },
+  "noSeEncontraronCanciones": "No se encontraron canciones con “{busqueda}”",
+  "@noSeEncontraronCanciones": {
+    "placeholders": {
+      "busqueda": {
+        "type": "String"
+      }
+    }
   }
 }

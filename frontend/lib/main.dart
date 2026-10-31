@@ -2398,15 +2398,7 @@ class RepertorioService {
   /// Quita tildes/diéresis y pasa a minúsculas, para que buscar "glorioso
   /// dia" encuentre "Glorioso día" sin que el usuario tenga que tipear la
   /// tilde. Alcanza con los caracteres acentuados del español.
-  static String _normalizar(String texto) {
-    const conTilde = 'áéíóúüñ';
-    const sinTilde = 'aeiouun';
-    var resultado = texto.toLowerCase();
-    for (var i = 0; i < conTilde.length; i++) {
-      resultado = resultado.replaceAll(conTilde[i], sinTilde[i]);
-    }
-    return resultado;
-  }
+  static String _normalizar(String texto) => normalizarBusqueda(texto);
 
   /// Filtro en memoria por título Y tonalidad (campos independientes, ambos
   /// deben coincidir), usado para sugerencias en vivo. Ignora mayúsculas/
@@ -2416,12 +2408,18 @@ class RepertorioService {
     required String titulo,
     required String tonalidad,
   }) {
-    final tituloQuery = _normalizar(titulo.trim());
     final tonalidadQuery = _normalizar(tonalidad.trim());
-    if (tituloQuery.isEmpty && tonalidadQuery.isEmpty) return canciones;
+    if (palabrasDeBusqueda(titulo).isEmpty && tonalidadQuery.isEmpty) {
+      return canciones;
+    }
     return canciones.where((c) {
-      final coincideTitulo = tituloQuery.isEmpty ||
-          _normalizar(c['titulo'] as String? ?? '').contains(tituloQuery);
+      // Todas las palabras del título, en cualquier orden y en cualquier
+      // parte; una palabra que sea justo la tonalidad también vale.
+      final coincideTitulo = coincideBusqueda(
+        titulo: c['titulo'] as String? ?? '',
+        tonalidad: c['tonalidad'] as String? ?? '',
+        busqueda: titulo,
+      );
       final coincideTonalidad = tonalidadQuery.isEmpty ||
           _normalizar(c['tonalidad'] as String? ?? '').contains(tonalidadQuery);
       return coincideTitulo && coincideTonalidad;
@@ -5176,6 +5174,157 @@ class PdfPorSubir {
   }
 }
 
+/// Texto para comparar en las búsquedas: minúsculas y sin tildes. Cada
+/// carácter se reemplaza por uno solo, así que las posiciones del resultado
+/// coinciden con las del texto original (se usa para resaltar lo encontrado).
+String normalizarBusqueda(String texto) {
+  const conTilde = 'áàâäãéèêëíìîïóòôöõúùûüñç';
+  const sinTilde = 'aaaaaeeeeiiiiooooouuuunc';
+  final sb = StringBuffer();
+  for (var i = 0; i < texto.length; i++) {
+    final c = texto[i];
+    var minuscula = c.toLowerCase();
+    if (minuscula.length != 1) minuscula = c;
+    final k = conTilde.indexOf(minuscula);
+    sb.write(k >= 0 ? sinTilde[k] : minuscula);
+  }
+  return sb.toString();
+}
+
+/// Las palabras de lo que se escribió en el buscador, ya normalizadas.
+List<String> palabrasDeBusqueda(String busqueda) => normalizarBusqueda(busqueda)
+    .split(RegExp(r'\s+'))
+    .where((p) => p.isNotEmpty)
+    .toList();
+
+/// ¿La canción coincide con lo buscado? Cada palabra tiene que aparecer en
+/// cualquier parte del título (en cualquier orden) o ser justo la tonalidad
+/// ("dm" encuentra también las canciones que están en Dm). La tonalidad solo
+/// cuenta si coincide entera, para que una letra suelta no traiga cualquier
+/// canción.
+bool coincideBusqueda({
+  required String titulo,
+  String tonalidad = '',
+  required String busqueda,
+}) {
+  final palabras = palabrasDeBusqueda(busqueda);
+  if (palabras.isEmpty) return true;
+  final t = normalizarBusqueda(titulo);
+  final k = normalizarBusqueda(tonalidad).trim();
+  return palabras.every((p) => t.contains(p) || (k.isNotEmpty && k == p));
+}
+
+/// Partes del [titulo] (posición inicial y final) que coincidieron con las
+/// palabras buscadas, sin solaparse y en orden.
+List<(int, int)> rangosCoincidentes(String titulo, String busqueda) {
+  final t = normalizarBusqueda(titulo);
+  final rangos = <(int, int)>[];
+  for (final p in palabrasDeBusqueda(busqueda)) {
+    var desde = 0;
+    while (true) {
+      final i = t.indexOf(p, desde);
+      if (i < 0) break;
+      rangos.add((i, i + p.length));
+      desde = i + p.length;
+    }
+  }
+  rangos.sort((a, b) => a.$1.compareTo(b.$1));
+  final unidos = <(int, int)>[];
+  for (final r in rangos) {
+    if (unidos.isNotEmpty && r.$1 <= unidos.last.$2) {
+      final ultimo = unidos.removeLast();
+      unidos.add((ultimo.$1, r.$2 > ultimo.$2 ? r.$2 : ultimo.$2));
+    } else {
+      unidos.add(r);
+    }
+  }
+  return unidos;
+}
+
+/// Título con en negrita y de color lo que coincidió con la búsqueda.
+class TituloResaltado extends StatelessWidget {
+  final String titulo;
+  final String busqueda;
+  final TextStyle? estilo;
+  const TituloResaltado(
+      {super.key, required this.titulo, required this.busqueda, this.estilo});
+
+  @override
+  Widget build(BuildContext context) {
+    final rangos = rangosCoincidentes(titulo, busqueda);
+    if (rangos.isEmpty) return Text(titulo, style: estilo);
+    final resaltado =
+        TextStyle(fontWeight: FontWeight.bold, color: context.acento);
+    final partes = <TextSpan>[];
+    var cursor = 0;
+    for (final (ini, fin) in rangos) {
+      if (ini > cursor) {
+        partes.add(TextSpan(text: titulo.substring(cursor, ini)));
+      }
+      partes.add(TextSpan(text: titulo.substring(ini, fin), style: resaltado));
+      cursor = fin;
+    }
+    if (cursor < titulo.length) {
+      partes.add(TextSpan(text: titulo.substring(cursor)));
+    }
+    return Text.rich(
+      TextSpan(
+          style: estilo ?? DefaultTextStyle.of(context).style,
+          children: partes),
+    );
+  }
+}
+
+/// "3 canciones" sobre una lista filtrada.
+class CantidadResultados extends StatelessWidget {
+  final int cantidad;
+  const CantidadResultados(this.cantidad, {super.key});
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
+        child: Align(
+          alignment: AlignmentDirectional.centerStart,
+          child: Text(
+            context.l10n.cantidadCanciones(cantidad),
+            style: TextStyle(
+                fontSize: 12,
+                color: Theme.of(context).colorScheme.onSurfaceVariant),
+          ),
+        ),
+      );
+}
+
+/// Mensaje cuando la búsqueda no encontró nada, con botón para limpiarla.
+class SinResultadosBusqueda extends StatelessWidget {
+  final String busqueda;
+  final VoidCallback alLimpiar;
+  const SinResultadosBusqueda(
+      {super.key, required this.busqueda, required this.alLimpiar});
+
+  @override
+  Widget build(BuildContext context) => Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                context.l10n.noSeEncontraronCanciones(busqueda.trim()),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 8),
+              TextButton.icon(
+                onPressed: alLimpiar,
+                icon: const Icon(Icons.clear, size: 18),
+                label: Text(context.l10n.borrarBusqueda),
+              ),
+            ],
+          ),
+        ),
+      );
+}
+
 /// Título sugerido para un archivo que se sube: su nombre sin la extensión
 /// (la persona puede cambiarlo antes de guardar).
 String tituloDesdeArchivo(String nombreArchivo) {
@@ -7072,107 +7221,133 @@ class SetlistTab extends StatelessWidget {
       return;
     }
 
+    // Los controladores se crean ANTES de abrir la hoja: si se crearan dentro
+    // de builder, cada vez que aparece o se va el teclado la hoja se vuelve a
+    // armar y lo escrito se perdía.
+    final controllerTitulo = TextEditingController();
+
+    final controllerTonalidad = TextEditingController();
+
     final seleccion = await showModalBottomSheet<Map<String, dynamic>>(
       context: context,
       isScrollControlled: true,
       builder: (context) {
-        final controllerTitulo = TextEditingController();
+        // La hoja sube con el teclado para que los resultados se vean arriba.
+        return Padding(
+          padding:
+              EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+          child: StatefulBuilder(
+            builder: (context, setModalState) => DraggableScrollableSheet(
+              expand: false,
+              initialChildSize: 0.85,
+              maxChildSize: 0.95,
+              builder: (context, scrollController) =>
+                  StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+                stream: RepertorioService.streamRepertorio(user.uid),
+                builder: (context, snapshot) {
+                  if (!snapshot.hasData) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
 
-        final controllerTonalidad = TextEditingController();
+                  final docs =
+                      RepertorioService.ordenarPorTitulo(snapshot.data!.docs);
 
-        return StatefulBuilder(
-          builder: (context, setModalState) => DraggableScrollableSheet(
-            expand: false,
-            builder: (context, scrollController) =>
-                StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-              stream: RepertorioService.streamRepertorio(user.uid),
-              builder: (context, snapshot) {
-                if (!snapshot.hasData) {
-                  return const Center(child: CircularProgressIndicator());
-                }
+                  if (docs.isEmpty) {
+                    return Center(
+                        child: Text(context.l10n.tuBibliotecaEstaVacia));
+                  }
 
-                final docs =
-                    RepertorioService.ordenarPorTitulo(snapshot.data!.docs);
+                  final canciones =
+                      docs.map((d) => {...d.data(), 'id': d.id}).toList();
 
-                if (docs.isEmpty) {
-                  return Center(
-                      child: Text(context.l10n.tuBibliotecaEstaVacia));
-                }
+                  final docsFiltrados =
+                      RepertorioService.filtrarPorTituloYTonalidad(
+                    canciones,
+                    titulo: controllerTitulo.text,
+                    tonalidad: controllerTonalidad.text,
+                  );
 
-                final canciones =
-                    docs.map((d) => {...d.data(), 'id': d.id}).toList();
-
-                final docsFiltrados =
-                    RepertorioService.filtrarPorTituloYTonalidad(
-                  canciones,
-                  titulo: controllerTitulo.text,
-                  tonalidad: controllerTonalidad.text,
-                );
-
-                return Column(
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: TextField(
-                              controller: controllerTitulo,
-                              onChanged: (_) => setModalState(() {}),
-                              decoration: InputDecoration(
-                                hintText: context.l10n.titulo,
-                                isDense: true,
-                                prefixIcon: const Icon(Icons.search, size: 20),
-                                contentPadding: const EdgeInsets.symmetric(
-                                    horizontal: 12, vertical: 10),
-                                border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(8)),
+                  return Column(
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: TextField(
+                                controller: controllerTitulo,
+                                onChanged: (_) => setModalState(() {}),
+                                decoration: InputDecoration(
+                                  hintText: context.l10n.titulo,
+                                  isDense: true,
+                                  prefixIcon:
+                                      const Icon(Icons.search, size: 20),
+                                  contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 12, vertical: 10),
+                                  border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(8)),
+                                ),
                               ),
                             ),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: TextField(
-                              controller: controllerTonalidad,
-                              onChanged: (_) => setModalState(() {}),
-                              decoration: InputDecoration(
-                                hintText: context.l10n.tonalidad,
-                                isDense: true,
-                                prefixIcon:
-                                    const Icon(Icons.music_note, size: 20),
-                                contentPadding: const EdgeInsets.symmetric(
-                                    horizontal: 12, vertical: 10),
-                                border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(8)),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: TextField(
+                                controller: controllerTonalidad,
+                                onChanged: (_) => setModalState(() {}),
+                                decoration: InputDecoration(
+                                  hintText: context.l10n.tonalidad,
+                                  isDense: true,
+                                  prefixIcon:
+                                      const Icon(Icons.music_note, size: 20),
+                                  contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 12, vertical: 10),
+                                  border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(8)),
+                                ),
                               ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
-                    Expanded(
-                      child: docsFiltrados.isEmpty
-                          ? Center(child: Text(context.l10n.sinResultados))
-                          : ListView.builder(
-                              controller: scrollController,
-                              itemCount: docsFiltrados.length,
-                              itemBuilder: (context, i) {
-                                final data = docsFiltrados[i];
+                      if (docsFiltrados.isNotEmpty &&
+                          (controllerTitulo.text.trim().isNotEmpty ||
+                              controllerTonalidad.text.trim().isNotEmpty))
+                        CantidadResultados(docsFiltrados.length),
+                      Expanded(
+                        child: docsFiltrados.isEmpty
+                            ? SinResultadosBusqueda(
+                                busqueda:
+                                    controllerTitulo.text.trim().isNotEmpty
+                                        ? controllerTitulo.text
+                                        : controllerTonalidad.text,
+                                alLimpiar: () => setModalState(() {
+                                  controllerTitulo.clear();
+                                  controllerTonalidad.clear();
+                                }),
+                              )
+                            : ListView.builder(
+                                controller: scrollController,
+                                itemCount: docsFiltrados.length,
+                                itemBuilder: (context, i) {
+                                  final data = docsFiltrados[i];
 
-                                return ListTile(
-                                  leading: Icon(Icons.picture_as_pdf,
-                                      color: context.acento),
-                                  title: Text(data['titulo'] as String? ?? ''),
-                                  subtitle:
-                                      Text(data['tonalidad'] as String? ?? ''),
-                                  onTap: () => Navigator.pop(context, data),
-                                );
-                              },
-                            ),
-                    ),
-                  ],
-                );
-              },
+                                  return ListTile(
+                                    leading: Icon(Icons.picture_as_pdf,
+                                        color: context.acento),
+                                    title: TituloResaltado(
+                                        titulo: data['titulo'] as String? ?? '',
+                                        busqueda: controllerTitulo.text),
+                                    subtitle: Text(
+                                        data['tonalidad'] as String? ?? ''),
+                                    onTap: () => Navigator.pop(context, data),
+                                  );
+                                },
+                              ),
+                      ),
+                    ],
+                  );
+                },
+              ),
             ),
           ),
         );
@@ -7283,38 +7458,65 @@ class SetlistTab extends StatelessWidget {
                           );
 
                           if (sugerencias.isEmpty) {
-                            return Padding(
-                                padding: const EdgeInsets.all(16),
-                                child: Text(context.l10n.sinResultados));
+                            return SinResultadosBusqueda(
+                              busqueda: controllerTitulo.text.trim().isNotEmpty
+                                  ? controllerTitulo.text
+                                  : controllerTonalidad.text,
+                              alLimpiar: () {
+                                controllerTitulo.clear();
+                                controllerTonalidad.clear();
+                              },
+                            );
                           }
 
+                          final hayBusqueda =
+                              controllerTitulo.text.trim().isNotEmpty ||
+                                  controllerTonalidad.text.trim().isNotEmpty;
+
                           return Flexible(
-                            child: ListView.builder(
-                              shrinkWrap: true,
-                              itemCount: sugerencias.length,
-                              itemBuilder: (context, i) {
-                                final data = sugerencias[i];
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                if (hayBusqueda)
+                                  CantidadResultados(sugerencias.length),
+                                Flexible(
+                                  child: ListView.builder(
+                                    shrinkWrap: true,
+                                    itemCount: sugerencias.length,
+                                    itemBuilder: (context, i) {
+                                      final data = sugerencias[i];
 
-                                final tonalidad =
-                                    data['tonalidad'] as String? ?? '';
+                                      final tonalidad =
+                                          data['tonalidad'] as String? ?? '';
 
-                                final propietario =
-                                    data['propietarioNombre'] as String? ?? '';
+                                      final propietario =
+                                          data['propietarioNombre']
+                                                  as String? ??
+                                              '';
 
-                                return ListTile(
-                                  leading: Icon(Icons.picture_as_pdf,
-                                      color: context.acento),
-                                  title: Text(data['titulo'] as String? ?? ''),
-                                  subtitle: Text(
-                                    [
-                                      tonalidad,
-                                      if (propietario.isNotEmpty)
-                                        context.l10n.de(propietario)
-                                    ].where((s) => s.isNotEmpty).join(' · '),
+                                      return ListTile(
+                                        leading: Icon(Icons.picture_as_pdf,
+                                            color: context.acento),
+                                        title: TituloResaltado(
+                                            titulo:
+                                                data['titulo'] as String? ?? '',
+                                            busqueda: controllerTitulo.text),
+                                        subtitle: Text(
+                                          [
+                                            tonalidad,
+                                            if (propietario.isNotEmpty)
+                                              context.l10n.de(propietario)
+                                          ]
+                                              .where((s) => s.isNotEmpty)
+                                              .join(' · '),
+                                        ),
+                                        onTap: () =>
+                                            Navigator.pop(context, data),
+                                      );
+                                    },
                                   ),
-                                  onTap: () => Navigator.pop(context, data),
-                                );
-                              },
+                                ),
+                              ],
                             ),
                           );
                         },
@@ -9011,16 +9213,25 @@ class _MiRepertorioScreenState extends State<MiRepertorioScreen> {
                       );
 
                       if (docs.isEmpty) {
-                        return Center(
-                          child: Text(
-                            todasLasCanciones.isEmpty
-                                ? context.l10n.todaviaNoSubisteNingunaCancion
-                                : context.l10n.sinResultados,
-                          ),
+                        if (todasLasCanciones.isEmpty) {
+                          return Center(
+                            child: Text(
+                                context.l10n.todaviaNoSubisteNingunaCancion),
+                          );
+                        }
+                        return SinResultadosBusqueda(
+                          busqueda:
+                              _busquedaTituloController.text.trim().isNotEmpty
+                                  ? _busquedaTituloController.text
+                                  : _busquedaTonalidadController.text,
+                          alLimpiar: () => setState(() {
+                            _busquedaTituloController.clear();
+                            _busquedaTonalidadController.clear();
+                          }),
                         );
                       }
 
-                      return ListView.separated(
+                      final lista = ListView.separated(
                         itemCount: docs.length,
                         separatorBuilder: (_, __) => const Divider(height: 1),
                         itemBuilder: (context, i) {
@@ -9040,7 +9251,9 @@ class _MiRepertorioScreenState extends State<MiRepertorioScreen> {
                           return ListTile(
                             leading: Icon(Icons.picture_as_pdf,
                                 color: context.acento),
-                            title: Text(titulo),
+                            title: TituloResaltado(
+                                titulo: titulo,
+                                busqueda: _busquedaTituloController.text),
                             subtitle: tonalidad.isNotEmpty
                                 ? Text(context.l10n.tonalidad2(tonalidad))
                                 : null,
@@ -9092,6 +9305,19 @@ class _MiRepertorioScreenState extends State<MiRepertorioScreen> {
                             ),
                           );
                         },
+                      );
+
+                      return Column(
+                        children: [
+                          if (_busquedaTituloController.text
+                                  .trim()
+                                  .isNotEmpty ||
+                              _busquedaTonalidadController.text
+                                  .trim()
+                                  .isNotEmpty)
+                            CantidadResultados(docs.length),
+                          Expanded(child: lista),
+                        ],
                       );
                     },
                   ),

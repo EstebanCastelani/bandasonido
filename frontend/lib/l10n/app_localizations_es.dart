@@ -1260,4 +1260,20 @@ class AppLocalizationsEs extends AppLocalizations {
     );
     return '$_temp0';
   }
+
+  @override
+  String cantidadCanciones(int cantidad) {
+    String _temp0 = intl.Intl.pluralLogic(
+      cantidad,
+      locale: localeName,
+      other: '$cantidad canciones',
+      one: '1 canción',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String noSeEncontraronCanciones(String busqueda) {
+    return 'No se encontraron canciones con “$busqueda”';
+  }
 }

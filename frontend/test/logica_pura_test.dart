@@ -904,4 +904,95 @@ Tu gloria llena la tierra///
       expect((r.subidos, r.omitidos, r.sinProcesar), (0, 0, 0));
     });
   });
+
+  group('Buscador por título (RQ-33)', () {
+    final canciones = <Map<String, dynamic>>[
+      {'titulo': 'Amor eterno', 'tonalidad': 'G'},
+      {'titulo': 'Mi gran amor', 'tonalidad': 'Dm'},
+      {'titulo': 'Sin amor', 'tonalidad': 'A'},
+      {'titulo': 'Amorcito', 'tonalidad': 'E'},
+      {'titulo': 'Corazón de fuego', 'tonalidad': 'Dm'},
+      {'titulo': 'Glorioso día', 'tonalidad': 'D'},
+    ];
+    List<String> buscar(String q, {String tonalidad = ''}) =>
+        RepertorioService.filtrarPorTituloYTonalidad(canciones,
+                titulo: q, tonalidad: tonalidad)
+            .map((c) => c['titulo'] as String)
+            .toList();
+
+    test('"amor" encuentra todas las que lo contienen en cualquier parte', () {
+      expect(buscar('amor'),
+          ['Amor eterno', 'Mi gran amor', 'Sin amor', 'Amorcito']);
+    });
+
+    test('no distingue mayúsculas ni tildes', () {
+      final base = buscar('amor');
+      expect(buscar('AMOR'), base);
+      expect(buscar('Ámor'), base);
+      expect(buscar('corazon'), ['Corazón de fuego']);
+      expect(buscar('GLORIOSO DIA'), ['Glorioso día']);
+      expect(buscar('día'), ['Glorioso día']);
+    });
+
+    test('varias palabras: todas, en cualquier orden', () {
+      expect(buscar('amor eterno'), ['Amor eterno']);
+      expect(buscar('eterno amor'), ['Amor eterno']);
+      expect(buscar('gran amor'), ['Mi gran amor']);
+      expect(buscar('amor fuego'), isEmpty);
+    });
+
+    test('el mismo campo también filtra por tonalidad si coincide entera', () {
+      expect(buscar('dm'), ['Mi gran amor', 'Corazón de fuego']);
+      expect(buscar('amor dm'), ['Mi gran amor']);
+      // "a" no trae todas las de tonalidad A: solo es palabra del título o la tonalidad exacta
+      expect(buscar('a'), canciones.map((c) => c['titulo']).toList());
+    });
+
+    test('el campo de tonalidad sigue funcionando aparte', () {
+      expect(buscar('', tonalidad: 'Dm'), ['Mi gran amor', 'Corazón de fuego']);
+      expect(buscar('amor', tonalidad: 'e'), ['Amorcito']);
+    });
+
+    test('con el campo vacío o solo espacios muestra todo', () {
+      expect(buscar('').length, canciones.length);
+      expect(buscar('   ').length, canciones.length);
+    });
+
+    test('la normalización conserva las posiciones del texto original', () {
+      for (final t in ['Corazón de fuego', 'Ñandú Über', 'ÁÉÍÓÚ àèìòù']) {
+        expect(normalizarBusqueda(t).length, t.length);
+      }
+      expect(normalizarBusqueda('Corazón'), 'corazon');
+    });
+
+    test('rangos resaltados: posiciones en el título original', () {
+      expect(rangosCoincidentes('Amor eterno', 'amor'), [(0, 4)]);
+      expect(rangosCoincidentes('Mi gran amor', 'amor'), [(8, 12)]);
+      expect(rangosCoincidentes('Corazón de fuego', 'corazon fuego'),
+          [(0, 7), (11, 16)]);
+      expect(rangosCoincidentes('Amor amor', 'amor'), [(0, 4), (5, 9)]);
+    });
+
+    test('rangos que se pisan se unen', () {
+      expect(rangosCoincidentes('Gloria', 'glo lor'), [(0, 4)]);
+    });
+
+    test('sin coincidencias o sin búsqueda no hay rangos', () {
+      expect(rangosCoincidentes('Amor eterno', 'zzz'), isEmpty);
+      expect(rangosCoincidentes('Amor eterno', ''), isEmpty);
+    });
+
+    test('una lista larga se filtra al instante', () {
+      final muchas = [
+        for (var i = 0; i < 5000; i++)
+          {'titulo': 'Canción número $i del amor', 'tonalidad': 'C'},
+      ];
+      final reloj = Stopwatch()..start();
+      final r = RepertorioService.filtrarPorTituloYTonalidad(muchas,
+          titulo: 'numero 4999 amor', tonalidad: '');
+      reloj.stop();
+      expect(r.length, 1);
+      expect(reloj.elapsedMilliseconds, lessThan(500));
+    });
+  });
 }

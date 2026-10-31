@@ -2215,6 +2215,18 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'{cantidad, plural, =1{1 sin procesar} other{{cantidad} sin procesar}}'**
   String resumenSinProcesar(int cantidad);
+
+  /// No description provided for @cantidadCanciones.
+  ///
+  /// In es, this message translates to:
+  /// **'{cantidad, plural, =1{1 canción} other{{cantidad} canciones}}'**
+  String cantidadCanciones(int cantidad);
+
+  /// No description provided for @noSeEncontraronCanciones.
+  ///
+  /// In es, this message translates to:
+  /// **'No se encontraron canciones con “{busqueda}”'**
+  String noSeEncontraronCanciones(String busqueda);
 }
 
 class _AppLocalizationsDelegate
