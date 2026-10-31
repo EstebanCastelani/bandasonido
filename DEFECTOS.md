@@ -81,3 +81,6 @@ En el visor de cifrados, un grupo de acordes entre paréntesis que se repite, co
 
 ### DF-22 · Corregido (31-oct-2026)
 En una sala, al tocar "Agregar canción" y elegir "Desde mi biblioteca" o "Buscar en bibliotecas de la sala", el teclado se abría solo porque el campo Título tenía `autofocus: true`. Se quitó en las dos hojas y en el diálogo de canción de Mi repertorio, y se suelta cualquier foco que hubiera antes y después de las hojas. Verificado en el celular y en la web (con tamaño de celular: ningún campo de texto queda enfocado). Los otros `autofocus` (nombre de sala, frases, renombrar secuencia) se dejaron: son diálogos de un solo campo.
+
+### DF-23 · Corregido (31-oct-2026)
+En "Desde mi biblioteca", lo escrito en el buscador desaparecía al cerrarse el teclado y los resultados quedaban tapados por él. Causa: los controladores de texto se creaban dentro del `builder` de la hoja inferior, que se vuelve a ejecutar cuando cambia el espacio del teclado. Ahora se crean antes de abrir la hoja, la hoja se acolcha con `viewInsets.bottom` y es más alta. Verificado en el celular.

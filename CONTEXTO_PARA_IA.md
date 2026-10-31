@@ -847,6 +847,15 @@ registrada sin chequear `esPro` — ver §8 para cómo revertir esto.
     Resumen con plurales ICU (`resumenSubidos/Omitidos/SinProcesar`). Probado en el celular (4 PDF:
     aceptar, omitir, aceptar, cancelar todos → "2 subidos, 1 omitido, 1 sin procesar") y en la web
     con tamaño de celular (el selector queda con `multiple`).
+45. **Buscador por título (RQ-33, 31-oct-2026)**: funciones puras `normalizarBusqueda` (mapeo 1 a 1 por
+    carácter: minúsculas y sin tildes, así los rangos del resaltado calzan con el título original),
+    `coincideBusqueda` (todas las palabras contenidas en el título o iguales a la tonalidad),
+    `rangosCoincidentes`; widgets `TituloResaltado`, `CantidadResultados`, `SinResultadosBusqueda`.
+    Se usa en Mi repertorio, `_elegirDesdeBiblioteca` y `_buscarEntreCompaneros` (filtra la lista ya
+    cargada, sin consultas). Trampa: los controladores de una hoja inferior deben crearse FUERA del
+    `builder` (se recrean al aparecer el teclado y se pierde el texto, DF-23). Cadenas l10n:
+    `cantidadCanciones` (plural) y `noSeEncontraronCanciones`. Probado en el celular; la web no se
+    verificó a mano (la lógica es la misma).
 
 ## 6. Modelo de seguridad de las salas — trade-off consciente, no bug
 

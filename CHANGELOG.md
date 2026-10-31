@@ -5,6 +5,7 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). La versió
 ## [Sin publicar]
 
 ### Agregado
+- **Buscador por título** en "Mi repertorio", en "Desde mi biblioteca" y en "Buscar en bibliotecas de la sala" (RQ-33): encuentra el texto en cualquier parte del título, sin importar mayúsculas ni tildes, con varias palabras en cualquier orden; el mismo campo filtra por tonalidad si escribís "Dm". Filtra en vivo sobre la lista ya cargada (sin consultas nuevas), resalta lo coincidente, muestra "N canciones" y, si no hay resultados, "No se encontraron canciones con “xxx”" con botón **Borrar búsqueda**.
 - **Subir varios PDF juntos a "Mi repertorio"**: se eligen todos de una vez y se confirman de a uno ("2 de 5", título y tonalidad sugeridos y editables) con **Aceptar y subir / Omitir este / Cancelar todos**; si una subida falla se puede reintentar u omitir sin perder el resto, y al final aparece un resumen ("3 subidos, 1 omitido").
 - **La web también funciona sin conexión** (RQ-31): los PDF del setlist y las secuencias de la sala se guardan en el navegador (Cache Storage), con el aviso "Sin conexión: X de Y temas listos"; el setlist y los cifrados quedan guardados por Firestore. Ya no es solo de Android.
 - Al subir un PDF a "Mi repertorio", el título se completa solo con el nombre del archivo (sin la extensión) y la **tonalidad se sugiere** a partir del cifrado (`DetectorTonalidad`): primero la que declara el texto ("Tono: G", "(Dm)" en el título) y, si no, la que mejor encaja con los acordes. Si no está segura, la deja vacía. Ambos campos se pueden cambiar antes de guardar.
@@ -17,6 +18,7 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). La versió
 - **Eliminar mi cuenta** (menú → Configuración): borra el perfil, las frases, el repertorio y las secuencias con sus archivos, el historial de salas y la cuenta de acceso, tras volver a confirmar la identidad (contraseña o Google) y una confirmación final. Reglas publicadas y borrado probado. Página web de pedido de eliminación: `eliminar-cuenta.html`.
 
 ### Corregido
+- "Desde mi biblioteca": el texto escrito en el buscador se borraba al cerrarse el teclado y los resultados quedaban tapados por el teclado (DF-23).
 - Al agregar una canción al setlist de una sala, ya no se abre el teclado solo en "Desde mi biblioteca" ni en "Buscar en bibliotecas de la sala": solo aparece al tocar un campo (DF-22).
 - Cifrados: "Grande y fuerte" y otros PDF exportados de editores en línea ya no salen con letras y acordes mezclados; los grupos como "(Am F E)x2" ahora se transponen. Las canciones guardadas se corrigen solas al abrir su cifrado (DF-20, DF-21).
 - Sugerencia de tonalidad: cuando el cifrado encaja igual en una tonalidad mayor y en su relativa menor (por ejemplo Mi mayor y Do# menor) se elige la que empieza la canción, en vez de dejar el campo vacío (DF-19).
