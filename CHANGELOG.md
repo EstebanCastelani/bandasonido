@@ -5,6 +5,7 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). La versió
 ## [Sin publicar]
 
 ### Agregado
+- **Subir varios PDF juntos a "Mi repertorio"**: se eligen todos de una vez y se confirman de a uno ("2 de 5", título y tonalidad sugeridos y editables) con **Aceptar y subir / Omitir este / Cancelar todos**; si una subida falla se puede reintentar u omitir sin perder el resto, y al final aparece un resumen ("3 subidos, 1 omitido").
 - **La web también funciona sin conexión** (RQ-31): los PDF del setlist y las secuencias de la sala se guardan en el navegador (Cache Storage), con el aviso "Sin conexión: X de Y temas listos"; el setlist y los cifrados quedan guardados por Firestore. Ya no es solo de Android.
 - Al subir un PDF a "Mi repertorio", el título se completa solo con el nombre del archivo (sin la extensión) y la **tonalidad se sugiere** a partir del cifrado (`DetectorTonalidad`): primero la que declara el texto ("Tono: G", "(Dm)" en el título) y, si no, la que mejor encaja con los acordes. Si no está segura, la deja vacía. Ambos campos se pueden cambiar antes de guardar.
 - **Uso en vivo** (RQ-30): *Alertas de pedidos* configurables (sonido, volumen, vibración, destello rojo en urgentes; Configuración → Alertas de pedidos y menú ⋮ del sonidista); *respuestas rápidas* de un toque para el sonidista; el músico ve si su pedido fue *enviado, visto o atendido*; *modo show* (candado en la barra del músico y menú ⋮ del sonidista); y los *PDF del setlist se guardan en el celular* para abrirse sin conexión, con el aviso "Sin conexión: X de Y temas listos".
@@ -16,6 +17,8 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). La versió
 - **Eliminar mi cuenta** (menú → Configuración): borra el perfil, las frases, el repertorio y las secuencias con sus archivos, el historial de salas y la cuenta de acceso, tras volver a confirmar la identidad (contraseña o Google) y una confirmación final. Reglas publicadas y borrado probado. Página web de pedido de eliminación: `eliminar-cuenta.html`.
 
 ### Corregido
+- Al agregar una canción al setlist de una sala, ya no se abre el teclado solo en "Desde mi biblioteca" ni en "Buscar en bibliotecas de la sala": solo aparece al tocar un campo (DF-22).
+- Cifrados: "Grande y fuerte" y otros PDF exportados de editores en línea ya no salen con letras y acordes mezclados; los grupos como "(Am F E)x2" ahora se transponen. Las canciones guardadas se corrigen solas al abrir su cifrado (DF-20, DF-21).
 - Sugerencia de tonalidad: cuando el cifrado encaja igual en una tonalidad mayor y en su relativa menor (por ejemplo Mi mayor y Do# menor) se elige la que empieza la canción, en vez de dejar el campo vacío (DF-19).
 - Cifrados: los acordes opcionales entre paréntesis, como "(Bb)", ahora se transponen. La sugerencia de tonalidad al subir un PDF ya no confunde un "(Bb)" suelto con la tonalidad (DF-17, DF-18).
 - "Mis salas", "Mi repertorio" y "Mis secuencias": ya no muestran "Necesitás iniciar sesión" cuando la sesión está iniciada pero todavía se está restaurando, y el mensaje queda centrado (DF-16).

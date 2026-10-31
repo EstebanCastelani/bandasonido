@@ -825,6 +825,28 @@ registrada sin chequear `esPro` — ver §8 para cómo revertir esto.
     real ni el reinicio completo del navegador sin conexión. Diferencias que quedan por la
     plataforma: la vibración solo en celulares con Chrome; "atrás" del navegador en modo show.
     Los ítems 36 y 40 que dicen "en web no hace nada" están superados por este.
+43. **Extracción de cifrado: respaldo por corridas (DF-20, 31-oct-2026)**: `extraerTextoPdf` ahora
+    compara la extracción con posiciones (`CifradoPdfExtractor.extraer`) con el texto plano del
+    PDF (`mismosCaracteres`, tolerancia 2 %). Algunos PDF (Google Docs, un `BT/ET` por cada acorde
+    y por cada espacio) hacen que `extractTextLines` de Syncfusion mezcle renglones y pierda ~30 %
+    de los caracteres, y que el texto de cada palabra no coincida con su posición; versiones más
+    nuevas de Syncfusion tienen el mismo comportamiento. En ese caso `extraerPorCorridas` toma los
+    renglones del texto con `layoutText` y el espaciado de las "corridas" del texto plano
+    (`reconstruirFilas`; los renglones terminan en `
+`, hay que cortar con `?
+`).
+    `kVersionCifrado = 3`: `CifradoViewerScreen` re-extrae solo lo guardado con versión menor. El
+    transpositor entiende `(Bb)` y grupos `(Am F E)x2` (`_envuelto`). Para depurar un PDF
+    suelto: bajarlo (el bucket de Supabase es público) y correr `extraerTextoPdf` en un test.
+44. **Subida múltiple de PDF (31-oct-2026)**: `_subirNuevaCancion` usa `pickFiles(allowMultiple: true,
+    withData: true)` y `procesarColaDeSubida<T>` (función pura, probada): confirma → sube → siguiente;
+    ante un error pregunta reintentar/omitir; cancelar descarta el resto. `PdfPorSubir.preparar()`
+    extrae el cifrado y detecta la tonalidad recién cuando le toca el turno. `_confirmarPdf` es el diálogo
+    (sin autofocus). El diálogo de edición (`_pedirDatosCancion`) sigue igual, con cifrado editable;
+    en la cola el cifrado no se edita (se guarda el extraído; se puede editar después con el lápiz).
+    Resumen con plurales ICU (`resumenSubidos/Omitidos/SinProcesar`). Probado en el celular (4 PDF:
+    aceptar, omitir, aceptar, cancelar todos → "2 subidos, 1 omitido, 1 sin procesar") y en la web
+    con tamaño de celular (el selector queda con `multiple`).
 
 ## 6. Modelo de seguridad de las salas — trade-off consciente, no bug
 
