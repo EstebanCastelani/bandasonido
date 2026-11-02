@@ -4627,6 +4627,12 @@ class BloqueoSalida extends StatelessWidget {
       );
 }
 
+/// Zoom y posición de un visor, guardados fuera de su estado.
+class PosicionVisor {
+  double zoom = 1.0;
+  Offset scroll = Offset.zero;
+}
+
 /// Botón chico y translúcido de los visores de PDF/cifrado que lleva a la
 /// pestaña Pedidos (lo mismo que deslizar hacia arriba, pero también en un
 /// PDF largo, donde ese gesto solo hace scroll).
@@ -9856,7 +9862,7 @@ class CifradoViewerScreen extends StatefulWidget {
 
   final Future<void> Function(String texto)? alRegenerar;
 
-  const CifradoViewerScreen({
+  CifradoViewerScreen({
     super.key,
     required this.titulo,
     required this.cifradoOriginal,
@@ -9870,6 +9876,10 @@ class CifradoViewerScreen extends StatefulWidget {
     this.versionCifrado,
     this.alRegenerar,
   });
+
+  /// Zoom y posición para dejar el visor como estaba al volver de Pedidos
+  /// (se vuelve a abrir esta misma instancia, con un estado nuevo).
+  final posicion = PosicionVisor();
 
   bool get sincronizada => codigoSala != null && itemId != null;
 
@@ -9945,9 +9955,16 @@ class _CifradoViewerScreenState extends State<CifradoViewerScreen> {
 
   final _swipe = DetectorSwipe();
 
-  final _scrollVertical = ScrollController();
+  late final _scrollVertical =
+      ScrollController(initialScrollOffset: widget.posicion.scroll.dy);
 
-  final _scrollHorizontal = ScrollController();
+  late final _scrollHorizontal =
+      ScrollController(initialScrollOffset: widget.posicion.scroll.dx);
+
+  void _irAPedidos() {
+    widget.posicion.scroll = _posicionScroll;
+    widget.onIrAPedidos?.call(widget);
+  }
 
   /// Posición del scroll cuando se apoyó el dedo: si al levantarlo cambió,
   /// el gesto fue para desplazarse por la letra, no un swipe (sin esto,
@@ -10018,7 +10035,7 @@ class _CifradoViewerScreenState extends State<CifradoViewerScreen> {
     } else {
       if (delta.dy >= 0 || delta.dy.abs() < umbral) return;
 
-      widget.onIrAPedidos?.call(widget);
+      _irAPedidos();
     }
   }
 
@@ -10072,7 +10089,7 @@ class _CifradoViewerScreenState extends State<CifradoViewerScreen> {
       ),
       floatingActionButton: widget.onIrAPedidos == null
           ? null
-          : BotonIrAPedidos(onPressed: () => widget.onIrAPedidos!(widget)),
+          : BotonIrAPedidos(onPressed: _irAPedidos),
       body: Listener(
         onPointerDown: (evento) {
           _swipe.alBajar(evento);
@@ -10187,7 +10204,7 @@ class PdfViewerScreen extends StatefulWidget {
 
   final void Function(Widget visorActual)? onIrAPedidos;
 
-  const PdfViewerScreen({
+  PdfViewerScreen({
     super.key,
     required this.titulo,
     required this.pdfUrl,
@@ -10196,6 +10213,9 @@ class PdfViewerScreen extends StatefulWidget {
     this.codigoSala,
     this.onIrAPedidos,
   });
+
+  /// Zoom y posición para dejar el visor como estaba al volver de Pedidos.
+  final posicion = PosicionVisor();
 
   @override
   State<PdfViewerScreen> createState() => _PdfViewerScreenState();
@@ -10235,6 +10255,23 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
   double _zoom = 1.0;
 
   final _pdfController = PdfViewerController();
+
+  void _irAPedidos() {
+    widget.posicion.zoom = _pdfController.zoomLevel;
+    widget.posicion.scroll = _pdfController.scrollOffset;
+    widget.onIrAPedidos?.call(widget);
+  }
+
+  /// Al volver de Pedidos, deja el PDF con el zoom y la posición de antes.
+  void _restaurarPosicion(PdfDocumentLoadedDetails _) {
+    final p = widget.posicion;
+    if (p.zoom == 1.0 && p.scroll == Offset.zero) return;
+    _zoom = p.zoom;
+    _pdfController.zoomLevel = p.zoom;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _pdfController.jumpTo(xOffset: p.scroll.dx, yOffset: p.scroll.dy);
+    });
+  }
 
   /// Posición del scroll del PDF cuando se apoyó el dedo: si al levantarlo
   /// cambió, el gesto fue para pasar de página, no un swipe (sin esto,
@@ -10295,7 +10332,7 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
     } else {
       if (delta.dy >= 0 || delta.dy.abs() < umbral) return;
 
-      widget.onIrAPedidos?.call(widget);
+      _irAPedidos();
     }
   }
 
@@ -10308,7 +10345,7 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
       ),
       floatingActionButton: widget.onIrAPedidos == null
           ? null
-          : BotonIrAPedidos(onPressed: () => widget.onIrAPedidos!(widget)),
+          : BotonIrAPedidos(onPressed: _irAPedidos),
       body: Listener(
         onPointerDown: (evento) {
           _swipe.alBajar(evento);
@@ -10341,6 +10378,7 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
                     ? SfPdfViewer.memory(
                         _bytesLocal!,
                         controller: _pdfController,
+                        onDocumentLoaded: _restaurarPosicion,
                         onZoomLevelChanged: (details) =>
                             _zoom = details.newZoomLevel,
                         onDocumentLoadFailed: (details) {
@@ -10352,6 +10390,7 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
                         ? SfPdfViewer.file(
                             File(_rutaLocal!),
                             controller: _pdfController,
+                            onDocumentLoaded: _restaurarPosicion,
                             onZoomLevelChanged: (details) =>
                                 _zoom = details.newZoomLevel,
                             onDocumentLoadFailed: (details) {
@@ -10363,6 +10402,7 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
                         : SfPdfViewer.network(
                             widget.pdfUrl,
                             controller: _pdfController,
+                            onDocumentLoaded: _restaurarPosicion,
                             onZoomLevelChanged: (details) =>
                                 _zoom = details.newZoomLevel,
                             onDocumentLoadFailed: (details) {
