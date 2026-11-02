@@ -866,8 +866,12 @@ registrada sin chequear `esPro` — ver §8 para cómo revertir esto.
 47. **Botón flotante Pedidos ⇄ visor (2-nov-2026, prueba de diseño)**: `BotonIrAPedidos` es el
     `floatingActionButton` de `PdfViewerScreen` y `CifradoViewerScreen` (llama a `onIrAPedidos`, igual
     que el swipe); `ConBotonVolverAlVisor` envuelve la pestaña Pedidos (músico y sonidista) y, si hay
-    `_ultimoVisor`, muestra el botón que lo vuelve a abrir. Limitación: al volver se recrea el visor,
-    así que el PDF queda en la primera página (no se guarda el scroll). Cadena l10n `volverAlVisor`.
+    `_ultimoVisor`, muestra el botón que lo vuelve a abrir. Al volver se recrea el estado del visor
+    (misma instancia del widget), así que el zoom y el scroll se guardan en `PosicionVisor`, un campo
+    del widget (por eso `PdfViewerScreen`/`CifradoViewerScreen` ya no tienen constructor `const`):
+    `_irAPedidos()` de cada visor lo llena antes de salir; el PDF lo restaura en `onDocumentLoaded`
+    (zoom y, en el siguiente cuadro, `jumpTo`) y el cifrado con `initialScrollOffset`. Solo se guarda
+    al ir a Pedidos, no al salir con la flecha. Cadena l10n `volverAlVisor`.
 
 ## 6. Modelo de seguridad de las salas — trade-off consciente, no bug
 
