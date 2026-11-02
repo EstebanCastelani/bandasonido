@@ -790,5 +790,6 @@
         "type": "String"
       }
     }
-  }
+  },
+  "volverAlVisor": "Volver a la canción"
 }

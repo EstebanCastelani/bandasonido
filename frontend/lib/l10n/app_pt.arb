@@ -408,5 +408,6 @@
         "type": "String"
       }
     }
-  }
+  },
+  "volverAlVisor": "Voltar à música"
 }

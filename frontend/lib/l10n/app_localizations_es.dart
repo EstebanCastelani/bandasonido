@@ -1276,4 +1276,7 @@ class AppLocalizationsEs extends AppLocalizations {
   String noSeEncontraronCanciones(String busqueda) {
     return 'No se encontraron canciones con “$busqueda”';
   }
+
+  @override
+  String get volverAlVisor => 'Volver a la canción';
 }

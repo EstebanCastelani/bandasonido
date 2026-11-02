@@ -1280,4 +1280,7 @@ class AppLocalizationsFr extends AppLocalizations {
   String noSeEncontraronCanciones(String busqueda) {
     return 'Aucun morceau trouvé pour « $busqueda »';
   }
+
+  @override
+  String get volverAlVisor => 'Retour au morceau';
 }

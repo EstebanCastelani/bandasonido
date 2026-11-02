@@ -408,5 +408,6 @@
         "type": "String"
       }
     }
-  }
+  },
+  "volverAlVisor": "Retour au morceau"
 }

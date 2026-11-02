@@ -4627,6 +4627,60 @@ class BloqueoSalida extends StatelessWidget {
       );
 }
 
+/// Botón chico y translúcido de los visores de PDF/cifrado que lleva a la
+/// pestaña Pedidos (lo mismo que deslizar hacia arriba, pero también en un
+/// PDF largo, donde ese gesto solo hace scroll).
+class BotonIrAPedidos extends StatelessWidget {
+  final VoidCallback onPressed;
+  const BotonIrAPedidos({super.key, required this.onPressed});
+
+  @override
+  Widget build(BuildContext context) => FloatingActionButton.small(
+        heroTag: null,
+        elevation: 0,
+        highlightElevation: 0,
+        backgroundColor: context.acento.withValues(alpha: 0.35),
+        foregroundColor: Colors.white,
+        tooltip: PestanaSala.pedidos.etiqueta(context.l10n),
+        onPressed: onPressed,
+        child: const Icon(Icons.keyboard_double_arrow_up),
+      );
+}
+
+/// Sobre la pestaña Pedidos: botón para volver al último PDF/cifrado que se
+/// estaba viendo (lo mismo que deslizar hacia abajo).
+class ConBotonVolverAlVisor extends StatelessWidget {
+  final Widget? visor;
+  final Widget child;
+  const ConBotonVolverAlVisor({super.key, this.visor, required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    final destino = visor;
+    if (destino == null) return child;
+    return Stack(
+      children: [
+        child,
+        Positioned(
+          right: 12,
+          bottom: 12 + MediaQuery.viewPaddingOf(context).bottom,
+          child: FloatingActionButton.small(
+            heroTag: null,
+            elevation: 0,
+            highlightElevation: 0,
+            backgroundColor: context.acento.withValues(alpha: 0.35),
+            foregroundColor: Colors.white,
+            tooltip: context.l10n.volverAlVisor,
+            onPressed: () => Navigator.push(
+                context, MaterialPageRoute(builder: (_) => destino)),
+            child: const Icon(Icons.keyboard_double_arrow_down),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 /// Capas que van por encima de todas las pantallas: el modo show y el
 /// destello rojo de los pedidos urgentes.
 class CapasGlobales extends StatelessWidget {
@@ -6564,6 +6618,9 @@ class _RequestScreenState extends State<RequestScreen>
 
   bool _esUrgente = false;
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _conexionSub;
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _respuestasSub;
+  final _estadoRespuestas = <String, ({bool atendido, String respuesta})>{};
+  bool _respuestasCargadas = false;
   ScaffoldMessengerState? _messenger;
   bool _vioServidor = false;
   bool _avisoSinConexion = false;
@@ -6594,6 +6651,7 @@ class _RequestScreenState extends State<RequestScreen>
 
     WakelockPlus.enable();
     _vigilarConexion();
+    _vigilarRespuestas();
 
     MiembrosSalaService.registrarPresencia(widget.codigoSala).catchError(
         (e) => debugPrint('No se pudo registrar presencia en la sala: $e'));
@@ -6611,11 +6669,63 @@ class _RequestScreenState extends State<RequestScreen>
 
     _customPedidoController.dispose();
     _conexionSub?.cancel();
+    _respuestasSub?.cancel();
     _messenger?.hideCurrentMaterialBanner();
 
     _tabController.dispose();
 
     super.dispose();
+  }
+
+  /// Avisa (vibración, sonido y cartel) cuando la consola responde o atiende
+  /// un pedido mío, aunque esté mirando un PDF o un cifrado.
+  void _vigilarRespuestas() {
+    _respuestasSub = FirebaseFirestore.instance
+        .collection('salas')
+        .doc(widget.codigoSala)
+        .collection('pedidos')
+        .where('nombre', isEqualTo: widget.userName)
+        .orderBy('createdAt', descending: true)
+        .limit(10)
+        .snapshots()
+        .listen((s) {
+      final aviso = _avisoDeRespuesta(s);
+      if (aviso == null || !mounted) return;
+      AlertasService.cargar().then((c) {
+        AlertasService.avisar(c, urgente: false);
+      });
+      _messenger?.showSnackBar(SnackBar(
+        content:
+            Text(aviso, style: const TextStyle(fontWeight: FontWeight.bold)),
+        duration: const Duration(seconds: 6),
+        behavior: SnackBarBehavior.floating,
+      ));
+    }, onError: (_) {});
+  }
+
+  /// Texto del aviso si en este cambio la consola respondió o atendió un
+  /// pedido; null si no hay nada nuevo (o es la primera carga).
+  String? _avisoDeRespuesta(QuerySnapshot<Map<String, dynamic>> s) {
+    final l = context.l10n;
+    String? aviso;
+    for (final cambio in s.docChanges) {
+      final d = cambio.doc.data();
+      if (d == null) continue;
+      final nuevo = (
+        atendido: d['atendido'] == true,
+        respuesta: (d['respuesta'] ?? '') as String,
+      );
+      final antes = _estadoRespuestas[cambio.doc.id];
+      _estadoRespuestas[cambio.doc.id] = nuevo;
+      if (!_respuestasCargadas || antes == null) continue;
+      if (nuevo.respuesta.isNotEmpty && nuevo.respuesta != antes.respuesta) {
+        aviso = l.consola(nuevo.respuesta);
+      } else if (nuevo.atendido && !antes.atendido) {
+        aviso = '${l.pedidoAtendido}: ${d['pedido']}';
+      }
+    }
+    _respuestasCargadas = true;
+    return aviso;
   }
 
   @override
@@ -6684,7 +6794,7 @@ class _RequestScreenState extends State<RequestScreen>
   /// Swipe hacia arriba en el visor de PDF/cifrado: vuelve a la sala y, si
   /// el usuario tiene la pestaña de Pedidos visible, la muestra.
   void _irAPedidos(Widget visorActual) {
-    _ultimoVisor = visorActual;
+    setState(() => _ultimoVisor = visorActual);
 
     Navigator.pop(context);
 
@@ -6895,236 +7005,247 @@ class _RequestScreenState extends State<RequestScreen>
       body: TabBarView(
         controller: _tabController,
         children: _contenidoDePestanas({
-          PestanaSala.pedidos: Listener(
-            onPointerDown: (e) => _inicioArrastrePedidos = e.position,
-            onPointerUp: _manejarSwipeAbajoEnPedidos,
-            child: LayoutBuilder(builder: (context, caja) {
-              final grilla = Builder(builder: (context) {
-                final user = AuthService.currentUser;
+          PestanaSala.pedidos: ConBotonVolverAlVisor(
+            visor: _ultimoVisor,
+            child: Listener(
+              onPointerDown: (e) => _inicioArrastrePedidos = e.position,
+              onPointerUp: _manejarSwipeAbajoEnPedidos,
+              child: LayoutBuilder(builder: (context, _) {
+                final grilla = Builder(builder: (context) {
+                  final user = AuthService.currentUser;
 
-                if (user == null || user.isAnonymous) {
-                  return _construirGridFrases(
-                      AppConstants.pedidosRapidos(context.l10n));
-                }
+                  if (user == null || user.isAnonymous) {
+                    return _construirGridFrases(
+                        AppConstants.pedidosRapidos(context.l10n));
+                  }
 
-                return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-                  stream: FrasesService.streamFrases(user.uid),
-                  builder: (context, snapshot) {
-                    final docs = snapshot.data?.docs;
+                  return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+                    stream: FrasesService.streamFrases(user.uid),
+                    builder: (context, snapshot) {
+                      final docs = snapshot.data?.docs;
 
-                    final pedidosRapidos = (docs == null || docs.isEmpty)
-                        ? AppConstants.pedidosRapidos(context.l10n)
-                        : docs.map((d) => d.data()['texto'] as String).toList();
+                      final pedidosRapidos = (docs == null || docs.isEmpty)
+                          ? AppConstants.pedidosRapidos(context.l10n)
+                          : docs
+                              .map((d) => d.data()['texto'] as String)
+                              .toList();
 
-                    return _construirGridFrases(pedidosRapidos);
-                  },
-                );
-              });
-              final entrada = Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: _customPedidoController,
-                        style: const TextStyle(fontSize: 14),
-                        inputFormatters: [
-                          LengthLimitingTextInputFormatter(kMaxCaracteresPedido)
-                        ],
-                        textInputAction: TextInputAction.send,
-                        onSubmitted: (t) {
-                          _enviarMensaje(t);
+                      return _construirGridFrases(pedidosRapidos);
+                    },
+                  );
+                });
+                final entrada = Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _customPedidoController,
+                          style: const TextStyle(fontSize: 14),
+                          inputFormatters: [
+                            LengthLimitingTextInputFormatter(
+                                kMaxCaracteresPedido)
+                          ],
+                          textInputAction: TextInputAction.send,
+                          onSubmitted: (t) {
+                            _enviarMensaje(t);
+
+                            _customPedidoController.clear();
+                          },
+                          decoration: InputDecoration(
+                            hintText: context.l10n.escribirPedidoPersonalizado,
+                            isDense: true,
+                            contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 10),
+                            border: const OutlineInputBorder(),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      IconButton(
+                        icon: Icon(Icons.priority_high,
+                            color: _esUrgente ? Colors.redAccent : Colors.grey),
+                        tooltip: _esUrgente
+                            ? context.l10n.pedidoUrgenteActivado
+                            : context.l10n.marcarElProximoPedidoComo,
+                        onPressed: () =>
+                            setState(() => _esUrgente = !_esUrgente),
+                      ),
+                      const SizedBox(width: 4),
+                      IconButton.filled(
+                        icon: const Icon(Icons.send, size: 18),
+                        style: _esUrgente
+                            ? IconButton.styleFrom(
+                                backgroundColor: Colors.redAccent)
+                            : null,
+                        onPressed: () {
+                          _enviarMensaje(_customPedidoController.text);
 
                           _customPedidoController.clear();
                         },
-                        decoration: InputDecoration(
-                          hintText: context.l10n.escribirPedidoPersonalizado,
-                          isDense: true,
-                          contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 10),
-                          border: const OutlineInputBorder(),
-                        ),
                       ),
-                    ),
-                    const SizedBox(width: 4),
-                    IconButton(
-                      icon: Icon(Icons.priority_high,
-                          color: _esUrgente ? Colors.redAccent : Colors.grey),
-                      tooltip: _esUrgente
-                          ? context.l10n.pedidoUrgenteActivado
-                          : context.l10n.marcarElProximoPedidoComo,
-                      onPressed: () => setState(() => _esUrgente = !_esUrgente),
-                    ),
-                    const SizedBox(width: 4),
-                    IconButton.filled(
-                      icon: const Icon(Icons.send, size: 18),
-                      style: _esUrgente
-                          ? IconButton.styleFrom(
-                              backgroundColor: Colors.redAccent)
-                          : null,
-                      onPressed: () {
-                        _enviarMensaje(_customPedidoController.text);
+                    ],
+                  ),
+                );
+                final etiqueta = Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 6),
+                    child: Text(context.l10n.misUltimosPedidos,
+                        style: const TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey,
+                            letterSpacing: 1.1)));
+                final historial = StreamBuilder<QuerySnapshot>(
+                  stream: FirebaseFirestore.instance
+                      .collection('salas')
+                      .doc(widget.codigoSala)
+                      .collection('pedidos')
+                      .where('nombre', isEqualTo: widget.userName)
+                      .orderBy('createdAt', descending: true)
+                      .limit(10)
+                      .snapshots(),
+                  builder: (context, snapshot) {
+                    if (snapshot.hasError) {
+                      return Center(
+                          child: Text(
+                              context.l10n.error(
+                                  mensajeError(context.l10n, snapshot.error)),
+                              style: const TextStyle(fontSize: 14)));
+                    }
 
-                        _customPedidoController.clear();
-                      },
-                    ),
-                  ],
-                ),
-              );
-              final etiqueta = Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 6),
-                  child: Text(context.l10n.misUltimosPedidos,
-                      style: const TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey,
-                          letterSpacing: 1.1)));
-              final historial = StreamBuilder<QuerySnapshot>(
-                stream: FirebaseFirestore.instance
-                    .collection('salas')
-                    .doc(widget.codigoSala)
-                    .collection('pedidos')
-                    .where('nombre', isEqualTo: widget.userName)
-                    .orderBy('createdAt', descending: true)
-                    .limit(10)
-                    .snapshots(),
-                builder: (context, snapshot) {
-                  if (snapshot.hasError) {
-                    return Center(
-                        child: Text(
-                            context.l10n.error(
-                                mensajeError(context.l10n, snapshot.error)),
-                            style: const TextStyle(fontSize: 14)));
-                  }
+                    if (!snapshot.hasData) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
 
-                  if (!snapshot.hasData) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
+                    final docs = snapshot.data!.docs;
 
-                  final docs = snapshot.data!.docs;
+                    if (docs.isEmpty) {
+                      return Center(
+                          child: Text(context.l10n.sinPedidosPropios,
+                              style: const TextStyle(
+                                  color: Colors.grey, fontSize: 14)));
+                    }
 
-                  if (docs.isEmpty) {
-                    return Center(
-                        child: Text(context.l10n.sinPedidosPropios,
-                            style: const TextStyle(
-                                color: Colors.grey, fontSize: 14)));
-                  }
+                    return ListView.builder(
+                      itemCount: docs.length,
+                      itemBuilder: (context, i) {
+                        final doc = docs[i];
 
-                  return ListView.builder(
-                    itemCount: docs.length,
-                    itemBuilder: (context, i) {
-                      final doc = docs[i];
+                        final data = doc.data() as Map<String, dynamic>;
 
-                      final data = doc.data() as Map<String, dynamic>;
+                        final isAtendido = data['atendido'] ?? false;
 
-                      final isAtendido = data['atendido'] ?? false;
+                        final esUrgente = data['urgente'] ?? false;
 
-                      final esUrgente = data['urgente'] ?? false;
+                        final respuestaTecnico = data['respuesta'] ?? '';
 
-                      final respuestaTecnico = data['respuesta'] ?? '';
-
-                      return GestureDetector(
-                        onLongPress: () async {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(context.l10n
-                                  .eliminandoPedido(data['pedido'])),
-                              duration: const Duration(seconds: 2),
-                              backgroundColor: Colors.redAccent,
-                            ),
-                          );
-
-                          await FirestoreService.eliminarPedidoIndividual(
-                              widget.codigoSala, doc.id);
-                        },
-                        child: ListTile(
-                          dense: true,
-                          visualDensity: VisualDensity.compact,
-                          leading: Builder(builder: (context) {
-                            final estado = estadoDePedido(data);
-                            final l = context.l10n;
-                            return Tooltip(
-                              message: switch (estado) {
-                                EstadoPedido.atendido => l.pedidoAtendido,
-                                EstadoPedido.visto => l.pedidoVisto,
-                                EstadoPedido.enviado => l.pedidoEnviado,
-                              },
-                              child: Icon(
-                                switch (estado) {
-                                  EstadoPedido.atendido => Icons.check_circle,
-                                  EstadoPedido.visto => Icons.done_all,
-                                  EstadoPedido.enviado => esUrgente
-                                      ? Icons.priority_high
-                                      : Icons.access_time_filled,
-                                },
-                                color: switch (estado) {
-                                  EstadoPedido.atendido => Colors.green,
-                                  EstadoPedido.visto => Colors.lightBlue,
-                                  EstadoPedido.enviado => esUrgente
-                                      ? Colors.redAccent
-                                      : Colors.orange,
-                                },
-                                size: 16,
+                        return GestureDetector(
+                          onLongPress: () async {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(context.l10n
+                                    .eliminandoPedido(data['pedido'])),
+                                duration: const Duration(seconds: 2),
+                                backgroundColor: Colors.redAccent,
                               ),
                             );
-                          }),
-                          title: Text(
-                            "${data['pedido']}",
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: esUrgente && !isAtendido
-                                  ? FontWeight.bold
-                                  : null,
-                              decoration: isAtendido
-                                  ? TextDecoration.lineThrough
-                                  : null,
+
+                            await FirestoreService.eliminarPedidoIndividual(
+                                widget.codigoSala, doc.id);
+                          },
+                          child: ListTile(
+                            dense: true,
+                            visualDensity: VisualDensity.compact,
+                            leading: Builder(builder: (context) {
+                              final estado = estadoDePedido(data);
+                              final l = context.l10n;
+                              return Tooltip(
+                                message: switch (estado) {
+                                  EstadoPedido.atendido => l.pedidoAtendido,
+                                  EstadoPedido.visto => l.pedidoVisto,
+                                  EstadoPedido.enviado => l.pedidoEnviado,
+                                },
+                                child: Icon(
+                                  switch (estado) {
+                                    EstadoPedido.atendido => Icons.check_circle,
+                                    EstadoPedido.visto => Icons.done_all,
+                                    EstadoPedido.enviado => esUrgente
+                                        ? Icons.priority_high
+                                        : Icons.access_time_filled,
+                                  },
+                                  color: switch (estado) {
+                                    EstadoPedido.atendido => Colors.green,
+                                    EstadoPedido.visto => Colors.lightBlue,
+                                    EstadoPedido.enviado => esUrgente
+                                        ? Colors.redAccent
+                                        : Colors.orange,
+                                  },
+                                  size: 16,
+                                ),
+                              );
+                            }),
+                            title: Text(
+                              "${data['pedido']}",
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: esUrgente && !isAtendido
+                                    ? FontWeight.bold
+                                    : null,
+                                decoration: isAtendido
+                                    ? TextDecoration.lineThrough
+                                    : null,
+                              ),
                             ),
+                            subtitle: respuestaTecnico.isNotEmpty
+                                ? Text(
+                                    context.l10n.consola(respuestaTecnico),
+                                    style: TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.bold,
+                                        color: context.acento),
+                                  )
+                                : null,
                           ),
-                          subtitle: respuestaTecnico.isNotEmpty
-                              ? Text(
-                                  context.l10n.consola(respuestaTecnico),
-                                  style: TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.bold,
-                                      color: context.acento),
-                                )
-                              : null,
+                        );
+                      },
+                    );
+                  },
+                );
+                // En horizontal (poca altura) una sola columna no deja lugar para
+                // las frases: se ponen al costado del texto y del historial.
+                // Se decide con el alto de la pantalla, no con el de esta caja:
+                // al abrirse el teclado la caja se achica, el diseño cambiaría
+                // a mitad del toque, se recrearía el campo y se cerraría el
+                // teclado.
+                if (MediaQuery.sizeOf(context).height < 500) {
+                  return Row(
+                    children: [
+                      Expanded(flex: 3, child: grilla),
+                      Expanded(
+                        flex: 2,
+                        child: Column(
+                          children: [
+                            entrada,
+                            const Divider(thickness: 1, height: 1),
+                            etiqueta,
+                            Expanded(child: historial),
+                          ],
                         ),
-                      );
-                    },
+                      ),
+                    ],
                   );
-                },
-              );
-              // En horizontal (poca altura) una sola columna no deja lugar para
-              // las frases: se ponen al costado del texto y del historial.
-              if (caja.maxHeight < 360) {
-                return Row(
+                }
+                return Column(
                   children: [
                     Expanded(flex: 3, child: grilla),
-                    Expanded(
-                      flex: 2,
-                      child: Column(
-                        children: [
-                          entrada,
-                          const Divider(thickness: 1, height: 1),
-                          etiqueta,
-                          Expanded(child: historial),
-                        ],
-                      ),
-                    ),
+                    entrada,
+                    const Divider(thickness: 1, height: 1),
+                    etiqueta,
+                    Expanded(flex: 2, child: historial),
                   ],
                 );
-              }
-              return Column(
-                children: [
-                  Expanded(flex: 3, child: grilla),
-                  entrada,
-                  const Divider(thickness: 1, height: 1),
-                  etiqueta,
-                  Expanded(flex: 2, child: historial),
-                ],
-              );
-            }),
+              }),
+            ),
           ),
           PestanaSala.setlist: SetlistTab(
             codigoSala: widget.codigoSala,
@@ -9949,6 +10070,9 @@ class _CifradoViewerScreenState extends State<CifradoViewerScreen> {
           ],
         ],
       ),
+      floatingActionButton: widget.onIrAPedidos == null
+          ? null
+          : BotonIrAPedidos(onPressed: () => widget.onIrAPedidos!(widget)),
       body: Listener(
         onPointerDown: (evento) {
           _swipe.alBajar(evento);
@@ -10182,6 +10306,9 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
       appBar: AppBar(
         title: Text(widget.titulo, overflow: TextOverflow.ellipsis),
       ),
+      floatingActionButton: widget.onIrAPedidos == null
+          ? null
+          : BotonIrAPedidos(onPressed: () => widget.onIrAPedidos!(widget)),
       body: Listener(
         onPointerDown: (evento) {
           _swipe.alBajar(evento);
@@ -10515,7 +10642,7 @@ class _SonidistaPageState extends State<SonidistaPage>
   /// Swipe hacia arriba en el visor de PDF/cifrado: vuelve a la sala y, si
   /// la pestaña de Pedidos está visible, la muestra.
   void _irAPedidos(Widget visorActual) {
-    _ultimoVisor = visorActual;
+    setState(() => _ultimoVisor = visorActual);
 
     Navigator.pop(context);
 
@@ -11000,76 +11127,79 @@ class _SonidistaPageState extends State<SonidistaPage>
       body: TabBarView(
         controller: _tabController,
         children: _contenidoDePestanas({
-          PestanaSala.pedidos: Listener(
-            onPointerDown: (e) => _inicioArrastrePedidos = e.position,
-            onPointerUp: _manejarSwipeAbajoEnPedidos,
-            child: StreamBuilder<QuerySnapshot>(
-              stream: FirebaseFirestore.instance
-                  .collection('salas')
-                  .doc(widget.codigoSala)
-                  .collection('pedidos')
-                  .orderBy('createdAt', descending: true)
-                  .limit(kMaximoPedidosVisibles)
-                  .snapshots(),
-              builder: (context, snapshot) {
-                if (snapshot.hasError) {
-                  return Center(
-                      child: Text(
-                          context.l10n.errorDeConexion('${snapshot.error}')));
-                }
-
-                if (!snapshot.hasData) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-
-                final docs = snapshot.data!.docs;
-
-                if (docs.isEmpty) {
-                  return Center(child: Text(context.l10n.esperandoPedidos));
-                }
-
-                if (!_agruparPorRol) {
-                  return ListView.separated(
-                    itemCount: docs.length,
-                    separatorBuilder: (_, __) => const Divider(height: 1),
-                    itemBuilder: (context, i) => _buildPedidoTile(docs[i]),
-                  );
-                }
-
-                final grupos = <String, List<QueryDocumentSnapshot>>{};
-
-                for (final d in docs) {
-                  final rol =
-                      ((d.data() as Map<String, dynamic>)['rol'] ?? 'Otro')
-                          .toString();
-
-                  grupos.putIfAbsent(rol, () => []).add(d);
-                }
-
-                final rolesOrdenados = grupos.keys.toList()..sort();
-
-                return ListView(
-                  children: [
-                    for (final rol in rolesOrdenados) ...[
-                      Container(
-                        width: double.infinity,
-                        color: _colorPorRemitente(rol, rol)
-                            .withValues(alpha: 0.15),
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 6),
+          PestanaSala.pedidos: ConBotonVolverAlVisor(
+            visor: _ultimoVisor,
+            child: Listener(
+              onPointerDown: (e) => _inicioArrastrePedidos = e.position,
+              onPointerUp: _manejarSwipeAbajoEnPedidos,
+              child: StreamBuilder<QuerySnapshot>(
+                stream: FirebaseFirestore.instance
+                    .collection('salas')
+                    .doc(widget.codigoSala)
+                    .collection('pedidos')
+                    .orderBy('createdAt', descending: true)
+                    .limit(kMaximoPedidosVisibles)
+                    .snapshots(),
+                builder: (context, snapshot) {
+                  if (snapshot.hasError) {
+                    return Center(
                         child: Text(
-                          '${rolParaMostrar(context.l10n, rol)} (${grupos[rol]!.length})',
-                          style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 12,
-                              letterSpacing: 1),
+                            context.l10n.errorDeConexion('${snapshot.error}')));
+                  }
+
+                  if (!snapshot.hasData) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+
+                  final docs = snapshot.data!.docs;
+
+                  if (docs.isEmpty) {
+                    return Center(child: Text(context.l10n.esperandoPedidos));
+                  }
+
+                  if (!_agruparPorRol) {
+                    return ListView.separated(
+                      itemCount: docs.length,
+                      separatorBuilder: (_, __) => const Divider(height: 1),
+                      itemBuilder: (context, i) => _buildPedidoTile(docs[i]),
+                    );
+                  }
+
+                  final grupos = <String, List<QueryDocumentSnapshot>>{};
+
+                  for (final d in docs) {
+                    final rol =
+                        ((d.data() as Map<String, dynamic>)['rol'] ?? 'Otro')
+                            .toString();
+
+                    grupos.putIfAbsent(rol, () => []).add(d);
+                  }
+
+                  final rolesOrdenados = grupos.keys.toList()..sort();
+
+                  return ListView(
+                    children: [
+                      for (final rol in rolesOrdenados) ...[
+                        Container(
+                          width: double.infinity,
+                          color: _colorPorRemitente(rol, rol)
+                              .withValues(alpha: 0.15),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 6),
+                          child: Text(
+                            '${rolParaMostrar(context.l10n, rol)} (${grupos[rol]!.length})',
+                            style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12,
+                                letterSpacing: 1),
+                          ),
                         ),
-                      ),
-                      for (final d in grupos[rol]!) _buildPedidoTile(d),
+                        for (final d in grupos[rol]!) _buildPedidoTile(d),
+                      ],
                     ],
-                  ],
-                );
-              },
+                  );
+                },
+              ),
             ),
           ),
           PestanaSala.historial: StreamBuilder<QuerySnapshot>(

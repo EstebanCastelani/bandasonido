@@ -408,5 +408,6 @@
         "type": "String"
       }
     }
-  }
+  },
+  "volverAlVisor": "Back to the song"
 }

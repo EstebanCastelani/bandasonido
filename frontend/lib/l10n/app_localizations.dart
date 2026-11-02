@@ -2227,6 +2227,12 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'No se encontraron canciones con “{busqueda}”'**
   String noSeEncontraronCanciones(String busqueda);
+
+  /// No description provided for @volverAlVisor.
+  ///
+  /// In es, this message translates to:
+  /// **'Volver a la canción'**
+  String get volverAlVisor;
 }
 
 class _AppLocalizationsDelegate
