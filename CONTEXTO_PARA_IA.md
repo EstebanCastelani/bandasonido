@@ -856,6 +856,18 @@ registrada sin chequear `esPro` — ver §8 para cómo revertir esto.
     `builder` (se recrean al aparecer el teclado y se pierde el texto, DF-23). Cadenas l10n:
     `cantidadCanciones` (plural) y `noSeEncontraronCanciones`. Probado en el celular; la web no se
     verificó a mano (la lógica es la misma).
+46. **Aviso de respuestas y teclado en Pedidos (2-nov-2026)**: `_RequestScreenState._vigilarRespuestas`
+    escucha mis últimos 10 pedidos (misma consulta que el historial) y, si cambia `respuesta` o
+    `atendido` respecto de lo ya visto (la primera carga no avisa), llama a `AlertasService.avisar` y
+    muestra un SnackBar con el `ScaffoldMessenger` guardado, visible sobre el visor de PDF. Es local, no
+    push: solo avisa con la app abierta (push real = B-32, plan Blaze). Trampa (DF-24): nunca decidir el
+    diseño con el alto de un `LayoutBuilder` dentro de una pestaña con campos de texto: el teclado lo
+    achica, cambia el árbol y se pierde el foco; usar `MediaQuery.sizeOf`.
+47. **Botón flotante Pedidos ⇄ visor (2-nov-2026, prueba de diseño)**: `BotonIrAPedidos` es el
+    `floatingActionButton` de `PdfViewerScreen` y `CifradoViewerScreen` (llama a `onIrAPedidos`, igual
+    que el swipe); `ConBotonVolverAlVisor` envuelve la pestaña Pedidos (músico y sonidista) y, si hay
+    `_ultimoVisor`, muestra el botón que lo vuelve a abrir. Limitación: al volver se recrea el visor,
+    así que el PDF queda en la primera página (no se guarda el scroll). Cadena l10n `volverAlVisor`.
 
 ## 6. Modelo de seguridad de las salas — trade-off consciente, no bug
 

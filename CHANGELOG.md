@@ -5,6 +5,8 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). La versió
 ## [Sin publicar]
 
 ### Agregado
+- **Botón flotante para ir a Pedidos y volver al PDF/cifrado** (prueba de diseño): un botón chico y translúcido (⇈) abajo a la derecha del visor lleva a la pestaña Pedidos, y en Pedidos aparece otro (⇊) que vuelve a la última canción abierta. Sirve también en PDF largos, donde deslizar hacia arriba solo hace scroll. Los gestos de deslizar siguen funcionando.
+- **Aviso de respuesta de la consola**: cuando el sonidista responde o marca como atendido un pedido mío, el celular vibra, suena (según Configuración → Alertas) y aparece un cartel "Consola: …" o "Atendido: …" en cualquier pantalla de la sala, incluso mirando un PDF o un cifrado.
 - **Buscador por título** en "Mi repertorio", en "Desde mi biblioteca" y en "Buscar en bibliotecas de la sala" (RQ-33): encuentra el texto en cualquier parte del título, sin importar mayúsculas ni tildes, con varias palabras en cualquier orden; el mismo campo filtra por tonalidad si escribís "Dm". Filtra en vivo sobre la lista ya cargada (sin consultas nuevas), resalta lo coincidente, muestra "N canciones" y, si no hay resultados, "No se encontraron canciones con “xxx”" con botón **Borrar búsqueda**.
 - **Subir varios PDF juntos a "Mi repertorio"**: se eligen todos de una vez y se confirman de a uno ("2 de 5", título y tonalidad sugeridos y editables) con **Aceptar y subir / Omitir este / Cancelar todos**; si una subida falla se puede reintentar u omitir sin perder el resto, y al final aparece un resumen ("3 subidos, 1 omitido").
 - **La web también funciona sin conexión** (RQ-31): los PDF del setlist y las secuencias de la sala se guardan en el navegador (Cache Storage), con el aviso "Sin conexión: X de Y temas listos"; el setlist y los cifrados quedan guardados por Firestore. Ya no es solo de Android.
@@ -18,6 +20,7 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). La versió
 - **Eliminar mi cuenta** (menú → Configuración): borra el perfil, las frases, el repertorio y las secuencias con sus archivos, el historial de salas y la cuenta de acceso, tras volver a confirmar la identidad (contraseña o Google) y una confirmación final. Reglas publicadas y borrado probado. Página web de pedido de eliminación: `eliminar-cuenta.html`.
 
 ### Corregido
+- Sala (músico): el campo "Escribir pedido personalizado" no abría el teclado en celulares comunes: al abrirse el teclado la pantalla se achicaba, el diseño cambiaba al de horizontal, se recreaba el campo y el teclado se cerraba al instante. Ahora el diseño depende del alto de la pantalla y no del espacio libre (DF-24).
 - "Desde mi biblioteca": el texto escrito en el buscador se borraba al cerrarse el teclado y los resultados quedaban tapados por el teclado (DF-23).
 - Al agregar una canción al setlist de una sala, ya no se abre el teclado solo en "Desde mi biblioteca" ni en "Buscar en bibliotecas de la sala": solo aparece al tocar un campo (DF-22).
 - Cifrados: "Grande y fuerte" y otros PDF exportados de editores en línea ya no salen con letras y acordes mezclados; los grupos como "(Am F E)x2" ahora se transponen. Las canciones guardadas se corrigen solas al abrir su cifrado (DF-20, DF-21).

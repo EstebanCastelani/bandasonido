@@ -84,3 +84,6 @@ En una sala, al tocar "Agregar canción" y elegir "Desde mi biblioteca" o "Busca
 
 ### DF-23 · Corregido (31-oct-2026)
 En "Desde mi biblioteca", lo escrito en el buscador desaparecía al cerrarse el teclado y los resultados quedaban tapados por él. Causa: los controladores de texto se creaban dentro del `builder` de la hoja inferior, que se vuelve a ejecutar cuando cambia el espacio del teclado. Ahora se crean antes de abrir la hoja, la hoja se acolcha con `viewInsets.bottom` y es más alta. Verificado en el celular.
+
+### DF-24 · Corregido (2-nov-2026)
+En la sala del músico, tocar "Escribir pedido personalizado" no abría el teclado. Causa: la pestaña Pedidos elegía entre columna y fila con `caja.maxHeight < 360`; al abrirse el teclado la caja bajaba de 360, el diseño pasaba a fila, el campo se recreaba y perdía el foco (Android pedía ocultar el teclado al instante). Ahora se usa el alto de la pantalla (`MediaQuery.sizeOf(context).height < 500`), que no cambia con el teclado. Verificado en el celular: el teclado abre y el texto se escribe.
