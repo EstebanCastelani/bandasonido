@@ -863,6 +863,16 @@ registrada sin chequear `esPro` — ver §8 para cómo revertir esto.
     push: solo avisa con la app abierta (push real = B-32, plan Blaze). Trampa (DF-24): nunca decidir el
     diseño con el alto de un `LayoutBuilder` dentro de una pestaña con campos de texto: el teclado lo
     achica, cambia el árbol y se pierde el foco; usar `MediaQuery.sizeOf`.
+48. **Secuencias rápidas en Android (DF-25, 6-nov-2026)**: la caché de pistas de `ReproductorSecuencias`
+    ahora es estática y de toda la sala (`_descargas`, `_enCache`, `_listos`, `precargar` estático): se
+    llena desde `RequestScreen`/`SonidistaPage` con `SecuenciasService.precargarDeSala` (no al abrir la
+    pestaña) y se libera con `liberarListos()` al salir. `_listos` guarda un `AudioPlayer` ya con
+    `setSource(DeviceFileSource)` por pista (hasta 8): `alternar` lo adopta (`_suscribir` cambia los
+    listeners), llama a `resume()` y repone en segundo plano el de la pista anterior. Si no hay uno
+    listo (pista sin bajar) usa el camino viejo (`play` con archivo o `UrlSource`). `subirSecuencia`
+    llama a `guardarLocal` para sembrar la caché de quien sube. En web no se usa nada de esto (reproductor
+    JS aparte). Trampas: no pasar a `PlayerMode.lowLatency` (es para sonidos cortos) y no olvidar que el
+    evento de duración de un reproductor preparado llega antes de suscribirse (se lee con `getDuration`).
 47. **Botón flotante Pedidos ⇄ visor (2-nov-2026, prueba de diseño)**: `BotonIrAPedidos` es el
     `floatingActionButton` de `PdfViewerScreen` y `CifradoViewerScreen` (llama a `onIrAPedidos`, igual
     que el swipe); `ConBotonVolverAlVisor` envuelve la pestaña Pedidos (músico y sonidista) y, si hay
