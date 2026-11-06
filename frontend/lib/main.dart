@@ -2560,6 +2560,21 @@ class SecuenciasService {
     return _refSala(codigoSala).orderBy('orden').snapshots();
   }
 
+  /// Baja (y deja preparadas) las pistas de la sala apenas se entra a ella,
+  /// para que suenen al instante aunque nadie haya abierto la pestaña
+  /// Secuencias. Quien la llama cancela la suscripción al salir y llama a
+  /// [ReproductorSecuencias.liberarListos].
+  static StreamSubscription<QuerySnapshot<Map<String, dynamic>>>
+      precargarDeSala(String codigoSala) {
+    return streamSecuenciasSala(codigoSala).listen((s) {
+      ReproductorSecuencias.precargar([
+        for (final d in s.docs)
+          if ((d.data()['audioUrl'] as String? ?? '').isNotEmpty)
+            d.data()['audioUrl'] as String
+      ]);
+    }, onError: (_) {});
+  }
+
   static String _contentType(String nombreArchivo) {
     switch (nombreArchivo.split('.').last.toLowerCase()) {
       case 'wav':
@@ -2593,6 +2608,10 @@ class SecuenciasService {
     final audioUrl = supabase.storage
         .from(kSupabaseRepertorioBucket)
         .getPublicUrl(storagePath);
+
+    // Quien la sube ya tiene el archivo: se guarda en el celular para que
+    // suene al instante en la sala, sin bajarlo de nuevo.
+    unawaited(ReproductorSecuencias.guardarLocal(audioUrl, bytes));
 
     await _refUsuario(uid).add({
       'titulo': titulo,
@@ -2745,17 +2764,6 @@ class ReproductorSecuencias extends ChangeNotifier {
   final List<StreamSubscription> _subs = [];
   Timer? _sondeo;
 
-  // ---- Caché local de pistas (solo fuera de la web) ----
-  // Las pistas de la sala se bajan al celular apenas aparecen en la lista:
-  // suenan al instante al tocar play y siguen sonando si se corta la red.
-  final Map<String, Future<void>> _descargas = {};
-  final Set<String> _enCache = {};
-  Directory? _dirCache;
-  bool _cacheLimpia = false;
-
-  /// Una pista más grande que esto no se guarda (el límite de subida es 50 MB).
-  static const _maxBytesCache = 120 * 1024 * 1024;
-
   String? idActual;
   PlayerState estado = PlayerState.stopped;
   Duration posicion = Duration.zero;
@@ -2776,9 +2784,20 @@ class ReproductorSecuencias extends ChangeNotifier {
   static const duracionFadeOut = Duration(seconds: 4);
 
   ReproductorSecuencias() {
+    _cambiosCache.addListener(notifyListeners);
     if (_web) return;
     final player = AudioPlayer();
     _player = player;
+    _suscribir(player);
+  }
+
+  /// Escucha los eventos de [player] (y deja de escuchar al anterior): es el
+  /// reproductor que está a cargo de la pista actual.
+  void _suscribir(AudioPlayer player) {
+    for (final s in _subs) {
+      s.cancel();
+    }
+    _subs.clear();
     _subs.add(player.onPlayerStateChanged.listen((s) {
       estado = s;
       if (s == PlayerState.completed) posicion = Duration.zero;
@@ -2797,22 +2816,54 @@ class ReproductorSecuencias extends ChangeNotifier {
   bool estaSonando(String id) =>
       idActual == id && estado == PlayerState.playing;
 
+  // ---- Caché local de pistas ----
+  // Las pistas de la sala se bajan al celular apenas se abre la sala (no
+  // cuando se abre la pestaña Secuencias) y, ya bajadas, se dejan
+  // "preparadas" en un reproductor cada una: al tocar play solo falta
+  // arrancar, sin abrir ni decodificar el archivo. Es estático porque lo usa
+  // la sala entera, no una sola pantalla.
+  static final Map<String, Future<void>> _descargas = {};
+  static final Set<String> _enCache = {};
+  static final ValueNotifier<int> _cambiosCache = ValueNotifier(0);
+  static Directory? _dirCache;
+  static bool _cacheLimpia = false;
+
+  /// Reproductores ya preparados (archivo abierto) por pista, listos para
+  /// sonar. Se toma uno al dar play y se repone en segundo plano.
+  static final Map<String, AudioPlayer> _listos = {};
+  static final Set<String> _preparando = {};
+
+  /// Cuántas pistas se mantienen preparadas a la vez (cada una ocupa un
+  /// reproductor del sistema).
+  static const _maxListos = 8;
+
+  /// Una pista más grande que esto no se guarda (el límite de subida es 50 MB).
+  static const _maxBytesCache = 120 * 1024 * 1024;
+
+  /// Cuántas pistas se bajan a la vez.
+  static const _descargasSimultaneas = 3;
+
+  /// Pistas de la sala, en orden, para saber cuáles dejar preparadas.
+  static List<String> _urlsSala = const [];
+
+  String? _urlActual;
+
   /// ¿Esta pista ya está guardada en el celular (suena sin red)?
   bool estaEnCache(String url) => _enCache.contains(url);
 
-  Future<Directory> _carpetaCache() async {
+  static Future<Directory> _carpetaCache() async {
     final d =
         _dirCache ??= Directory('${Directory.systemTemp.path}/sc_secuencias');
     if (!await d.exists()) await d.create(recursive: true);
     return d;
   }
 
-  Future<File> _archivoDe(String url) async =>
+  static Future<File> _archivoDe(String url) async =>
       File('${(await _carpetaCache()).path}/${claveCache(url)}.audio');
 
   /// Ruta del archivo local de [url] si ya está completo (null en web o si falta).
-  Future<String?> _rutaEnCache(String url) async {
-    if (_web) return null;
+  static Future<String?> _rutaEnCache(String url) async {
+    if (puente.reproductorWebDisponible) return null;
     try {
       final f = await _archivoDe(url);
       if (await f.exists() && await f.length() > 0) return f.path;
@@ -2820,40 +2871,114 @@ class ReproductorSecuencias extends ChangeNotifier {
     return null;
   }
 
-  /// Baja las pistas de [urls] de a una (si todavía no están) para que suenen
-  /// sin esperar la red. Es seguro llamarla muchas veces con la misma lista.
-  Future<void> precargar(List<String> urls) async {
-    if (_web) {
+  /// Baja las pistas de [urls] (de a [_descargasSimultaneas]) si todavía no
+  /// están y deja preparadas las primeras. Es seguro llamarla muchas veces
+  /// con la misma lista.
+  static Future<void> precargar(List<String> urls) async {
+    _urlsSala = urls;
+    if (puente.reproductorWebDisponible) {
       if (!puente.cacheArchivosDisponible) return;
       try {
         final listas = await puente.cachePrecargar('sc-audio', urls);
         final antes = _enCache.length;
         _enCache.addAll(listas);
-        if (_enCache.length != antes) notifyListeners();
+        if (_enCache.length != antes) _cambiosCache.value++;
       } catch (e) {
         debugPrint('No se pudieron guardar las pistas en el navegador: $e');
       }
       return;
     }
     var bajo = false;
-    for (final url in urls) {
-      if (url.isEmpty) continue;
-      final antes = _enCache.contains(url);
-      await (_descargas[url] ??= _descargar(url));
-      if (!antes && _enCache.contains(url)) bajo = true;
+    final pendientes = [
+      for (final u in urls)
+        if (u.isNotEmpty) u
+    ];
+    for (var i = 0; i < pendientes.length; i += _descargasSimultaneas) {
+      final grupo = pendientes.skip(i).take(_descargasSimultaneas);
+      final antes = grupo.where(_enCache.contains).toSet();
+      await Future.wait(
+          [for (final u in grupo) _descargas[u] ??= _descargar(u)]);
+      if (grupo.any((u) => !antes.contains(u) && _enCache.contains(u))) {
+        bajo = true;
+      }
     }
     if (bajo || !_cacheLimpia) {
       _cacheLimpia = true;
       await _limpiarCache(urls.toSet());
     }
+    await _prepararListos();
   }
 
-  Future<void> _descargar(String url) async {
+  /// Guarda en el celular una pista que ya está en memoria (la que se acaba
+  /// de subir), como si se hubiera bajado.
+  static Future<void> guardarLocal(String url, Uint8List bytes) async {
+    if (puente.reproductorWebDisponible || bytes.length > _maxBytesCache) {
+      return;
+    }
+    try {
+      final destino = await _archivoDe(url);
+      final parcial = File('${destino.path}.part');
+      await parcial.writeAsBytes(bytes, flush: true);
+      await parcial.rename(destino.path);
+      _enCache.add(url);
+      _cambiosCache.value++;
+    } catch (e) {
+      debugPrint('No se pudo guardar la pista subida: $e');
+    }
+  }
+
+  /// Deja preparado un reproductor por cada pista guardada (las primeras
+  /// [_maxListos] de la sala) y suelta los de pistas que ya no están.
+  static Future<void> _prepararListos() async {
+    final deseadas = [
+      for (final u in _urlsSala)
+        if (u.isNotEmpty) u
+    ].take(_maxListos).toSet();
+    for (final u in _listos.keys.where((u) => !deseadas.contains(u)).toList()) {
+      _listos.remove(u)?.dispose();
+    }
+    for (final u in deseadas) {
+      await _prepararListo(u);
+    }
+  }
+
+  static Future<void> _prepararListo(String url) async {
+    if (_listos.containsKey(url) || !_preparando.add(url)) return;
+    AudioPlayer? p;
+    try {
+      final ruta = await _rutaEnCache(url);
+      if (ruta == null) return;
+      p = AudioPlayer();
+      await p.setReleaseMode(ReleaseMode.stop);
+      await p.setSource(DeviceFileSource(ruta));
+      if (_urlsSala.contains(url)) {
+        _listos[url] = p;
+        p = null;
+      }
+    } catch (e) {
+      debugPrint('No se pudo preparar la pista: $e');
+    } finally {
+      _preparando.remove(url);
+      await p?.dispose();
+    }
+  }
+
+  /// Suelta los reproductores preparados (al salir de la sala).
+  static Future<void> liberarListos() async {
+    _urlsSala = const [];
+    final todos = _listos.values.toList();
+    _listos.clear();
+    for (final p in todos) {
+      await p.dispose();
+    }
+  }
+
+  static Future<void> _descargar(String url) async {
     File? parcial;
     try {
       final destino = await _archivoDe(url);
       if (await destino.exists() && await destino.length() > 0) {
-        if (_enCache.add(url)) notifyListeners();
+        if (_enCache.add(url)) _cambiosCache.value++;
         return;
       }
       parcial = File('${destino.path}.part');
@@ -2870,7 +2995,7 @@ class ReproductorSecuencias extends ChangeNotifier {
         await parcial.rename(destino.path);
         parcial = null;
         _enCache.add(url);
-        notifyListeners();
+        _cambiosCache.value++;
       } finally {
         cliente.close();
       }
@@ -2884,7 +3009,7 @@ class ReproductorSecuencias extends ChangeNotifier {
     }
   }
 
-  Future<void> _limpiarCache(Set<String> urlsActuales) async {
+  static Future<void> _limpiarCache(Set<String> urlsActuales) async {
     try {
       final dir = await _carpetaCache();
       final existentes = <({String nombre, DateTime fecha})>[];
@@ -3000,15 +3125,37 @@ class ReproductorSecuencias extends ChangeNotifier {
         estado = PlayerState.playing;
         _empezarSondeo();
       } else {
-        await _player!.stop();
-        await _player!
-            .setReleaseMode(repetir ? ReleaseMode.loop : ReleaseMode.stop);
-        await _player!.setVolume(this.volumen);
-        // Si la pista ya está en el celular suena de ahí (al instante y sin red).
-        final local = await _rutaEnCache(url);
-        await _player!
-            .play(local != null ? DeviceFileSource(local) : UrlSource(url));
-        await _player!.setPlaybackRate(this.tempo);
+        final listo = _listos.remove(url);
+        final urlAnterior = _urlActual;
+        _urlActual = url;
+        if (listo != null) {
+          // Ya está abierta y preparada: solo falta arrancar. La anterior se
+          // corta sin esperarla y se repone en segundo plano.
+          final anterior = _player!;
+          _player = listo;
+          _suscribir(listo);
+          unawaited(() async {
+            await anterior.stop();
+            await anterior.dispose();
+            if (urlAnterior != null) await _prepararListo(urlAnterior);
+          }());
+          await listo
+              .setReleaseMode(repetir ? ReleaseMode.loop : ReleaseMode.stop);
+          await listo.setVolume(this.volumen);
+          await listo.setPlaybackRate(this.tempo);
+          await listo.resume();
+          duracion = await listo.getDuration() ?? Duration.zero;
+        } else {
+          await _player!.stop();
+          await _player!
+              .setReleaseMode(repetir ? ReleaseMode.loop : ReleaseMode.stop);
+          await _player!.setVolume(this.volumen);
+          // Si la pista ya está en el celular suena de ahí (sin red).
+          final local = await _rutaEnCache(url);
+          await _player!
+              .play(local != null ? DeviceFileSource(local) : UrlSource(url));
+          await _player!.setPlaybackRate(this.tempo);
+        }
       }
     } finally {
       cargando = false;
@@ -3123,6 +3270,7 @@ class ReproductorSecuencias extends ChangeNotifier {
 
   @override
   void dispose() {
+    _cambiosCache.removeListener(notifyListeners);
     _sondeo?.cancel();
     _fadeNativo?.cancel();
     if (_web && _duenoWeb == this) {
@@ -6625,6 +6773,7 @@ class _RequestScreenState extends State<RequestScreen>
   bool _esUrgente = false;
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _conexionSub;
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _respuestasSub;
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _precargaSub;
   final _estadoRespuestas = <String, ({bool atendido, String respuesta})>{};
   bool _respuestasCargadas = false;
   ScaffoldMessengerState? _messenger;
@@ -6658,6 +6807,7 @@ class _RequestScreenState extends State<RequestScreen>
     WakelockPlus.enable();
     _vigilarConexion();
     _vigilarRespuestas();
+    _precargaSub = SecuenciasService.precargarDeSala(widget.codigoSala);
 
     MiembrosSalaService.registrarPresencia(widget.codigoSala).catchError(
         (e) => debugPrint('No se pudo registrar presencia en la sala: $e'));
@@ -6676,6 +6826,8 @@ class _RequestScreenState extends State<RequestScreen>
     _customPedidoController.dispose();
     _conexionSub?.cancel();
     _respuestasSub?.cancel();
+    _precargaSub?.cancel();
+    ReproductorSecuencias.liberarListos();
     _messenger?.hideCurrentMaterialBanner();
 
     _tabController.dispose();
@@ -8486,8 +8638,8 @@ class _SecuenciasTabState extends State<SecuenciasTab>
         final docs = snapshot.data!.docs;
         final urlsEnSala =
             docs.map((d) => d.data()['audioUrl'] as String? ?? '').toSet();
-        scheduleMicrotask(() => _reproductor
-            .precargar(urlsEnSala.where((u) => u.isNotEmpty).toList()));
+        scheduleMicrotask(() => ReproductorSecuencias.precargar(
+            urlsEnSala.where((u) => u.isNotEmpty).toList()));
 
         Widget fila(QueryDocumentSnapshot<Map<String, dynamic>> doc, int i) {
           final data = doc.data();
@@ -10592,6 +10744,8 @@ class _SonidistaPageState extends State<SonidistaPage>
 
   StreamSubscription<QuerySnapshot>? _pedidosSub;
 
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _precargaSub;
+
   bool _primerSnapshotPedidos = true;
 
   /// Se vuelve a crear cuando el usuario cambia las pestañas visibles (por
@@ -10631,6 +10785,7 @@ class _SonidistaPageState extends State<SonidistaPage>
         (e) => debugPrint('No se pudo registrar presencia en la sala: $e'));
 
     _escucharPedidosNuevos();
+    _precargaSub = SecuenciasService.precargarDeSala(widget.codigoSala);
 
     _tabController = TabController(length: _pestanas.length, vsync: this)
       ..addListener(_alCambiarPestana);
@@ -10647,6 +10802,8 @@ class _SonidistaPageState extends State<SonidistaPage>
     WidgetsBinding.instance.removeObserver(this);
 
     _pedidosSub?.cancel();
+    _precargaSub?.cancel();
+    ReproductorSecuencias.liberarListos();
 
     _tabController.dispose();
 
