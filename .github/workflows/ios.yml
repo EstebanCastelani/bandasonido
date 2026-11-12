@@ -1,7 +1,11 @@
-# Compilación de prueba para iPhone (sin firmar). Se lanza a mano desde la pestaña Actions.
-# Sirve para saber si la app compila en iOS sin tener una Mac. No publica nada.
+# Compilación de prueba para iPhone (sin firmar). Corre al subir la rama `desarrollo`
+# y también a mano desde la pestaña Actions. Sirve para saber si la app compila en
+# iOS sin tener una Mac. No publica nada.
 name: iOS (compilación de prueba)
-on: workflow_dispatch
+on:
+  push:
+    branches: [desarrollo]
+  workflow_dispatch:
 jobs:
   ios:
     runs-on: macos-latest
