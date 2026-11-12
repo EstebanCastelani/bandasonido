@@ -23,7 +23,7 @@ if (keystorePropertiesFile.exists()) {
 }
 
 android {
-    namespace = "com.soundcheckpro.appsonido_frontend"
+    namespace = "com.soundcheckpro.app"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -40,7 +40,7 @@ android {
         // OJO: el ID de la app NO se puede cambiar una vez publicada, y tiene que
         // coincidir con la app Android registrada en Firebase (google-services.json).
         // Ver PLAY_STORE.md §2 antes de tocarlo.
-        applicationId = "com.soundcheckpro.appsonido_frontend"
+        applicationId = "com.soundcheckpro.app"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion

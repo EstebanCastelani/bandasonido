@@ -1,4 +1,4 @@
-package com.soundcheckpro.appsonido_frontend
+package com.soundcheckpro.app
 
 import io.flutter.embedding.android.FlutterActivity
 
