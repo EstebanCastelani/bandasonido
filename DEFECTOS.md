@@ -93,3 +93,9 @@ En Android, la primera secuencia de la sala tardaba en sonar. Causa: la bajada a
 
 ### DF-24 · Corregido (2-nov-2026)
 En la sala del músico, tocar "Escribir pedido personalizado" no abría el teclado. Causa: la pestaña Pedidos elegía entre columna y fila con `caja.maxHeight < 360`; al abrirse el teclado la caja bajaba de 360, el diseño pasaba a fila, el campo se recreaba y perdía el foco (Android pedía ocultar el teclado al instante). Ahora se usa el alto de la pantalla (`MediaQuery.sizeOf(context).height < 500`), que no cambia con el teclado. Verificado en el celular: el teclado abre y el texto se escribe.
+
+### DF-27 · Corregido (12-nov-2026)
+El diálogo "Compartir sala" (QR) fallaba en modo debug y en las pruebas con "LayoutBuilder does not support returning intrinsic dimensions": `QrImageView` usa un `LayoutBuilder` y el `AlertDialog` calcula el ancho con dimensiones intrínsecas. En la versión de publicación (sin comprobaciones) se veía bien, por eso no apareció al probarlo en el celular. Ahora el QR va dentro de un `SizedBox` de tamaño fijo. Lo encontró la prueba de widgets `pantallas_test.dart`.
+
+### DF-28 · Abierto (12-nov-2026)
+En el celular de pruebas (MIUI), el selector de archivos de Android muestra en gris los `.cho` aunque la app pida cualquier tipo, porque su tipo MIME llega como `application/octet-stream`; los `.txt` y `.json` sí se pueden elegir. La app no lo puede arreglar (lo decide el selector del sistema); se filtra la extensión después de elegir. Quien tenga un `.cho` puede renombrarlo a `.txt` (el contenido ChordPro se reconoce igual).

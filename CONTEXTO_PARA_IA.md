@@ -886,8 +886,8 @@ registrada sin chequear `esPro` — ver §8 para cómo revertir esto.
     (mensajes en los 5 idiomas, también las construye `ArchivosR2.errorDe` desde los códigos 413 y 507 del servidor).
     **Compresión de PDF: probada y descartada**: Syncfusion al volver a guardar un PDF existente conserva sus
     flujos y el tamaño no baja, así que solo se valida el peso. **Audio**: la web convierte todo lo que no sea ya un MP3
-    ≤ 192 kbps (`convertirAMp3(..., kbpsMaximo:)` en `conversor_mp3.js`; nunca sube el bitrate original); Android no puede
-    convertir (no hay codificador), solo acepta archivos de hasta 30 MB. **Cachés**: `carpetaDeCache` usa la carpeta de
+    ≤ 192 kbps (`convertirAMp3(..., kbpsMaximo:)` en `conversor_mp3.js`; nunca sube el bitrate original); En Android se comprime
+    con el codificador del sistema (ver ítem 50, "Compresión de audio en Android"). **Cachés**: `carpetaDeCache` usa la carpeta de
     datos de la app (`path_provider`, nueva dependencia directa) y no la temporal; `CachePdfs` guarda 100 PDF,
     `ReproductorSecuencias` 30 pistas. **Firestore**: constantes `kMaximoSetlist`, `kMaximoSecuenciasSala`, `kMaximoBiblioteca`,
     `kMaximoFrases`, `kMaximoSalasHistorial` como `.limit()` de las escuchas; el Historial de pedidos sigue sin tope (B-16, necesita
@@ -914,6 +914,63 @@ registrada sin chequear `esPro` — ver §8 para cómo revertir esto.
     `_irAPedidos()` de cada visor lo llena antes de salir; el PDF lo restaura en `onDocumentLoaded`
     (zoom y, en el siguiente cuadro, `jumpTo`) y el cifrado con `initialScrollOffset`. Solo se guarda
     al ir a Pedidos, no al salir con la flecha. Cadena l10n `volverAlVisor`.
+50. **Mejoras de uso (12-nov-2026, rama `desarrollo`, sin publicar)**: todo en `main.dart` salvo lo nativo.
+    - **Compartir desde otras apps (Android)**: sección `// --- ARCHIVOS COMPARTIDOS DESDE OTRAS APPS (ANDROID) ---`.
+      `AndroidManifest.xml` declara `SEND` y `SEND_MULTIPLE` (`application/pdf`, `text/plain`); `MainActivity.kt` lee los
+      `EXTRA_STREAM` (o `EXTRA_TEXT` como "texto compartido.txt"), hasta 12 MB cada uno, y los guarda en `pendientes`; Flutter
+      los pide con `MethodChannel('soundcheckpro/compartir').tomarArchivos` (se entregan una sola vez) y Android avisa con
+      `hayArchivos` si la app ya estaba abierta. `EscuchaCompartidos` (envuelve `CapasGlobales` en el `builder` de `MaterialApp`)
+      abre `MiRepertorioScreen(compartidos: …)` con `navegadorGlobal` (el `navigatorKey` de la app). Ese `initState` pasa los
+      archivos por `_colaDeArchivos`, el mismo camino que "Importar", y ofrece subirlos. Requiere sesión no anónima.
+    - **Compartir sala**: `mostrarCompartirSala` (QR con `qr_flutter` + código + Copiar/Compartir). El `QrImageView` va dentro de
+      un `SizedBox` de tamaño fijo porque usa `LayoutBuilder` y el `AlertDialog` mide con dimensiones intrínsecas (en debug daba
+      "LayoutBuilder does not support returning intrinsic dimensions"; en release no se notaba).
+    - **Acordes**: `ChordTransposer` acepta calificadores apilados (`Cm7b5`, `Am7(b5)`, `F#m7/E`) y notación latina; `_sinParentesis` y
+      `_transponerToken` prueban primero el token entero como acorde (si no, `G7(b9)` perdía el ")"). `RevisorDeAcordes`
+      (sección `// --- REVISIÓN DE ACORDES ---`) propone correcciones (`MotivoAcorde`: minúscula, notación alemana "H", símbolos ♯/♭)
+      solo en líneas con ≥ 60 % de acordes válidos; `_confirmarPdf` las ofrece con una casilla y `aplicar` las escribe.
+    - **Importar/exportar**: sección `// --- IMPORTAR Y EXPORTAR CANCIONES (CHORDPRO Y COPIA DE RESPALDO) ---` (`CancionTexto`,
+      `ChordPro` con conversión acordes-arriba ⇄ `[Am]` en línea, `CopiaRepertorio` JSON versionado, `pdfDesdeCifrado`). Importar usa
+      `FileType.any` y filtra la extensión después (en MIUI el selector deja `.cho` en gris por su tipo `octet-stream`; con `.txt` o
+      `.json` anda siempre).
+    - **Desplazamiento automático y pedal**: `BotonAutoDesplazar` (▶/⏸ y menú de velocidad `lenta/normal/rapida`) en el PDF y el cifrado;
+      `_alTeclado` (Av Pág/↓/espacio bajan 85 % de la pantalla, Re Pág/↑ suben, →/← cambian de tema del setlist) con `Focus(autofocus)`.
+    - **Primera vez**: `GuiaPrimeraVez` / `mostrarGuiaDeBienvenida` (se muestra una vez, `kClaveGuiaVista` en `SharedPreferences`; menú
+      → "Cómo funciona"), `EstadoVacio` (Mi repertorio, setlist, Mis salas), `mostrarComoInstalar` (solo web).
+    - **Web instalable**: `web/manifest.json` y `web/index.html` (metadatos de iOS/Android, pantalla de carga).
+    - **Crashlytics**: `_activarRegistroDeErrores()` en `main()` tras App Check; no hace nada en web, y en debug deja la recolección
+      apagada. Plugin de Gradle en `settings.gradle.kts` y `app/build.gradle.kts`. Hay que declararlo en la política de privacidad
+      (borrador pausado, `docs/politica-de-privacidad-borrador.html`) y en "Seguridad de los datos" de Google Play.
+    - **Tono de las secuencias en Android**: sección `// --- MOTORES DE AUDIO DE LAS SECUENCIAS (ANDROID) ---`. `ReproductorSecuencias`
+      ya no habla con `AudioPlayer` directo sino con la interfaz `MotorAudio`: `MotorNativo` (audioplayers, el de siempre, con el
+      pool de pistas preparadas `_listos` y arranque de 40 a 80 ms) y `MotorConTono` (just_audio, `setPitch` + `setSpeed`
+      independientes; `setPitch` solo existe en Android). `soportaTono` ahora es true en la web y en Android. Se usa el de tono solo si
+      `semitonos != 0` (en `alternar` para una pista nueva, o en `aplicarAjustes` → `_cambiarAMotorConTono`, que sigue en la misma
+      posición y con el mismo estado de play/pausa); una pista nueva sin tono vuelve al nativo (`_pasarAMotorNativo`). Trampas: el
+      `play()` de just_audio no termina hasta que la pista acaba (no se espera) y deja `playing` en true al terminar
+      (`estadoDesdeJustAudio` mira "terminó" primero); `detener` = pausa + volver a 0, porque su `stop()` suelta la pista.
+      `factorDeTono` = 2^(n/12). Probado en el celular (Redmi 15C, 12-nov-2026): pasar al motor de tono con la pista sonando (conserva la posición), pista nueva con tono, tempo 150 % medido (16 s de audio en 10,6 s), restablecer con la pista sonando, pausa/reanudar/detener y vuelta al motor nativo. Falta confirmar de oído que el tono cambia (no hay forma de medirlo desde adb).
+    - **Compresión de audio en Android** (13-nov-2026): `CompresorAudio.kt` (objeto con `comprimir(entrada, salida, kbpsObjetivo, maxBytes, alProgreso)`) y el canal
+      `soundcheckpro/audio` en `MainActivity.kt` (un hilo, método `comprimir`, avisa `progreso` de 0 a 1). Decodifica con `MediaExtractor` + `MediaCodec`
+      (los WAV llegan como `audio/raw`), pasa el PCM a 16 bits (`aPcm16` entiende 8, 16, 24 empaquetado, 32 y float), codifica AAC-LC y escribe un MP4 con `MediaMuxer`.
+      No recodifica un audio con pérdidas de hasta 1,15 × el objetivo (devuelve `omitido`); baja el bitrate si hace falta para entrar en `maxBytes` (error `muy_largo` bajo
+      64 kbps); admite 1 o 2 canales y 8 a 48 kHz (si no, `no_soportado`). Del lado Dart: `CompresorAudio` (puente), `ErrorCompresionAudio`, `mensajeErrorAudio`,
+      constantes `kMaxBytesAudioOriginal` (200 MB, lo que se deja elegir) y `kKbpsAudioAndroid` (128); `_prepararAudioAndroid` en la pantalla de secuencias decide: MP3 ≤ 192 kbps
+      y ≤ 30 MB → tal cual; si no → comprime a `.m4a`. El selector usa `withData: false` en Android (se lee por ruta) y después se llama a `clearTemporaryFiles()`.
+      Probado en el celular: WAV de 58,1 MB → 5,3 MB, ~45 s con la subida; el log del sistema muestra `audio/mp4a-latm` al reproducirlo (la forma de distinguir un `.m4a` de un MP3
+      con el mismo título). MIUI puede cerrar la app mientras el selector de archivos está abierto (pasó una vez; al volver arranca de cero). Sin probar: WAV de 24 bits, la
+      reproducción del `.m4a` en el navegador (el reproductor web usa un `<audio>`, debería andar) y la calidad de oído.
+    - **Reglas de Firestore**: `firestore.rules.propuesta` (validación de pedidos, generada a partir de `firestore.rules`, sin publicar) y
+      `rules-tests/` (Node + `@firebase/rules-unit-testing` + emulador; `cd rules-tests && npm test`, 51 pruebas sobre las dos).
+      El emulador arranca con `inicial.rules` porque `firebase.json` no admite rutas fuera de su carpeta; cada prueba carga las reglas reales
+      por su cuenta. Antes de publicar la propuesta hay que ponerle tope en la app a la respuesta (1000), el nombre y el rol (100).
+    - **Pruebas**: `test/pantallas_test.dart` (widgets sin Firebase: compartir sala, guía, estados vacíos, cómo instalar, auto-desplazamiento,
+      pedal/teclado y auto-desplazamiento en `CifradoViewerScreen`, canal de archivos compartidos con un `MethodChannel` simulado) y
+      grupos nuevos en `logica_pura_test.dart` (acordes, importar/exportar, tono). 209 en total.
+    - **Probado en el celular (12-nov-2026)**: recibir un PDF desde la app de archivos ("Compartir → Sound Check Pro"; una prueba con `am start` no sirve para PDF porque no puede otorgar el permiso del archivo pasado como extra), recibir texto con la app abierta y con la app cerrada (arranque en frío), pedal con teclas de Av Pág / Re Pág y desplazamiento automático en el PDF y en el cifrado, Crashlytics inicializado sin errores. Límite conocido: un archivo compartido de más de 12 MB o ilegible se ignora sin avisar.
+    - **No hecho aún / depende del dueño**: confirmar de oído el tono, probar con un pedal Bluetooth real y en otros
+      modelos (B-27), clave reCAPTCHA de App Check (B-01), publicar reglas (B-02), notificaciones push (B-32, sin código; ver su diseño en
+      `BACKLOG.md`), `google-services.json` del id `com.soundcheckpro.app`.
 
 ## 6. Modelo de seguridad de las salas — trade-off consciente, no bug
 
