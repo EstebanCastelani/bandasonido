@@ -11,7 +11,7 @@ Guía paso a paso. 🔑 = lo tenés que hacer vos (cuentas, claves, decisiones).
 | Nombre visible | ✔ **Corregido hoy**: era `appsonido_frontend`, ahora "Sound Check Pro" |
 | Firma de release | ◐ El build ya lee `android/key.properties` (ejemplo en `android/key.properties.example`). **Sin ese archivo se firma con la clave de depuración y ese archivo NO sirve para Play Store** (verificado: el APK actual figura firmado por "Android Debug") |
 | Probado en un celular real | ◐ **Probado el 25-oct-2026** en un Redmi 25078RA3EY (Android 15, 720 × 1600): menú, secuencias (carga y reproducción), crear sala, pedidos, **corte de red con aviso y reenvío**, panel del sonidista, "Borrar todo", cierre y **login con Google** (confirmado por vos). Además, **tamaños y orientación** (RQ-29): simulados en tu celular desde 320 dp de ancho hasta tablet de 800 × 1280 dp, vertical y horizontal, con letra al 130–150 %. **El 27-oct-2026 también se probó en el celular**: subir un PDF (con extracción automática del cifrado) y un audio, abrirlos, reproducir la secuencia, transponer un cifrado y borrar lo subido. Falta: probar en otros modelos reales |
-| Identificador de la app | ◐ `com.soundcheckpro.appsonido_frontend` (ver §2) |
+| Identificador de la app | ◐ **Decidido el 11-nov-2026: `com.soundcheckpro.app`.** Ya cambiado en `build.gradle.kts` y `MainActivity.kt`. **Falta 🔑:** agregar la app Android en Firebase y poner el nuevo `google-services.json` (ver §2); hasta entonces el build de Android falla |
 | Política de privacidad | ✘ Hay un borrador en `docs/politica-de-privacidad-borrador.html` (ver §6) |
 | Eliminar cuenta dentro de la app | ◐ **Implementada** (menú → Configuración → "Eliminar mi cuenta"). Reglas publicadas, borrado probado y enlace web publicado (ver §7) |
 | Ícono propio, capturas, descripción | ◐ **Ícono de la app hecho** (barras de sonido). Para la ficha de Play falta el ícono de 512 × 512 (`frontend/assets/icon/icon.png` está en 1024 × 1024: se reduce), la imagen destacada, las capturas y las descripciones 🔑 |
@@ -25,8 +25,11 @@ Antes de gastar tiempo en la tienda, comprobá que la app anda en Android:
 3. Probá como invitado y con cuenta: crear y unirse a una sala, enviar pedidos, el panel del sonidista, cifrados y PDF, secuencias (subir un audio, reproducir, cambiar tono/tempo/volumen), login con Google, cambio de idioma y de paleta, y qué pasa al cortar el wifi (debe aparecer el aviso "Sin conexión").
 4. Anotá lo que falle en `DEFECTOS.md` (formato DF-xx).
 
-## 2. Decidir el identificador de la app 🔑
-El *applicationId* **no se puede cambiar una vez publicada** y tiene que coincidir con la app Android registrada en Firebase.
+## 2. Identificador de la app (decidido: `com.soundcheckpro.app`) 🔑
+**Pasos que faltan (vos, en Firebase):** 1) Firebase → ⚙️ Configuración del proyecto → *Tus apps* → **Agregar app → Android**, paquete `com.soundcheckpro.app`, con la SHA-1 de debug (y después la de tu clave de subida, §3). 2) Descargar el nuevo `google-services.json` y reemplazar `frontend/android/app/google-services.json`. Con eso compila.
+Ojo: la app instalada hoy en el celular tiene el id viejo; la nueva se instala como otra app y hay que volver a iniciar sesión.
+
+Nota original: el *applicationId* **no se puede cambiar una vez publicada** y tiene que coincidir con la app Android registrada en Firebase.
 - **Si lo dejás** (`com.soundcheckpro.appsonido_frontend`): no cambia nada. Solo se ve en la dirección de la ficha de Play (`…/details?id=com.soundcheckpro.appsonido_frontend`), no en el celular.
 - **Si lo cambiás** (por ejemplo `com.soundcheckpro.app`), hacelo **antes** del primer envío:
   1. Firebase → ⚙️ Configuración del proyecto → *Tus apps* → **Agregar app → Android** con el nuevo nombre de paquete (y la huella SHA-1 del §3).

@@ -714,8 +714,9 @@ registrada sin chequear `esPro` — ver §8 para cómo revertir esto.
       nombre visible "Sound Check Pro".
     - `android/app/build.gradle.kts` firma el release con `android/key.properties`
       (fallback a debug si no existe; **no sirve para la tienda**). `applicationId`
-      sigue siendo `com.soundcheckpro.appsonido_frontend`: cambiarlo exige registrar
-      una app Android nueva en Firebase y un `google-services.json` nuevo.
+      pasó el 11-nov-2026 a `com.soundcheckpro.app` (antes `com.soundcheckpro.appsonido_frontend`):
+      exige registrar una app Android nueva en Firebase y un `google-services.json` nuevo con
+      ese package (sin eso el build falla). `MainActivity.kt` está en `kotlin/com/soundcheckpro/app/`.
     - Verificado: `flutter build apk --release` compila (68 MB, v1.1.0+2, minSdk 24,
       targetSdk 36). **Nunca se probó en un celular real.**
     - Bloqueantes de política para Play: no hay eliminación de cuenta dentro de la
@@ -1122,7 +1123,8 @@ app, esto es lo primero para revisar.
 - ~~No existe carpeta `android/`~~ Ya existe (`flutter create
   --platforms=android --org com.soundcheckpro .`, corrido para generar un
   APK de instalación directa a pedido del dueño del proyecto). Package id:
-  `com.soundcheckpro.appsonido_frontend`. Firmado con el keystore de debug
+  `com.soundcheckpro.appsonido_frontend` (desde el 11-nov-2026 es `com.soundcheckpro.app`; la app
+  instalada con el id viejo es otra app distinta para Android). Firmado con el keystore de debug
   por default (no hay keystore de release todavía) — sirve para instalar y
   probar en un celular real, **no** para subir a Play Store así como está.
   - Requirió instalar el Android SDK localmente (no estaba instalado):
@@ -1138,7 +1140,8 @@ app, esto es lo primero para revisar.
     falla por versión de Gradle/JDK, revisar esto primero.
 - **"Continuar con Google" ya está conectado para Android nativo.** Se
   registró una app Android en el proyecto de Firebase (`appbandasonido`)
-  con package id `com.soundcheckpro.appsonido_frontend` y el SHA-1 del
+  con package id `com.soundcheckpro.appsonido_frontend` (hay que sumar `com.soundcheckpro.app`,
+  ver `PLAY_STORE.md` §2) y el SHA-1 del
   keystore de **debug** (`D9:9B:66:1A:02:8F:2B:A7:3F:FA:E1:0A:75:69:66:2A:
   18:F1:72:67`) — ver huella completa corriendo `keytool -list -v
   -keystore %USERPROFILE%\.android\debug.keystore -alias androiddebugkey

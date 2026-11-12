@@ -19,6 +19,9 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). La versió
 ### Agregado
 - **Eliminar mi cuenta** (menú → Configuración): borra el perfil, las frases, el repertorio y las secuencias con sus archivos, el historial de salas y la cuenta de acceso, tras volver a confirmar la identidad (contraseña o Google) y una confirmación final. Reglas publicadas y borrado probado. Página web de pedido de eliminación: `eliminar-cuenta.html`.
 
+### Cambiado
+- Android: el identificador de la app pasa a `com.soundcheckpro.app` (antes `com.soundcheckpro.appsonido_frontend`) para publicar en Google Play. Requiere agregar la app en Firebase y un `google-services.json` nuevo (ver `PLAY_STORE.md` §2).
+
 ### Corregido
 - Secuencias en Android: la primera pista tardaba en arrancar. Las pistas de la sala solo se empezaban a bajar al abrir la pestaña Secuencias y de a una; si tocabas play antes de que terminara, sonaba por internet (lento). Ahora se bajan apenas entrás a la sala (de a tres a la vez), la persona que sube la secuencia ya la deja guardada en su celular, y cada pista guardada queda abierta y preparada en un reproductor: al tocar play arranca en 40 a 80 ms (antes 70 a 400 ms con la pista ya guardada, y varios segundos si no lo estaba) (DF-25).
 - Sala (músico): el campo "Escribir pedido personalizado" no abría el teclado en celulares comunes: al abrirse el teclado la pantalla se achicaba, el diseño cambiaba al de horizontal, se recreaba el campo y el teclado se cerraba al instante. Ahora el diseño depende del alto de la pantalla y no del espacio libre (DF-24).

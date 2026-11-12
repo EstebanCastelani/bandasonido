@@ -36,6 +36,15 @@ _(vacío — elegir 3–5 ítems al comenzar cada sprint, ver `PROCESO.md`)_
 | B-27 | P1 (Play Store) | Repetir la prueba en celular real en **otros modelos** (en el Redmi ya se probó todo, incluidos subir un PDF y un audio, abrir PDFs y cifrados, corte de red y login con Google) | S | `PLAY_STORE.md` §1 | 🔑 otro dispositivo |
 | B-28 | P2 (Play Store) | Ícono propio (512 × 512), imagen destacada, capturas y descripciones de la ficha | M | `PLAY_STORE.md` §5 | 🔑 diseño |
 | B-32 | P1 (uso en vivo) | **Notificaciones push (FCM)** para que el sonidista reciba el aviso de un pedido con la app en segundo plano o la pantalla apagada. Requiere pasar el proyecto `appbandasonido` al **plan Blaze** (Cloud Functions) y una función que se dispare al crear un pedido. Decisión del dueño (27-oct-2026): se hace cuando se pague Blaze. Alternativa gratis evaluada: servicio de primer plano de Android (más batería, menos confiable con pantalla bloqueada) | M | `CONTEXTO_PARA_IA.md` ítem 40 | 🔑 plan Blaze |
+| B-33 | P1 (costos) | **Costos, Fase 0**: alertas de presupuesto, registrar MB y archivos por cuenta, tope de tamaño de PDF y bajar el de audio, confirmar planes y cuotas reales | S–M | `PLAN_COSTOS.md` §5 | 🔑 consolas y topes |
+| B-34 | P1 (costos) | **Costos, Fase 1**: cuotas por cuenta (gratis / Pro con `esPro`) aplicadas en el servidor | M–L | `PLAN_COSTOS.md` §5 | 🔑 definir cuotas |
+| B-35 | P2 (costos) | **Costos, Fase 2**: audio a ≈ 128 kbps al subir, sin WAV, tamaño estimado antes de subir | M | `PLAN_COSTOS.md` §5 | 🔑 aprobar calidad |
+| B-36 | P1 (costos) | **Costos, Fase 3**: almacenamiento sin cargo por descarga (Cloudflare R2 + servicio de subida firmada, hash, caché inmutable); convive con Supabase por `storageProvider` | L | `PLAN_COSTOS.md` §5 | 🔑 cuenta de Cloudflare |
+| B-37 | P2 (costos) | **Costos, Fase 4**: dedupe por hash con conteo de referencias y términos de uso | L | `PLAN_COSTOS.md` §5 | 🔑 términos y derechos de autor |
+| B-38 | P2 (costos) | **Costos, Fase 5**: ciclo de vida (huérfanos, archivos sin uso, salas y pedidos viejos) | M | `PLAN_COSTOS.md` §5 | plan Blaze 🔑 |
+| B-39 | P2 (costos) | **Costos, Fase 6**: auditar y poner tope a las escuchas de Firestore, presencia, región (ver B-16) | M | `PLAN_COSTOS.md` §5 | 🔑 región |
+| B-40 | P3 (costos) | **Costos, Fase 7**: reparto de archivos dentro de la sala por red local (Nearby, Android) | L | `PLAN_COSTOS.md` §5 | — |
+| B-41 | P2 (costos) | **Costos, Fase 8**: planes y cobro (Google Play Billing y medio de pago local, precios por país) | L | `PLAN_COSTOS.md` §5 | 🔑 precios y cobro |
 | B-24 | P3 | DF-06: ortografía de acordes según la tonalidad (`Eb` en vez de `D#`) | S | `DEFECTOS.md` | — |
 
 ## Hecho (resumen)
