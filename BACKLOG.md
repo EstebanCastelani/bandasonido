@@ -40,11 +40,13 @@ _(vacío — elegir 3–5 ítems al comenzar cada sprint, ver `PROCESO.md`)_
 | B-34 | P1 (costos) | **Costos, Fase 1**: cuotas por cuenta (gratis / Pro con `esPro`) aplicadas en el servidor | M–L | `PLAN_COSTOS.md` §5 | 🔑 definir cuotas |
 | B-35 | P2 (costos) | **Costos, Fase 2**: audio a ≈ 128 kbps al subir, sin WAV, tamaño estimado antes de subir | M | `PLAN_COSTOS.md` §5 | 🔑 aprobar calidad |
 | B-36 | P1 (costos) | **Costos, Fase 3** (código y pruebas hechos en `worker/` y `ArchivosR2`; falta desplegar y compilar con `R2_WORKER_URL`): almacenamiento sin cargo por descarga; convive con Supabase por `storageProvider` | L | `PLAN_COSTOS.md` §5 | 🔑 cuenta de Cloudflare |
-| B-37 | P2 (costos) | **Costos, Fase 4**: dedupe por hash con conteo de referencias y términos de uso | L | `PLAN_COSTOS.md` §5 | 🔑 términos y derechos de autor |
+| B-37 | P2 (costos) | **Costos, Fase 4** (código y pruebas hechos en `worker/` y la app; falta desplegar R2 y D1): dedupe por hash con conteo de referencias; faltan los términos de uso | L | `PLAN_COSTOS.md` §5 | 🔑 términos y derechos de autor |
 | B-38 | P2 (costos) | **Costos, Fase 5**: ciclo de vida (huérfanos, archivos sin uso, salas y pedidos viejos) | M | `PLAN_COSTOS.md` §5 | plan Blaze 🔑 |
 | B-39 | P2 (costos) | **Costos, Fase 6**: auditar y poner tope a las escuchas de Firestore, presencia, región (ver B-16) | M | `PLAN_COSTOS.md` §5 | 🔑 región |
 | B-40 | P3 (costos) | **Costos, Fase 7**: reparto de archivos dentro de la sala por red local (Nearby, Android) | L | `PLAN_COSTOS.md` §5 | — |
 | B-41 | P2 (costos) | **Costos, Fase 8**: planes y cobro (Google Play Billing y medio de pago local, precios por país) | L | `PLAN_COSTOS.md` §5 | 🔑 precios y cobro |
+| B-42 | P3 (producto) | **Bibliotecas de grupo por invitación** (banda o iglesia): comparten canciones entre integrantes, sin buscador público; límite de integrantes, invitaciones que vencen, botón de denuncia. Antes: términos de uso y proceso de retiro | L | Conversación del 12-nov-2026 | 🔑 revisión legal |
+| B-43 | P3 (producto) | **Biblioteca abierta solo con contenido autorizado** (canciones propias, de dominio público o cedidas por escrito); validador de acordes con sugerencias; cifrado guardado como texto | L | Conversación del 12-nov-2026 | 🔑 abogado y acuerdos con autores |
 | B-24 | P3 | DF-06: ortografía de acordes según la tonalidad (`Eb` en vez de `D#`) | S | `DEFECTOS.md` | — |
 
 ## Hecho (resumen)

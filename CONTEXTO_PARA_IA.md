@@ -893,6 +893,16 @@ registrada sin chequear `esPro` — ver §8 para cómo revertir esto.
     `kMaximoFrases`, `kMaximoSalasHistorial` como `.limit()` de las escuchas; el Historial de pedidos sigue sin tope (B-16, necesita
     índice). **Servidor**: `worker/` (Cloudflare Worker + R2; `node --test` corre 24 pruebas sin cuenta de Cloudflare; ver
     `worker/README.md` para desplegar). Los topes de `worker/src/index.js` deben coincidir con los de `main.dart`.
+    **Huella** (12-nov-2026): `huellaDeArchivo` (SHA-256 con el paquete `crypto`, dependencia directa nueva) se guarda como
+    `sha256` junto a `bytes` en `mi_repertorio` y `mis_secuencias`; solo mide, no deduplica (Paso 1 de `PLAN_COSTOS.md` §10).
+    En audios web se calcula sobre el MP3 ya convertido (lo que de verdad se sube). Los documentos anteriores no la tienen.
+    **Dedupe (12-nov-2026, `worker/`)**: el servidor guarda `blob/{huella}` en R2 (huella calculada por el servidor) y D1
+    (`worker/schema.sql`: `blobs`, `enlaces`, `desafios`) lleva quién usa cada copia; borrar = quitar el enlace y soltar la copia si
+    queda huérfana. `PUT` responde `{url, sha256, bytes, deduplicado}` y la URL pública es `/b/{huella}`; la ruta lógica
+    `usuarios/{uid}/{carpeta}/{archivo}` (`storagePath`) sigue siendo la clave para borrar y también se puede leer. En la app,
+    `subirArchivo` (R2) llama antes a `ArchivosR2.vincular` (`/vincular/iniciar` y `/confirmar`, con `respuestasAlDesafio`) y solo si
+    no hay copia sube con `PUT`. La cuota cuenta el tamaño completo por cuenta aunque se comparta la copia. Pendiente: limpieza
+    de copias huérfanas por carreras, límite de pedidos por minuto, y que lo ya subido a Supabase no se unifica.
     Trampa de la rama: `applicationId` es `com.soundcheckpro.app` y falta su `google-services.json`; para compilar y probar
     en el celular se cambió a mano al id viejo y se volvió a poner.
 47. **Botón flotante Pedidos ⇄ visor (2-nov-2026, prueba de diseño)**: `BotonIrAPedidos` es el

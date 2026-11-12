@@ -107,7 +107,21 @@ Orden recomendado: 0 → 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8. Esfuerzo: 
 
 Todo lo demás espera tus decisiones de la sección 6.
 
+## 11. Cálculo de costos mensuales a escala (11-nov-2026)
+Estimación con los precios de lista del día (Supabase Pro, Cloudflare R2 y Workers, Firestore estándar en us-central1; ver fuentes en el chat del 11-nov). **Supuestos:** 30 % de las cuentas activas por mes; cada cuenta guarda 25 PDF de 0,8 MB y 6 secuencias de 7 MB (≈ 62 MB); cada cuenta activa baja 60 MB al mes; 2.500 lecturas, 100 escrituras y 5 borrados de Firestore por cuenta activa al mes; Auth por MAU con tarifas **sin verificar**. No incluye impuestos ni recargos del banco.
+
+| Cuentas (activas) | Firestore | Auth (sin verificar) | Archivos con Supabase | Archivos con Cloudflare | **Firestore + Supabase** | **Firestore + Cloudflare** |
+|---|---|---|---|---|---|---|
+| 100.000 (30.000) | 28 | 0 | 179–272 | 98 | **≈ 253** | **≈ 126** |
+| 1.000.000 (300.000) | 279 | 1.195 | 1.853–2.918 | 940 | **≈ 3.860** | **≈ 2.415** |
+| 5.000.000 (1.500.000) | 1.396 | 6.015 | 9.296–14.681 | 4.725 | **≈ 19.400** | **≈ 12.100** |
+
+Sensibilidad (5.000.000 de cuentas): si cada cuenta guarda 150 MB en vez de 62 MB: ≈ 28.800 vs ≈ 18.700; con la deduplicación de la Fase 4 (mitad de bytes): ≈ 16.100 vs ≈ 9.800. Con Firestore en São Paulo (estimado, precio sin confirmar) suma unos 800 USD más a esa escala.
+Lo que más pesa: **bytes guardados por cuenta** (palanca principal), **Auth por encima de 50.000 usuarios activos** y, solo con Supabase, **la descarga**.
+
 ## 10. Dedupe de PDF sin cambiar la interfaz (diseño para la Fase 4)
+**Estado:** Paso 1 hecho el 12-nov-2026 (rama `desarrollo`): cada PDF y secuencia nuevo guarda su `sha256` en Firestore; Paso 2 **hecho en código y pruebas el 12-nov-2026** (una sola copia por huella con el servidor de Cloudflare, D1 para los enlaces y prueba de posesión; 32 pruebas del servidor); falta desplegarlo (R2 y D1) 🔑 y medir cuánto se repite con usuarios reales.
+
 Pregunta del dueño (11-nov-2026): ¿se puede evitar que el mismo PDF se guarde en cada cuenta sin tocar la interfaz? **Sí.** La persona sigue viendo "su" canción, con su título y tonalidad; solo cambia dónde vive el archivo.
 
 **Cómo, con lo que ya hay (Supabase + Firestore, sin plan Blaze):**
