@@ -696,7 +696,7 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String elMaximoPorArchivoEs(Object lista, Object limite) {
-    return '$lista\n\nEl máximo por archivo es $limite. Convertilo a MP3 (a 320 kbps una canción entera ocupa unos 10-15 MB) y volvé a subirlo, o subilo desde la versión web, que lo convierte sola.';
+    return '$lista\n\nEl máximo por archivo es $limite. Convertilo a MP3 (a 192 kbps una canción entera ocupa unos 6-9 MB) y volvé a subirlo, o subilo desde la versión web, que lo convierte sola.';
   }
 
   @override
@@ -723,7 +723,7 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String seConvirtieronAMp3Porque(Object limite, Object lista) {
-    return 'Se convirtieron a MP3 porque pasaban el máximo de $limite:\n$lista';
+    return 'Se convirtieron a MP3 para que no pasen de $limite ni de 192 kbps:\n$lista';
   }
 
   @override
@@ -1279,4 +1279,14 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get volverAlVisor => 'Volver a la canción';
+
+  @override
+  String archivoPesaMasDelMaximo(Object tamano, Object maximo) {
+    return 'El archivo pesa $tamano y el máximo es $maximo. Probá con una versión más liviana.';
+  }
+
+  @override
+  String espacioInsuficiente(Object usado, Object cuota) {
+    return 'No hay espacio suficiente: usás $usado de $cuota. Eliminá canciones o secuencias para liberar lugar.';
+  }
 }

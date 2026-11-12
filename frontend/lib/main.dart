@@ -33,6 +33,8 @@ import 'package:google_sign_in/google_sign_in.dart';
 
 import 'package:http/http.dart' as http;
 
+import 'package:path_provider/path_provider.dart';
+
 import 'package:share_plus/share_plus.dart';
 
 import 'package:shared_preferences/shared_preferences.dart';
@@ -215,6 +217,16 @@ String rolParaMostrar(AppLocalizations l, String guardado) {
 /// Tope de pedidos que se muestran por sala (D-08 de REQUISITOS.md).
 const int kMaximoPedidosVisibles = 200;
 
+/// Topes de las demás escuchas en vivo de Firestore: cada documento que
+/// llega cuenta como una lectura, así que ninguna escucha trae sin límite
+/// (se cobra por lectura y cada integrante de la sala escucha lo mismo).
+/// Son holgados: no se notan en el uso normal.
+const int kMaximoSetlist = 200;
+const int kMaximoSecuenciasSala = 100;
+const int kMaximoBiblioteca = 1000;
+const int kMaximoFrases = 100;
+const int kMaximoSalasHistorial = 100;
+
 /// Palabras COMPLETAS que indican un rol de sonido: sonidista, sonido, FOH,
 /// monitorista, audio, sound (sound engineer), som (portugués), fónico
 /// (italiano), Tontechniker (alemán), "du son" (francés) y "del suono"
@@ -277,6 +289,16 @@ Future<bool?> decidirEntradaSonidista(BuildContext context, String rol) async {
       ],
     ),
   );
+}
+
+/// Carpeta de las cachés de archivos (PDF y pistas). Es la de datos de la app y
+/// NO la temporal: Android vacía la temporal cuando falta espacio, y entonces
+/// toda la banda volvería a bajar los mismos archivos en cada ensayo.
+Future<Directory> carpetaDeCache(String nombre) async {
+  final base = await getApplicationSupportDirectory();
+  final d = Directory('${base.path}/$nombre');
+  if (!await d.exists()) await d.create(recursive: true);
+  return d;
 }
 
 /// Nombre estable (16 caracteres hexadecimales) del archivo local de una pista,
@@ -1777,7 +1799,10 @@ class MisSalasService {
 
   static Stream<QuerySnapshot<Map<String, dynamic>>> streamMisSalas(
       String uid) {
-    return _ref(uid).orderBy('ultimoAcceso', descending: true).snapshots();
+    return _ref(uid)
+        .orderBy('ultimoAcceso', descending: true)
+        .limit(kMaximoSalasHistorial)
+        .snapshots();
   }
 
   /// El id del documento es el propio código de sala: entrar de nuevo a la
@@ -1807,7 +1832,7 @@ class MisSalasService {
 
 /// Archivos que hay que borrar del almacenamiento al eliminar una cuenta, a
 /// partir de los documentos de su repertorio y sus secuencias. Cada archivo
-/// dice con qué proveedor se subió ('supabase' o, los más viejos, 'firebase').
+/// dice con qué proveedor se subió ('cloudflare_r2', 'supabase' o, los más viejos, 'firebase').
 List<({String proveedor, String ruta})> archivosDeCuenta(
     Iterable<Map<String, dynamic>> documentos) {
   final archivos = <({String proveedor, String ruta})>[];
@@ -1860,11 +1885,7 @@ class CuentaService {
   static Future<void> _borrarArchivo(
       ({String proveedor, String ruta}) a) async {
     try {
-      if (a.proveedor == 'supabase') {
-        await supabase.storage.from(kSupabaseRepertorioBucket).remove([a.ruta]);
-      } else {
-        await FirebaseStorage.instance.ref(a.ruta).delete();
-      }
+      await borrarArchivoDe(a.proveedor, a.ruta);
     } catch (e) {
       debugPrint('No se pudo borrar un archivo de la cuenta: $e');
     }
@@ -2065,7 +2086,7 @@ class FrasesService {
           .collection('frases');
 
   static Stream<QuerySnapshot<Map<String, dynamic>>> streamFrases(String uid) {
-    return _ref(uid).orderBy('orden').snapshots();
+    return _ref(uid).orderBy('orden').limit(kMaximoFrases).snapshots();
   }
 
   static Future<void> agregarFrase(String uid, String texto, int orden) async {
@@ -2146,6 +2167,249 @@ class MiembrosSalaService {
   }
 }
 
+// --- ARCHIVOS: LÍMITES, CUOTAS, COMPRESIÓN Y ALMACENAMIENTO ---
+
+/// Los archivos pesados (PDF y audios) se pagan por lo que se guarda y por lo
+/// que se descarga, así que se achican y se limitan ANTES de subirlos. Estos
+/// topes son una propuesta (ver PLAN_COSTOS.md): el servidor de archivos
+/// (worker/) aplica los mismos, porque los de la app se pueden saltear.
+const int kMaxBytesPdf = 5 * 1024 * 1024;
+const int kMaxBytesAudio = 30 * 1024 * 1024;
+
+/// Bitrate máximo de las secuencias: por encima de esto el MP3 pesa mucho y no
+/// se nota la diferencia en un parlante de escenario.
+const int kKbpsMaximoAudio = 192;
+
+/// Espacio total por cuenta (PDF + audios).
+const int kCuotaBytesPorUsuario = 500 * 1024 * 1024;
+
+/// Dirección del servidor de archivos de Cloudflare R2 (carpeta worker/). Se
+/// pasa al compilar: --dart-define=R2_WORKER_URL=https://... Vacía = los
+/// archivos nuevos siguen yendo a Supabase.
+const String kR2WorkerUrl = String.fromEnvironment('R2_WORKER_URL');
+
+/// El archivo pesa más de lo permitido.
+class ArchivoDemasiadoGrande implements Exception {
+  final int bytes;
+  final int maximo;
+  const ArchivoDemasiadoGrande(this.bytes, this.maximo);
+
+  @override
+  String toString() => L10n.t.archivoPesaMasDelMaximo(
+      SecuenciasService.formatearMb(bytes),
+      SecuenciasService.formatearMb(maximo));
+}
+
+/// Subir este archivo pasaría el espacio de la cuenta.
+class EspacioInsuficiente implements Exception {
+  final int usado;
+  final int cuota;
+  const EspacioInsuficiente(this.usado, this.cuota);
+
+  @override
+  String toString() => L10n.t.espacioInsuficiente(
+      SecuenciasService.formatearMb(usado),
+      SecuenciasService.formatearMb(cuota));
+}
+
+/// Bitrate en kbps del primer cuadro de un MP3, o null si no parece un MP3
+/// (salta la etiqueta ID3 del principio). En MP3 de bitrate variable es solo
+/// una referencia, que alcanza para saber si hace falta achicarlo.
+int? kbpsDeMp3(Uint8List b) {
+  var inicio = 0;
+  if (b.length > 10 && b[0] == 0x49 && b[1] == 0x44 && b[2] == 0x33) {
+    inicio = 10 +
+        (((b[6] & 0x7f) << 21) |
+            ((b[7] & 0x7f) << 14) |
+            ((b[8] & 0x7f) << 7) |
+            (b[9] & 0x7f));
+  }
+  const mpeg1 = [32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320];
+  const mpeg2 = [8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 144, 160];
+  final fin = min(b.length - 4, inicio + 65536);
+  for (var j = inicio; j <= fin; j++) {
+    if (b[j] != 0xFF || (b[j + 1] & 0xE0) != 0xE0) continue;
+    final version = (b[j + 1] >> 3) & 3; // 3 = MPEG1, 2 = MPEG2, 0 = MPEG2.5
+    final capa = (b[j + 1] >> 1) & 3; // 1 = capa III (la del MP3)
+    final indice = (b[j + 2] >> 4) & 15;
+    if (version == 1 || capa != 1 || indice == 0 || indice == 15) continue;
+    return version == 3 ? mpeg1[indice - 1] : mpeg2[indice - 1];
+  }
+  return null;
+}
+
+/// ¿Este audio ya es un MP3 de hasta [kKbpsMaximoAudio] y de tamaño permitido?
+/// Si es así se sube tal cual, sin recodificarlo.
+bool audioYaEsEstandar(String nombre, Uint8List bytes) {
+  if (!nombre.toLowerCase().endsWith('.mp3')) return false;
+  final kbps = kbpsDeMp3(bytes);
+  return kbps != null &&
+      kbps <= kKbpsMaximoAudio &&
+      bytes.length <= kMaxBytesAudio;
+}
+
+/// Rechaza un PDF de más de [kMaxBytesPdf] con [ArchivoDemasiadoGrande].
+/// No se intenta recomprimirlo: probado con Syncfusion, al volver a guardar un
+/// PDF existente conserva sus flujos tal cual y el tamaño no baja. Los PDF que
+/// pesan de más suelen ser escaneos o fotos; la forma de achicarlos es
+/// exportarlos de nuevo con menos resolución.
+void validarPesoPdf(Uint8List bytes) {
+  if (bytes.length > kMaxBytesPdf) {
+    throw ArchivoDemasiadoGrande(bytes.length, kMaxBytesPdf);
+  }
+}
+
+/// Espacio que usa cada cuenta (suma del campo 'bytes' de sus canciones y
+/// secuencias). Se lee una sola vez por sesión y después se va ajustando con
+/// cada subida y cada borrado, para no leer toda la biblioteca en cada archivo.
+/// Los documentos viejos sin 'bytes' cuentan 0. Esto avisa a quien usa la app;
+/// el tope que no se puede saltear lo aplica el servidor de archivos (worker/).
+class CuotaArchivos {
+  static final Map<String, int> _uso = {};
+
+  static bool excede(int usado, int nuevos,
+          {int cuota = kCuotaBytesPorUsuario}) =>
+      usado + nuevos > cuota;
+
+  static int usoDe(Iterable<Map<String, dynamic>> documentos) {
+    var total = 0;
+    for (final d in documentos) {
+      total += (d['bytes'] as num?)?.toInt() ?? 0;
+    }
+    return total;
+  }
+
+  static Future<int> uso(String uid) async {
+    final memo = _uso[uid];
+    if (memo != null) return memo;
+    final perfil = FirebaseFirestore.instance.collection('usuarios').doc(uid);
+    var total = 0;
+    for (final c in ['mi_repertorio', 'mis_secuencias']) {
+      final snap = await perfil.collection(c).get();
+      total += usoDe(snap.docs.map((d) => d.data()));
+    }
+    return _uso[uid] = total;
+  }
+
+  /// Lanza [EspacioInsuficiente] si [nuevos] bytes no entran en la cuenta.
+  static Future<void> verificar(String uid, int nuevos) async {
+    final usado = await uso(uid);
+    if (excede(usado, nuevos)) {
+      throw EspacioInsuficiente(usado, kCuotaBytesPorUsuario);
+    }
+  }
+
+  static void sumar(String uid, int bytes) {
+    final actual = _uso[uid];
+    if (actual != null) _uso[uid] = max(0, actual + bytes);
+  }
+}
+
+/// Dónde está cada archivo: 'cloudflare_r2' (el actual si hay [kR2WorkerUrl]),
+/// 'supabase' (el que se usa si no) o 'firebase' (los más viejos). Cada
+/// documento guarda su 'storageProvider', así que los tres conviven.
+const String kProveedorR2 = 'cloudflare_r2';
+
+/// Cliente del servidor de archivos (carpeta worker/): subir, borrar y bajar
+/// en R2 con el token de Firebase de la persona. Ninguna clave de Cloudflare
+/// vive en la app: las tiene el servidor. Descargar no cuesta ancho de banda.
+class ArchivosR2 {
+  static bool get disponible => kR2WorkerUrl.isNotEmpty;
+
+  static Uri uri(String ruta) => Uri.parse(
+      '$kR2WorkerUrl/o/${ruta.split('/').map(Uri.encodeComponent).join('/')}');
+
+  static Future<Map<String, String>> _cabeceras([String? tipo]) async {
+    final token = await AuthService.currentUser?.getIdToken();
+    return {
+      if (token != null) 'Authorization': 'Bearer $token',
+      if (tipo != null) 'Content-Type': tipo,
+    };
+  }
+
+  /// Convierte la respuesta de error del servidor en la excepción que
+  /// corresponde (el servidor manda 413 si el archivo es grande y 507 si no
+  /// queda espacio en la cuenta).
+  static Exception errorDe(http.Response r) {
+    if (r.statusCode == 413) {
+      return ArchivoDemasiadoGrande(
+          int.tryParse(r.headers['x-bytes'] ?? '') ?? 0,
+          int.tryParse(r.headers['x-maximo'] ?? '') ?? 0);
+    }
+    if (r.statusCode == 507) {
+      return EspacioInsuficiente(int.tryParse(r.headers['x-usado'] ?? '') ?? 0,
+          int.tryParse(r.headers['x-cuota'] ?? '') ?? kCuotaBytesPorUsuario);
+    }
+    return Exception('R2 ${r.statusCode}: ${r.body}');
+  }
+
+  static Future<String> subir(String ruta, Uint8List bytes, String tipo) async {
+    final r =
+        await http.put(uri(ruta), headers: await _cabeceras(tipo), body: bytes);
+    if (r.statusCode != 200 && r.statusCode != 201) throw errorDe(r);
+    return uri(ruta).toString();
+  }
+
+  static Future<void> borrar(String ruta) async {
+    final r = await http.delete(uri(ruta), headers: await _cabeceras());
+    if (r.statusCode != 200 && r.statusCode != 204 && r.statusCode != 404) {
+      throw errorDe(r);
+    }
+  }
+
+  static Future<Uint8List> bajar(String ruta) async {
+    final r = await http.get(uri(ruta));
+    if (r.statusCode != 200) throw errorDe(r);
+    return r.bodyBytes;
+  }
+}
+
+/// Sube un archivo al almacenamiento activo (R2 si está configurado, si no
+/// Supabase) y devuelve con qué proveedor quedó y su dirección pública.
+Future<({String proveedor, String url})> subirArchivo(
+    String ruta, Uint8List bytes, String tipo) async {
+  if (ArchivosR2.disponible) {
+    return (
+      proveedor: kProveedorR2,
+      url: await ArchivosR2.subir(ruta, bytes, tipo)
+    );
+  }
+  await supabase.storage.from(kSupabaseRepertorioBucket).uploadBinary(
+        ruta,
+        bytes,
+        fileOptions: FileOptions(contentType: tipo),
+      );
+  return (
+    proveedor: 'supabase',
+    url: supabase.storage.from(kSupabaseRepertorioBucket).getPublicUrl(ruta)
+  );
+}
+
+/// Borra un archivo del proveedor con el que se subió (lanza si falla: cada
+/// llamador decide si sigue igual).
+Future<void> borrarArchivoDe(String proveedor, String ruta) async {
+  switch (proveedor) {
+    case kProveedorR2:
+      await ArchivosR2.borrar(ruta);
+    case 'supabase':
+      await supabase.storage.from(kSupabaseRepertorioBucket).remove([ruta]);
+    default:
+      await FirebaseStorage.instance.ref(ruta).delete();
+  }
+}
+
+/// Baja los bytes de un archivo del proveedor con el que se subió.
+Future<Uint8List?> bajarArchivoDe(String proveedor, String ruta) async {
+  switch (proveedor) {
+    case kProveedorR2:
+      return ArchivosR2.bajar(ruta);
+    case 'supabase':
+      return supabase.storage.from(kSupabaseRepertorioBucket).download(ruta);
+    default:
+      return FirebaseStorage.instance.ref(ruta).getData();
+  }
+}
+
 // --- SERVICIO DE REPERTORIO PERSONAL (BIBLIOTECA DE PARTITURAS) ---
 
 /// Biblioteca de canciones/partituras propia de cada usuario.
@@ -2167,7 +2431,10 @@ class RepertorioService {
 
   static Stream<QuerySnapshot<Map<String, dynamic>>> streamRepertorio(
       String uid) {
-    return _ref(uid).orderBy('createdAt', descending: true).snapshots();
+    return _ref(uid)
+        .orderBy('createdAt', descending: true)
+        .limit(kMaximoBiblioteca)
+        .snapshots();
   }
 
   /// Ordena alfabéticamente por título, ignorando mayúsculas/minúsculas.
@@ -2251,11 +2518,7 @@ class RepertorioService {
         if (storagePath.isEmpty) {
           fallidas++;
         } else {
-          final Uint8List? bytes = proveedor == 'supabase'
-              ? await supabase.storage
-                  .from(kSupabaseRepertorioBucket)
-                  .download(storagePath)
-              : await FirebaseStorage.instance.ref(storagePath).getData();
+          final Uint8List? bytes = await bajarArchivoDe(proveedor, storagePath);
           if (bytes == null) {
             fallidas++;
           } else {
@@ -2295,26 +2558,23 @@ class RepertorioService {
         '${DateTime.now().millisecondsSinceEpoch}_${_sanitizarNombreArchivo(nombreArchivo)}';
     final storagePath = 'usuarios/$uid/canciones/$nombreUnico';
 
-    await supabase.storage.from(kSupabaseRepertorioBucket).uploadBinary(
-          storagePath,
-          bytes,
-          fileOptions: const FileOptions(contentType: 'application/pdf'),
-        );
-    final pdfUrl = supabase.storage
-        .from(kSupabaseRepertorioBucket)
-        .getPublicUrl(storagePath);
+    validarPesoPdf(bytes);
+    await CuotaArchivos.verificar(uid, bytes.length);
+    final subido = await subirArchivo(storagePath, bytes, 'application/pdf');
 
     final data = {
       'titulo': titulo,
       'tonalidad': tonalidad,
-      'pdfUrl': pdfUrl,
+      'pdfUrl': subido.url,
       'storagePath': storagePath,
-      'storageProvider': 'supabase',
+      'storageProvider': subido.proveedor,
+      'bytes': bytes.length,
       'cifradoTexto': cifradoTexto,
       'cifradoVersion': kVersionCifrado,
       'createdAt': FieldValue.serverTimestamp(),
     };
     final doc = await _ref(uid).add(data);
+    CuotaArchivos.sumar(uid, bytes.length);
     return {...data, 'id': doc.id};
   }
 
@@ -2357,13 +2617,9 @@ class RepertorioService {
         final doc = await _ref(uid).doc(cancionId).get();
         final storageProvider =
             doc.data()?['storageProvider'] as String? ?? 'firebase';
-        if (storageProvider == 'supabase') {
-          await supabase.storage
-              .from(kSupabaseRepertorioBucket)
-              .remove([storagePath]);
-        } else {
-          await FirebaseStorage.instance.ref(storagePath).delete();
-        }
+        await borrarArchivoDe(storageProvider, storagePath);
+        CuotaArchivos.sumar(
+            uid, -((doc.data()?['bytes'] as num?)?.toInt() ?? 0));
       } catch (e) {
         debugPrint('No se pudo borrar el archivo de Storage: $e');
       }
@@ -2438,7 +2694,7 @@ class SetlistService {
 
   static Stream<QuerySnapshot<Map<String, dynamic>>> streamSetlist(
       String codigoSala) {
-    return _ref(codigoSala).orderBy('orden').snapshots();
+    return _ref(codigoSala).orderBy('orden').limit(kMaximoSetlist).snapshots();
   }
 
   static Future<void> agregarAlSetlist({
@@ -2525,17 +2781,17 @@ class SetlistService {
 class SecuenciasService {
   static const extensionesPermitidas = ['mp3', 'wav', 'm4a', 'aac', 'ogg'];
 
-  /// Límite fijo por archivo del plan gratis de Supabase Storage (no se
-  /// puede subir sin pasar a Pro). Un WAV de más de ~5 minutos ya lo supera.
-  static const tamanoMaximoBytes = 50 * 1024 * 1024;
+  /// Máximo por archivo (ver kMaxBytesAudio). Un WAV de más de ~3 minutos ya
+  /// lo supera; en la web se convierte a MP3, en Android hay que subir MP3.
+  static const tamanoMaximoBytes = kMaxBytesAudio;
 
   static String formatearMb(int bytes) =>
       '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
 
-  /// Los archivos que pasan tamanoMaximoBytes se convierten a MP3 en el
-  /// navegador antes de subirlos (web/conversor_mp3.js, solo en web). Se
-  /// apunta un poco por debajo del límite para no rozarlo.
-  static const tamanoObjetivoMp3Bytes = 48 * 1024 * 1024;
+  /// En la web todo audio que no sea ya un MP3 de hasta kKbpsMaximoAudio (o que
+  /// pase tamanoMaximoBytes) se convierte a MP3 antes de subirlo
+  /// (web/conversor_mp3.js). Se apunta un poco por debajo del límite.
+  static const tamanoObjetivoMp3Bytes = 28 * 1024 * 1024;
 
   static CollectionReference<Map<String, dynamic>> _refUsuario(String uid) =>
       FirebaseFirestore.instance
@@ -2552,12 +2808,18 @@ class SecuenciasService {
 
   static Stream<QuerySnapshot<Map<String, dynamic>>> streamMisSecuencias(
       String uid) {
-    return _refUsuario(uid).orderBy('createdAt', descending: true).snapshots();
+    return _refUsuario(uid)
+        .orderBy('createdAt', descending: true)
+        .limit(kMaximoBiblioteca)
+        .snapshots();
   }
 
   static Stream<QuerySnapshot<Map<String, dynamic>>> streamSecuenciasSala(
       String codigoSala) {
-    return _refSala(codigoSala).orderBy('orden').snapshots();
+    return _refSala(codigoSala)
+        .orderBy('orden')
+        .limit(kMaximoSecuenciasSala)
+        .snapshots();
   }
 
   /// Baja (y deja preparadas) las pistas de la sala apenas se entra a ella,
@@ -2600,14 +2862,13 @@ class SecuenciasService {
         '${DateTime.now().millisecondsSinceEpoch}_${RepertorioService._sanitizarNombreArchivo(nombreArchivo)}';
     final storagePath = 'usuarios/$uid/secuencias/$nombreUnico';
 
-    await supabase.storage.from(kSupabaseRepertorioBucket).uploadBinary(
-          storagePath,
-          bytes,
-          fileOptions: FileOptions(contentType: _contentType(nombreArchivo)),
-        );
-    final audioUrl = supabase.storage
-        .from(kSupabaseRepertorioBucket)
-        .getPublicUrl(storagePath);
+    if (bytes.length > kMaxBytesAudio) {
+      throw ArchivoDemasiadoGrande(bytes.length, kMaxBytesAudio);
+    }
+    await CuotaArchivos.verificar(uid, bytes.length);
+    final subido =
+        await subirArchivo(storagePath, bytes, _contentType(nombreArchivo));
+    final audioUrl = subido.url;
 
     // Quien la sube ya tiene el archivo: se guarda en el celular para que
     // suene al instante en la sala, sin bajarlo de nuevo.
@@ -2617,9 +2878,11 @@ class SecuenciasService {
       'titulo': titulo,
       'audioUrl': audioUrl,
       'storagePath': storagePath,
-      'storageProvider': 'supabase',
+      'storageProvider': subido.proveedor,
+      'bytes': bytes.length,
       'createdAt': FieldValue.serverTimestamp(),
     });
+    CuotaArchivos.sumar(uid, bytes.length);
   }
 
   static Future<void> renombrarSecuencia(
@@ -2634,9 +2897,12 @@ class SecuenciasService {
       String uid, String id, String? storagePath) async {
     if (storagePath != null && storagePath.isNotEmpty) {
       try {
-        await supabase.storage
-            .from(kSupabaseRepertorioBucket)
-            .remove([storagePath]);
+        final doc = await _refUsuario(uid).doc(id).get();
+        final proveedor =
+            doc.data()?['storageProvider'] as String? ?? 'supabase';
+        await borrarArchivoDe(proveedor, storagePath);
+        CuotaArchivos.sumar(
+            uid, -((doc.data()?['bytes'] as num?)?.toInt() ?? 0));
       } catch (e) {
         debugPrint('No se pudo borrar el audio de Storage: $e');
       }
@@ -2709,8 +2975,9 @@ const bool conversorMp3Disponible = false;
 Future<({Uint8List bytes, int kbps})> convertirAMp3(
   Uint8List bytes,
   int limiteBytes,
-  void Function(double progreso) alAvanzar,
-) =>
+  void Function(double progreso) alAvanzar, {
+  int kbpsMaximo = 320,
+}) =>
     throw UnsupportedError(
         'La conversión a MP3 solo está disponible en la versión web.');
 
@@ -2825,7 +3092,6 @@ class ReproductorSecuencias extends ChangeNotifier {
   static final Map<String, Future<void>> _descargas = {};
   static final Set<String> _enCache = {};
   static final ValueNotifier<int> _cambiosCache = ValueNotifier(0);
-  static Directory? _dirCache;
   static bool _cacheLimpia = false;
 
   /// Reproductores ya preparados (archivo abierto) por pista, listos para
@@ -2840,6 +3106,10 @@ class ReproductorSecuencias extends ChangeNotifier {
   /// Una pista más grande que esto no se guarda (el límite de subida es 50 MB).
   static const _maxBytesCache = 120 * 1024 * 1024;
 
+  /// Cuántas pistas se guardan en el celular (las de la sala actual nunca se
+  /// borran; sobran las más viejas de salas anteriores).
+  static const _maxPistasGuardadas = 30;
+
   /// Cuántas pistas se bajan a la vez.
   static const _descargasSimultaneas = 3;
 
@@ -2851,12 +3121,7 @@ class ReproductorSecuencias extends ChangeNotifier {
   /// ¿Esta pista ya está guardada en el celular (suena sin red)?
   bool estaEnCache(String url) => _enCache.contains(url);
 
-  static Future<Directory> _carpetaCache() async {
-    final d =
-        _dirCache ??= Directory('${Directory.systemTemp.path}/sc_secuencias');
-    if (!await d.exists()) await d.create(recursive: true);
-    return d;
-  }
+  static Future<Directory> _carpetaCache() => carpetaDeCache('sc_secuencias');
 
   static Future<File> _archivoDe(String url) async =>
       File('${(await _carpetaCache()).path}/${claveCache(url)}.audio');
@@ -3021,7 +3286,8 @@ class ReproductorSecuencias extends ChangeNotifier {
       }
       final conservar =
           urlsActuales.map((u) => '${claveCache(u)}.audio').toSet();
-      for (final nombre in archivosParaBorrar(existentes, conservar)) {
+      for (final nombre in archivosParaBorrar(existentes, conservar,
+          maximo: _maxPistasGuardadas)) {
         try {
           await File('${dir.path}/$nombre').delete();
         } catch (_) {}
@@ -4924,16 +5190,11 @@ class CachePdfs {
   static final ValueNotifier<Set<String>> listos = ValueNotifier({});
 
   static final Map<String, Future<void>> _descargas = {};
-  static Directory? _dir;
   static bool _limpia = false;
   static const _maxBytes = 80 * 1024 * 1024;
-  static const _maxArchivos = 40;
+  static const _maxArchivos = 100;
 
-  static Future<Directory> _carpeta() async {
-    final d = _dir ??= Directory('${Directory.systemTemp.path}/sc_setlist');
-    if (!await d.exists()) await d.create(recursive: true);
-    return d;
-  }
+  static Future<Directory> _carpeta() => carpetaDeCache('sc_setlist');
 
   static Future<File> _archivo(String url) async =>
       File('${(await _carpeta()).path}/${claveCache(url)}.pdf');
@@ -9018,6 +9279,26 @@ class _MiRepertorioScreenState extends State<MiRepertorioScreen> {
       cola,
       confirmar: (pdf, indice, total) async {
         if (!mounted) return AccionCola.cancelarTodos;
+        // Si pesa de más se descarta antes de pedir título.
+        try {
+          validarPesoPdf(pdf.bytes);
+        } on ArchivoDemasiadoGrande catch (e) {
+          if (mounted) {
+            await showDialog<void>(
+              context: context,
+              builder: (context) => AlertDialog(
+                title: Text(pdf.nombre),
+                content: Text('$e'),
+                actions: [
+                  TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: Text(context.l10n.entendido))
+                ],
+              ),
+            );
+          }
+          return AccionCola.omitir;
+        }
         pdf.preparar();
         return _confirmarPdf(pdf, indice + 1, total);
       },
@@ -9147,8 +9428,13 @@ class _MiRepertorioScreenState extends State<MiRepertorioScreen> {
         ],
       ),
     );
-    tituloController.dispose();
-    tonalidadController.dispose();
+    // El diálogo sigue en pantalla mientras hace su animación de salida: los
+    // controladores se sueltan recién después (soltarlos antes dejaba los
+    // campos usando un controlador ya descartado).
+    Future.delayed(const Duration(milliseconds: 600), () {
+      tituloController.dispose();
+      tonalidadController.dispose();
+    });
     return accion ?? AccionCola.cancelarTodos;
   }
 
@@ -9717,12 +10003,13 @@ class _MisSecuenciasScreenState extends State<MisSecuenciasScreen> {
         var nombreArchivo = archivo.name;
         var bytes = archivo.bytes!;
         try {
-          if (bytes.length > limite) {
+          if (!audioYaEsEstandar(archivo.name, bytes)) {
             setState(() =>
                 _progresoSubida = context.l10n.convirtiendoAMp3(contador));
             final mp3 = await puente.convertirAMp3(
               bytes,
               SecuenciasService.tamanoObjetivoMp3Bytes,
+              kbpsMaximo: kKbpsMaximoAudio,
               (p) {
                 if (mounted) {
                   setState(() => _progresoSubida = context.l10n

@@ -198,13 +198,13 @@
   "subirTusPropiasSecuenciasEs": "Enviar suas próprias sequências faz parte do Sound Check Pro. Ative sua conta Pro para usar este recurso.",
   "archivoDemasiadoGrande": "Arquivo grande demais",
   "archivosDemasiadoGrandes": "Arquivos grandes demais",
-  "elMaximoPorArchivoEs": "{lista}\n\nO máximo por arquivo é {limite}. Converta para MP3 (a 320 kbps uma música inteira ocupa cerca de 10-15 MB) e envie de novo, ou envie pela versão web, que converte automaticamente.",
+  "elMaximoPorArchivoEs": "{lista}\n\nO máximo por arquivo é {limite}. Converta para MP3 (a 192 kbps uma música inteira ocupa cerca de 6-9 MB) e envie de novo, ou envie pela versão web, que converte automaticamente.",
   "convirtiendoAMp3": "Convertendo para MP3{contador}",
   "convirtiendoAMp32": "Convertendo para MP3 {porcentaje}%{contador}",
   "subiendo": "Enviando{contador}",
   "secuenciasSubidas": "Sequências enviadas",
   "algunasSecuenciasNoSeSubieron": "Algumas sequências não foram enviadas",
-  "seConvirtieronAMp3Porque": "Foram convertidas para MP3 porque passavam do máximo de {limite}:\n{lista}",
+  "seConvirtieronAMp3Porque": "Foram convertidos para MP3 para não passar de {limite} nem de 192 kbps:\n{lista}",
   "noSePudieronSubir": "Não foi possível enviar:\n{lista}",
   "renombrarSecuencia": "Renomear sequência",
   "eliminarSecuencia": "Excluir sequência",
@@ -409,5 +409,9 @@
       }
     }
   },
-  "volverAlVisor": "Voltar à música"
+  "volverAlVisor": "Voltar à música",
+  "archivoPesaMasDelMaximo": "O arquivo tem {tamano} e o máximo é {maximo}. Tente uma versão mais leve.",
+  "@archivoPesaMasDelMaximo": {"placeholders":{"tamano":{"type":"Object"},"maximo":{"type":"Object"}}},
+  "espacioInsuficiente": "Espaço insuficiente: você usa {usado} de {cuota}. Exclua músicas ou sequências para liberar espaço.",
+  "@espacioInsuficiente": {"placeholders":{"usado":{"type":"Object"},"cuota":{"type":"Object"}}}
 }

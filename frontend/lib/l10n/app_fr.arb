@@ -198,13 +198,13 @@
   "subirTusPropiasSecuenciasEs": "Importer vos propres séquences fait partie de Sound Check Pro. Activez votre compte Pro pour utiliser cette fonction.",
   "archivoDemasiadoGrande": "Fichier trop volumineux",
   "archivosDemasiadoGrandes": "Fichiers trop volumineux",
-  "elMaximoPorArchivoEs": "{lista}\n\nLe maximum par fichier est de {limite}. Convertissez en MP3 (à 320 kbps, un morceau entier fait environ 10 à 15 Mo) et réimportez, ou importez depuis la version web, qui convertit automatiquement.",
+  "elMaximoPorArchivoEs": "{lista}\n\nLe maximum par fichier est de {limite}. Convertissez en MP3 (à 192 kbps, un morceau entier fait environ 6 à 9 Mo) et réimportez, ou importez depuis la version web, qui convertit automatiquement.",
   "convirtiendoAMp3": "Conversion en MP3{contador}",
   "convirtiendoAMp32": "Conversion en MP3 {porcentaje} %{contador}",
   "subiendo": "Import en cours{contador}",
   "secuenciasSubidas": "Séquences importées",
   "algunasSecuenciasNoSeSubieron": "Certaines séquences n’ont pas été importées",
-  "seConvirtieronAMp3Porque": "Converties en MP3 car elles dépassaient le maximum de {limite} :\n{lista}",
+  "seConvirtieronAMp3Porque": "Ces fichiers ont été convertis en MP3 pour ne pas dépasser {limite} ni 192 kbps :\n{lista}",
   "noSePudieronSubir": "Import impossible :\n{lista}",
   "renombrarSecuencia": "Renommer la séquence",
   "eliminarSecuencia": "Supprimer la séquence",
@@ -409,5 +409,9 @@
       }
     }
   },
-  "volverAlVisor": "Retour au morceau"
+  "volverAlVisor": "Retour au morceau",
+  "archivoPesaMasDelMaximo": "Le fichier fait {tamano} et le maximum est de {maximo}. Essayez une version plus légère.",
+  "@archivoPesaMasDelMaximo": {"placeholders":{"tamano":{"type":"Object"},"maximo":{"type":"Object"}}},
+  "espacioInsuficiente": "Espace insuffisant : vous utilisez {usado} sur {cuota}. Supprimez des morceaux ou des séquences pour libérer de la place.",
+  "@espacioInsuficiente": {"placeholders":{"usado":{"type":"Object"},"cuota":{"type":"Object"}}}
 }

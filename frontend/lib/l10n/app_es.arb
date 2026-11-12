@@ -397,7 +397,7 @@
   "subirTusPropiasSecuenciasEs": "Subir tus propias secuencias es parte de Sound Check Pro. Activá tu cuenta Pro para usar esta función.",
   "archivoDemasiadoGrande": "Archivo demasiado grande",
   "archivosDemasiadoGrandes": "Archivos demasiado grandes",
-  "elMaximoPorArchivoEs": "{lista}\n\nEl máximo por archivo es {limite}. Convertilo a MP3 (a 320 kbps una canción entera ocupa unos 10-15 MB) y volvé a subirlo, o subilo desde la versión web, que lo convierte sola.",
+  "elMaximoPorArchivoEs": "{lista}\n\nEl máximo por archivo es {limite}. Convertilo a MP3 (a 192 kbps una canción entera ocupa unos 6-9 MB) y volvé a subirlo, o subilo desde la versión web, que lo convierte sola.",
   "@elMaximoPorArchivoEs": {
     "placeholders": {
       "lista": {
@@ -437,7 +437,7 @@
   },
   "secuenciasSubidas": "Secuencias subidas",
   "algunasSecuenciasNoSeSubieron": "Algunas secuencias no se subieron",
-  "seConvirtieronAMp3Porque": "Se convirtieron a MP3 porque pasaban el máximo de {limite}:\n{lista}",
+  "seConvirtieronAMp3Porque": "Se convirtieron a MP3 para que no pasen de {limite} ni de 192 kbps:\n{lista}",
   "@seConvirtieronAMp3Porque": {
     "placeholders": {
       "limite": {
@@ -791,5 +791,9 @@
       }
     }
   },
-  "volverAlVisor": "Volver a la canción"
+  "volverAlVisor": "Volver a la canción",
+  "archivoPesaMasDelMaximo": "El archivo pesa {tamano} y el máximo es {maximo}. Probá con una versión más liviana.",
+  "@archivoPesaMasDelMaximo": {"placeholders":{"tamano":{"type":"Object"},"maximo":{"type":"Object"}}},
+  "espacioInsuficiente": "No hay espacio suficiente: usás {usado} de {cuota}. Eliminá canciones o secuencias para liberar lugar.",
+  "@espacioInsuficiente": {"placeholders":{"usado":{"type":"Object"},"cuota":{"type":"Object"}}}
 }

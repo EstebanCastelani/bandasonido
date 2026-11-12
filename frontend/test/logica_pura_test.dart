@@ -7,11 +7,13 @@
 // test para que pase.
 import 'dart:async';
 import 'dart:io';
+import 'dart:typed_data';
 import 'dart:ui';
 
 import 'package:appsonido_frontend/l10n/app_localizations_es.dart';
 import 'package:appsonido_frontend/main.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
 
 void main() {
   group('generarCodigoSala (RQ-01)', () {
@@ -993,6 +995,105 @@ Tu gloria llena la tierra///
       reloj.stop();
       expect(r.length, 1);
       expect(reloj.elapsedMilliseconds, lessThan(500));
+    });
+  });
+
+  group('Archivos: límites, cuota y almacenamiento (PLAN_COSTOS.md)', () {
+    // Cabecera de un cuadro MP3 (MPEG1, capa III): FF FB, byte de bitrate, 00.
+    Uint8List mp3(int byteBitrate, {List<int> antes = const []}) =>
+        Uint8List.fromList(
+            [...antes, 0xFF, 0xFB, byteBitrate, 0x00, 0, 0, 0, 0]);
+
+    test('kbpsDeMp3 lee el bitrate del primer cuadro', () {
+      expect(kbpsDeMp3(mp3(0x90)), 128);
+      expect(kbpsDeMp3(mp3(0xB0)), 192);
+      expect(kbpsDeMp3(mp3(0xE0)), 320);
+    });
+
+    test('kbpsDeMp3 salta la etiqueta ID3 del principio', () {
+      // "ID3", versión, banderas y tamaño 5 (syncsafe) + 5 bytes de etiqueta.
+      final id3 = [0x49, 0x44, 0x33, 4, 0, 0, 0, 0, 0, 5, 1, 2, 3, 4, 5];
+      expect(kbpsDeMp3(mp3(0xB0, antes: id3)), 192);
+    });
+
+    test('kbpsDeMp3 devuelve null si no es un MP3', () {
+      expect(kbpsDeMp3(Uint8List.fromList(List.filled(100, 0))), isNull);
+      expect(kbpsDeMp3(Uint8List.fromList('RIFFxxxxWAVE'.codeUnits)), isNull);
+      // Bitrate 0 (libre) y 15 (inválido) no valen.
+      expect(kbpsDeMp3(mp3(0x00)), isNull);
+      expect(kbpsDeMp3(mp3(0xF0)), isNull);
+    });
+
+    test('audioYaEsEstandar: solo MP3 de hasta 192 kbps y tamaño permitido',
+        () {
+      expect(audioYaEsEstandar('tema.mp3', mp3(0x90)), isTrue);
+      expect(audioYaEsEstandar('TEMA.MP3', mp3(0xB0)), isTrue);
+      expect(audioYaEsEstandar('tema.mp3', mp3(0xE0)), isFalse); // 320 kbps
+      expect(audioYaEsEstandar('tema.wav', mp3(0x90)), isFalse);
+      expect(audioYaEsEstandar('tema.m4a', mp3(0x90)), isFalse);
+      final grande = Uint8List(kMaxBytesAudio + 1)..setAll(0, mp3(0x90));
+      expect(audioYaEsEstandar('tema.mp3', grande), isFalse);
+    });
+
+    test('cuota: suma el campo bytes y avisa al pasarse', () {
+      expect(CuotaArchivos.usoDe([]), 0);
+      expect(
+          CuotaArchivos.usoDe([
+            {'bytes': 1000},
+            {'bytes': 2500.0},
+            {'titulo': 'viejo sin bytes'},
+          ]),
+          3500);
+      expect(CuotaArchivos.excede(100, 50, cuota: 150), isFalse);
+      expect(CuotaArchivos.excede(100, 51, cuota: 150), isTrue);
+      expect(CuotaArchivos.excede(0, kCuotaBytesPorUsuario), isFalse);
+      expect(CuotaArchivos.excede(1, kCuotaBytesPorUsuario), isTrue);
+    });
+
+    test('ArchivosR2.uri codifica cada tramo de la ruta', () {
+      final u = ArchivosR2.uri('usuarios/u1/canciones/mi canción.pdf');
+      expect(
+          u.path, endsWith('/o/usuarios/u1/canciones/mi%20canci%C3%B3n.pdf'));
+    });
+
+    test('ArchivosR2.errorDe distingue archivo grande, sin espacio y otros',
+        () {
+      expect(
+          ArchivosR2.errorDe(http.Response('', 413,
+              headers: {'x-bytes': '600', 'x-maximo': '500'})),
+          isA<ArchivoDemasiadoGrande>()
+              .having((e) => e.bytes, 'bytes', 600)
+              .having((e) => e.maximo, 'maximo', 500));
+      expect(
+          ArchivosR2.errorDe(http.Response('', 507,
+              headers: {'x-usado': '90', 'x-cuota': '100'})),
+          isA<EspacioInsuficiente>()
+              .having((e) => e.usado, 'usado', 90)
+              .having((e) => e.cuota, 'cuota', 100));
+      final otro = ArchivosR2.errorDe(http.Response('roto', 500));
+      expect(otro, isNot(isA<ArchivoDemasiadoGrande>()));
+      expect(otro.toString(), contains('500'));
+    });
+
+    test('validarPesoPdf deja pasar hasta 5 MB y rechaza lo que pase', () {
+      validarPesoPdf(Uint8List(1000));
+      validarPesoPdf(Uint8List(kMaxBytesPdf));
+      expect(() => validarPesoPdf(Uint8List(kMaxBytesPdf + 1)),
+          throwsA(isA<ArchivoDemasiadoGrande>()));
+    });
+
+    test(
+        'la caché guarda más archivos: 30 pistas se conservan, sobran las viejas',
+        () {
+      final base = DateTime(2026, 11, 1);
+      final existentes = [
+        for (var i = 0; i < 35; i++)
+          (nombre: 'a$i.audio', fecha: base.add(Duration(days: i)))
+      ];
+      final borrar =
+          archivosParaBorrar(existentes, {}, maximo: 30, ahora: base);
+      expect(borrar.length, 5);
+      expect(borrar, containsAll(['a0.audio', 'a4.audio']));
     });
   });
 }

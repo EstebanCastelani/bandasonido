@@ -1295,7 +1295,7 @@ abstract class AppLocalizations {
   /// No description provided for @elMaximoPorArchivoEs.
   ///
   /// In es, this message translates to:
-  /// **'{lista}\n\nEl máximo por archivo es {limite}. Convertilo a MP3 (a 320 kbps una canción entera ocupa unos 10-15 MB) y volvé a subirlo, o subilo desde la versión web, que lo convierte sola.'**
+  /// **'{lista}\n\nEl máximo por archivo es {limite}. Convertilo a MP3 (a 192 kbps una canción entera ocupa unos 6-9 MB) y volvé a subirlo, o subilo desde la versión web, que lo convierte sola.'**
   String elMaximoPorArchivoEs(Object lista, Object limite);
 
   /// No description provided for @convirtiendoAMp3.
@@ -1331,7 +1331,7 @@ abstract class AppLocalizations {
   /// No description provided for @seConvirtieronAMp3Porque.
   ///
   /// In es, this message translates to:
-  /// **'Se convirtieron a MP3 porque pasaban el máximo de {limite}:\n{lista}'**
+  /// **'Se convirtieron a MP3 para que no pasen de {limite} ni de 192 kbps:\n{lista}'**
   String seConvirtieronAMp3Porque(Object limite, Object lista);
 
   /// No description provided for @noSePudieronSubir.
@@ -2233,6 +2233,18 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'Volver a la canción'**
   String get volverAlVisor;
+
+  /// No description provided for @archivoPesaMasDelMaximo.
+  ///
+  /// In es, this message translates to:
+  /// **'El archivo pesa {tamano} y el máximo es {maximo}. Probá con una versión más liviana.'**
+  String archivoPesaMasDelMaximo(Object tamano, Object maximo);
+
+  /// No description provided for @espacioInsuficiente.
+  ///
+  /// In es, this message translates to:
+  /// **'No hay espacio suficiente: usás {usado} de {cuota}. Eliminá canciones o secuencias para liberar lugar.'**
+  String espacioInsuficiente(Object usado, Object cuota);
 }
 
 class _AppLocalizationsDelegate

@@ -2,8 +2,8 @@
 // audio de la sala para abrirlos sin red, igual que la versión Android
 // (ver lib/main.dart: CachePdfs y ReproductorSecuencias, y lib/puente_web.dart).
 //
-//   - 'sc-pdfs'  : PDF del setlist.     Máximo 40 archivos de hasta 80 MB.
-//   - 'sc-audio' : secuencias de audio. Máximo 12 archivos de hasta 120 MB.
+//   - 'sc-pdfs'  : PDF del setlist.     Máximo 100 archivos de hasta 80 MB.
+//   - 'sc-audio' : secuencias de audio. Máximo 20 archivos de hasta 120 MB.
 //
 // Las pistas de audio, además, se dejan listas como "blob URL" en
 // window.__blobUrls: reproductor_secuencias.js las usa de forma sincrónica
@@ -11,7 +11,7 @@
 // sin awaits de por medio).
 (function () {
   const MAX_BYTES = { 'sc-pdfs': 80 * 1024 * 1024, 'sc-audio': 120 * 1024 * 1024 };
-  const MAX_ARCHIVOS = { 'sc-pdfs': 40, 'sc-audio': 12 };
+  const MAX_ARCHIVOS = { 'sc-pdfs': 100, 'sc-audio': 20 };
   const disponible = typeof caches !== 'undefined';
   const descargas = new Map();
   window.__blobUrls = window.__blobUrls || new Map();

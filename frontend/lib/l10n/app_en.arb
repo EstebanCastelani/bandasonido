@@ -198,13 +198,13 @@
   "subirTusPropiasSecuenciasEs": "Uploading your own tracks is part of Sound Check Pro. Activate your Pro account to use this feature.",
   "archivoDemasiadoGrande": "File too large",
   "archivosDemasiadoGrandes": "Files too large",
-  "elMaximoPorArchivoEs": "{lista}\n\nThe maximum per file is {limite}. Convert it to MP3 (at 320 kbps a whole song takes about 10-15 MB) and upload it again, or upload it from the web version, which converts it automatically.",
+  "elMaximoPorArchivoEs": "{lista}\n\nThe maximum per file is {limite}. Convert it to MP3 (at 192 kbps a whole song takes about 6-9 MB) and upload it again, or upload it from the web version, which converts it automatically.",
   "convirtiendoAMp3": "Converting to MP3{contador}",
   "convirtiendoAMp32": "Converting to MP3 {porcentaje}%{contador}",
   "subiendo": "Uploading{contador}",
   "secuenciasSubidas": "Tracks uploaded",
   "algunasSecuenciasNoSeSubieron": "Some tracks were not uploaded",
-  "seConvirtieronAMp3Porque": "These were converted to MP3 because they exceeded the maximum of {limite}:\n{lista}",
+  "seConvirtieronAMp3Porque": "These were converted to MP3 so they stay under {limite} and 192 kbps:\n{lista}",
   "noSePudieronSubir": "Could not upload:\n{lista}",
   "renombrarSecuencia": "Rename track",
   "eliminarSecuencia": "Delete track",
@@ -409,5 +409,9 @@
       }
     }
   },
-  "volverAlVisor": "Back to the song"
+  "volverAlVisor": "Back to the song",
+  "archivoPesaMasDelMaximo": "The file is {tamano} and the maximum is {maximo}. Try a lighter version.",
+  "@archivoPesaMasDelMaximo": {"placeholders":{"tamano":{"type":"Object"},"maximo":{"type":"Object"}}},
+  "espacioInsuficiente": "Not enough space: you are using {usado} of {cuota}. Delete songs or sequences to free up room.",
+  "@espacioInsuficiente": {"placeholders":{"usado":{"type":"Object"},"cuota":{"type":"Object"}}}
 }
