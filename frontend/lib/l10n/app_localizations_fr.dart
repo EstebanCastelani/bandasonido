@@ -1424,4 +1424,9 @@ class AppLocalizationsFr extends AppLocalizations {
   String audioMuyLargo(Object limite) {
     return 'Cet audio est trop long pour tenir dans $limite. Essayez un audio plus court ou découpez-le.';
   }
+
+  @override
+  String archivoCompartidoIlegible(Object nombre) {
+    return 'Impossible de lire « $nombre » ou il dépasse 12 Mo.';
+  }
 }

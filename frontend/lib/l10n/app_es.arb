@@ -895,5 +895,13 @@
         "type": "Object"
       }
     }
+  },
+  "archivoCompartidoIlegible": "No se pudo leer \"{nombre}\" o pesa más de 12 MB.",
+  "@archivoCompartidoIlegible": {
+    "placeholders": {
+      "nombre": {
+        "type": "Object"
+      }
+    }
   }
 }

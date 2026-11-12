@@ -103,10 +103,13 @@ class MainActivity : FlutterActivity() {
                     val bytes = entrada.readBytes()
                     if (bytes.size <= MAXIMO_BYTES) {
                         pendientes.add(mapOf("nombre" to nombre, "bytes" to bytes))
+                    } else {
+                        pendientes.add(ilegible(nombre))
                     }
-                }
+                } ?: pendientes.add(ilegible(nombre))
             } catch (_: Exception) {
-                // Un archivo que no se puede leer se ignora; los demás siguen.
+                // Un archivo que no se puede leer se avisa; los demás siguen.
+                pendientes.add(ilegible(runCatching { nombreDe(uri) }.getOrDefault("archivo")))
             }
         }
         if (lista.isEmpty() && i.action == Intent.ACTION_SEND) {
@@ -118,6 +121,10 @@ class MainActivity : FlutterActivity() {
         // El intent ya se atendió: no se vuelve a leer al rotar o reabrir.
         i.action = null
     }
+
+    /** Un archivo que no se pudo leer o pesa de más: Flutter lo avisa en vez de ignorarlo. */
+    private fun ilegible(nombre: String): Map<String, Any> =
+        mapOf("nombre" to nombre, "bytes" to ByteArray(0), "ilegible" to true)
 
     private fun nombreDe(uri: Uri): String {
         try {

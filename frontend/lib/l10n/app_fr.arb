@@ -513,5 +513,13 @@
         "type": "Object"
       }
     }
+  },
+  "archivoCompartidoIlegible": "Impossible de lire « {nombre} » ou il dépasse 12 Mo.",
+  "@archivoCompartidoIlegible": {
+    "placeholders": {
+      "nombre": {
+        "type": "Object"
+      }
+    }
   }
 }

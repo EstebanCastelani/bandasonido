@@ -6880,7 +6880,10 @@ final GlobalKey<NavigatorState> navegadorGlobal = GlobalKey<NavigatorState>();
 class ArchivoCompartido {
   final String nombre;
   final Uint8List bytes;
-  const ArchivoCompartido(this.nombre, this.bytes);
+
+  /// Android no pudo leerlo o pesa más de lo permitido: solo se avisa.
+  final bool ilegible;
+  const ArchivoCompartido(this.nombre, this.bytes, {this.ilegible = false});
 }
 
 /// Recibe lo que otra app comparte ("Compartir → Sound Check Pro"): PDF,
@@ -6896,7 +6899,8 @@ class ArchivosCompartidos {
       return [
         for (final e in r ?? const [])
           ArchivoCompartido((e as Map)['nombre'] as String,
-              Uint8List.fromList((e['bytes'] as List).cast<int>()))
+              Uint8List.fromList((e['bytes'] as List).cast<int>()),
+              ilegible: e['ilegible'] == true)
       ];
     } catch (_) {
       return const [];
@@ -6930,7 +6934,16 @@ class _EscuchaCompartidosState extends State<EscuchaCompartidos> {
   }
 
   Future<void> _atender() async {
-    final archivos = await ArchivosCompartidos.tomar();
+    final todos = await ArchivosCompartidos.tomar();
+    if (todos.isEmpty) return;
+    final contexto = navegadorGlobal.currentContext;
+    for (final a in todos.where((a) => a.ilegible)) {
+      if (contexto != null && contexto.mounted) {
+        ScaffoldMessenger.maybeOf(contexto)?.showSnackBar(SnackBar(
+            content: Text(L10n.t.archivoCompartidoIlegible(a.nombre))));
+      }
+    }
+    final archivos = todos.where((a) => !a.ilegible).toList();
     if (archivos.isEmpty) return;
     navegadorGlobal.currentState?.push(MaterialPageRoute(
         builder: (_) => MiRepertorioScreen(compartidos: archivos)));

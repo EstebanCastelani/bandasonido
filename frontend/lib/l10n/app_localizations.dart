@@ -2449,6 +2449,12 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'Este audio dura demasiado para entrar en {limite}. Probá con uno más corto o dividilo en partes.'**
   String audioMuyLargo(Object limite);
+
+  /// No description provided for @archivoCompartidoIlegible.
+  ///
+  /// In es, this message translates to:
+  /// **'No se pudo leer \"{nombre}\" o pesa más de 12 MB.'**
+  String archivoCompartidoIlegible(Object nombre);
 }
 
 class _AppLocalizationsDelegate

@@ -159,6 +159,20 @@ void main() {
       expect(archivos.last.bytes, [65, 109]);
     });
 
+    test('un archivo ilegible llega marcado para avisarlo', () async {
+      TestWidgetsFlutterBinding.ensureInitialized();
+      respondiendo((_) async => [
+            {'nombre': 'Grande.pdf', 'bytes': Uint8List(0), 'ilegible': true},
+            {
+              'nombre': 'Bien.pdf',
+              'bytes': Uint8List.fromList([1])
+            },
+          ]);
+      final r = await ArchivosCompartidos.tomar();
+      expect(r.map((a) => a.ilegible), [true, false]);
+      expect(r.first.nombre, 'Grande.pdf');
+    });
+
     test('sin nada pendiente devuelve una lista vacía', () async {
       TestWidgetsFlutterBinding.ensureInitialized();
       respondiendo((_) async => null);

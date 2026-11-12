@@ -513,5 +513,13 @@
         "type": "Object"
       }
     }
+  },
+  "archivoCompartidoIlegible": "\"{nombre}\" could not be read or is larger than 12 MB.",
+  "@archivoCompartidoIlegible": {
+    "placeholders": {
+      "nombre": {
+        "type": "Object"
+      }
+    }
   }
 }
