@@ -14,3 +14,10 @@ ORIGENES_PERMITIDOS = "https://estebancastelani.github.io,http://localhost:5000"
 [[r2_buckets]]
 binding = "BUCKET"
 bucket_name = "sound-check-pro-archivos"
+
+# Base D1 con las copias y los enlaces por cuenta (se crea en el panel de
+# Cloudflare y se le carga schema.sql; ver README.md). Reemplazar database_id.
+[[d1_databases]]
+binding = "DB"
+database_name = "sound-check-pro-archivos"
+database_id = "REEMPLAZAR-POR-EL-ID-DE-LA-BASE"
