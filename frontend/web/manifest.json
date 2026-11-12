@@ -1,12 +1,12 @@
 {
-    "name": "appsonido_frontend",
-    "short_name": "appsonido_frontend",
+    "name": "Sound Check Pro",
+    "short_name": "Sound Check",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0A0B1E",
     "theme_color": "#0A0B1E",
-    "description": "A new Flutter project.",
-    "orientation": "portrait-primary",
+    "description": "Pedidos en vivo entre músicos y sonidista, setlist, cifrados y secuencias para ensayos y shows.",
+    "orientation": "any",
     "prefer_related_applications": false,
     "icons": [
         {
@@ -31,5 +31,12 @@
             "type": "image/png",
             "purpose": "maskable"
         }
+    ],
+    "lang": "es",
+    "id": ".",
+    "scope": ".",
+    "categories": [
+        "music",
+        "productivity"
     ]
 }

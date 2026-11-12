@@ -1288,4 +1288,134 @@ class AppLocalizationsIt extends AppLocalizations {
   String espacioInsuficiente(Object usado, Object cuota) {
     return 'Spazio insufficiente: usi $usado su $cuota. Elimina brani o sequenze per liberare spazio.';
   }
+
+  @override
+  String get compartirSalaTitulo => 'Condividi sala';
+
+  @override
+  String get compartirSalaAyuda =>
+      'Inquadra il codice con la fotocamera del telefono per entrare, oppure condividi il link.';
+
+  @override
+  String corregirAcordes(int cantidad, String ejemplos) {
+    String _temp0 = intl.Intl.pluralLogic(
+      cantidad,
+      locale: localeName,
+      other: 'Correggi $cantidad accordi scritti male',
+      one: 'Correggi 1 accordo scritto male',
+    );
+    return '$_temp0 ($ejemplos)';
+  }
+
+  @override
+  String get exportarChordPro => 'Esporta repertorio (ChordPro)';
+
+  @override
+  String get exportarCopia => 'Salva copia di backup';
+
+  @override
+  String get importarTexto => 'Importa brani da testo';
+
+  @override
+  String get nadaParaExportar => 'Nessun brano con accordi da esportare';
+
+  @override
+  String get importarSinCanciones => 'Nessun brano trovato nei file';
+
+  @override
+  String importarArchivoMal(String archivo) {
+    return 'Impossibile leggere $archivo';
+  }
+
+  @override
+  String get guiaTitulo => 'Come funziona Sound Check Pro';
+
+  @override
+  String get guiaPaso1 =>
+      'Crea una sala o entra con il codice di 8 caratteri (o inquadrando il QR). Musicisti e fonico restano collegati dal vivo.';
+
+  @override
+  String get guiaPaso2 =>
+      'Invia richieste con un tocco al fonico (« più chitarra », « volume monitor ») e vedi quando le vede e le gestisce.';
+
+  @override
+  String get guiaPaso3 =>
+      'Carica i tuoi PDF con testo e accordi nel repertorio, prepara la scaletta della sala e trasponi la tonalità con un tocco.';
+
+  @override
+  String get comoFunciona => 'Come funziona';
+
+  @override
+  String get vacioRepertorioTitulo => 'Il tuo repertorio è vuoto';
+
+  @override
+  String get vacioRepertorioAyuda =>
+      'Carica i tuoi PDF con testo e accordi, oppure importa brani da un file di testo dal menu in alto.';
+
+  @override
+  String get subirUnPdf => 'Carica un PDF';
+
+  @override
+  String get vacioSetlistTitulo => 'Non ci sono ancora brani nell’elenco';
+
+  @override
+  String get vacioSetlistAyuda =>
+      'Tocca + per aggiungere brani dal tuo repertorio o dalle librerie della sala.';
+
+  @override
+  String get vacioSalasTitulo => 'Non sei ancora entrato in nessuna sala';
+
+  @override
+  String get vacioSalasAyuda =>
+      'Quando entrerai in una sala comparirà qui per tornarci subito.';
+
+  @override
+  String get instalarApp => 'Installa sul telefono';
+
+  @override
+  String get instalarAppTitulo => 'Installa l’app';
+
+  @override
+  String get instalarIphone =>
+      'iPhone: apri questa pagina in Safari, tocca Condividi e scegli « Aggiungi a Home ».';
+
+  @override
+  String get instalarAndroid =>
+      'Android: in Chrome tocca il menu ⋮ e scegli « Installa app » o « Aggiungi a schermata Home ».';
+
+  @override
+  String get autoDesplazamiento => 'Scorrimento automatico';
+
+  @override
+  String get velocidadLenta => 'Lento';
+
+  @override
+  String get velocidadNormal => 'Normale';
+
+  @override
+  String get velocidadRapida => 'Veloce';
+
+  @override
+  String comprimiendoAudio(Object contador) {
+    return 'Compressione audio$contador';
+  }
+
+  @override
+  String comprimiendoAudio2(Object porcentaje, Object contador) {
+    return 'Compressione audio $porcentaje%$contador';
+  }
+
+  @override
+  String seComprimieronAudios(Object lista) {
+    return 'Compressi per risparmiare spazio (AAC, fino a 128 kbps):\n$lista';
+  }
+
+  @override
+  String get audioNoSoportado =>
+      'Impossibile leggere questo audio. Prova con un MP3 o un WAV a 16 bit.';
+
+  @override
+  String audioMuyLargo(Object limite) {
+    return 'Questo audio è troppo lungo per stare in $limite. Prova con uno più corto o dividilo in parti.';
+  }
 }

@@ -111,7 +111,7 @@
   "elSetlistEstaVacioNo": "The setlist is empty, there is nothing to export.",
   "setlistSala": "Setlist — Room {codigoSala}\n\n",
   "exportarSetlist": "Export setlist",
-  "copiadoAlPortapapeles": "Copied to clipboard",
+  "copiadoAlPortapapeles": "Copied to the clipboard",
   "copiar": "Copy",
   "setlistSala2": "Setlist - Room {codigoSala}",
   "compartir": "Share",
@@ -411,7 +411,107 @@
   },
   "volverAlVisor": "Back to the song",
   "archivoPesaMasDelMaximo": "The file is {tamano} and the maximum is {maximo}. Try a lighter version.",
-  "@archivoPesaMasDelMaximo": {"placeholders":{"tamano":{"type":"Object"},"maximo":{"type":"Object"}}},
+  "@archivoPesaMasDelMaximo": {
+    "placeholders": {
+      "tamano": {
+        "type": "Object"
+      },
+      "maximo": {
+        "type": "Object"
+      }
+    }
+  },
   "espacioInsuficiente": "Not enough space: you are using {usado} of {cuota}. Delete songs or sequences to free up room.",
-  "@espacioInsuficiente": {"placeholders":{"usado":{"type":"Object"},"cuota":{"type":"Object"}}}
+  "@espacioInsuficiente": {
+    "placeholders": {
+      "usado": {
+        "type": "Object"
+      },
+      "cuota": {
+        "type": "Object"
+      }
+    }
+  },
+  "compartirSalaTitulo": "Share room",
+  "compartirSalaAyuda": "Scan the code with your phone camera to join, or share the link.",
+  "corregirAcordes": "{cantidad, plural, =1{Fix 1 misspelled chord} other{Fix {cantidad} misspelled chords}} ({ejemplos})",
+  "@corregirAcordes": {
+    "placeholders": {
+      "cantidad": {
+        "type": "int"
+      },
+      "ejemplos": {
+        "type": "String"
+      }
+    }
+  },
+  "exportarChordPro": "Export repertoire (ChordPro)",
+  "exportarCopia": "Save backup copy",
+  "importarTexto": "Import songs from text",
+  "nadaParaExportar": "There are no songs with chords to export",
+  "importarSinCanciones": "No songs were found in the files",
+  "importarArchivoMal": "Could not read {archivo}",
+  "@importarArchivoMal": {
+    "placeholders": {
+      "archivo": {
+        "type": "String"
+      }
+    }
+  },
+  "guiaTitulo": "How Sound Check Pro works",
+  "guiaPaso1": "Create a room or join with the 8-character code (or by scanning the QR). Musicians and the sound engineer stay connected live.",
+  "guiaPaso2": "Send one-tap requests to the sound engineer (\"more guitar\", \"monitor volume\") and see when they are seen and handled.",
+  "guiaPaso3": "Upload your lyric and chord PDFs to your repertoire, build the room setlist and transpose the key with one tap.",
+  "comoFunciona": "How it works",
+  "vacioRepertorioTitulo": "Your repertoire is empty",
+  "vacioRepertorioAyuda": "Upload your lyric and chord PDFs, or import songs from a text file using the menu above.",
+  "subirUnPdf": "Upload a PDF",
+  "vacioSetlistTitulo": "There are no songs in the list yet",
+  "vacioSetlistAyuda": "Tap + to add songs from your repertoire or the room libraries.",
+  "vacioSalasTitulo": "You have not joined any room yet",
+  "vacioSalasAyuda": "When you join a room it will show up here so you can get back quickly.",
+  "instalarApp": "Install on your phone",
+  "instalarAppTitulo": "Install the app",
+  "instalarIphone": "iPhone: open this page in Safari, tap Share and choose \"Add to Home Screen\".",
+  "instalarAndroid": "Android: in Chrome tap the ⋮ menu and choose \"Install app\" or \"Add to Home screen\".",
+  "autoDesplazamiento": "Auto-scroll",
+  "velocidadLenta": "Slow",
+  "velocidadNormal": "Normal",
+  "velocidadRapida": "Fast",
+  "comprimiendoAudio": "Compressing audio{contador}",
+  "@comprimiendoAudio": {
+    "placeholders": {
+      "contador": {
+        "type": "Object"
+      }
+    }
+  },
+  "comprimiendoAudio2": "Compressing audio {porcentaje}%{contador}",
+  "@comprimiendoAudio2": {
+    "placeholders": {
+      "porcentaje": {
+        "type": "Object"
+      },
+      "contador": {
+        "type": "Object"
+      }
+    }
+  },
+  "seComprimieronAudios": "Compressed to save space (AAC, up to 128 kbps):\n{lista}",
+  "@seComprimieronAudios": {
+    "placeholders": {
+      "lista": {
+        "type": "Object"
+      }
+    }
+  },
+  "audioNoSoportado": "This audio could not be read. Try an MP3 or a 16-bit WAV.",
+  "audioMuyLargo": "This audio is too long to fit in {limite}. Try a shorter one or split it into parts.",
+  "@audioMuyLargo": {
+    "placeholders": {
+      "limite": {
+        "type": "Object"
+      }
+    }
+  }
 }

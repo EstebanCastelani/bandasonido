@@ -411,7 +411,107 @@
   },
   "volverAlVisor": "Retour au morceau",
   "archivoPesaMasDelMaximo": "Le fichier fait {tamano} et le maximum est de {maximo}. Essayez une version plus légère.",
-  "@archivoPesaMasDelMaximo": {"placeholders":{"tamano":{"type":"Object"},"maximo":{"type":"Object"}}},
+  "@archivoPesaMasDelMaximo": {
+    "placeholders": {
+      "tamano": {
+        "type": "Object"
+      },
+      "maximo": {
+        "type": "Object"
+      }
+    }
+  },
   "espacioInsuficiente": "Espace insuffisant : vous utilisez {usado} sur {cuota}. Supprimez des morceaux ou des séquences pour libérer de la place.",
-  "@espacioInsuficiente": {"placeholders":{"usado":{"type":"Object"},"cuota":{"type":"Object"}}}
+  "@espacioInsuficiente": {
+    "placeholders": {
+      "usado": {
+        "type": "Object"
+      },
+      "cuota": {
+        "type": "Object"
+      }
+    }
+  },
+  "compartirSalaTitulo": "Partager la salle",
+  "compartirSalaAyuda": "Scannez le code avec la caméra du téléphone pour rejoindre, ou partagez le lien.",
+  "corregirAcordes": "{cantidad, plural, =1{Corriger 1 accord mal écrit} other{Corriger {cantidad} accords mal écrits}} ({ejemplos})",
+  "@corregirAcordes": {
+    "placeholders": {
+      "cantidad": {
+        "type": "int"
+      },
+      "ejemplos": {
+        "type": "String"
+      }
+    }
+  },
+  "exportarChordPro": "Exporter le répertoire (ChordPro)",
+  "exportarCopia": "Enregistrer une copie de sauvegarde",
+  "importarTexto": "Importer des chansons depuis du texte",
+  "nadaParaExportar": "Aucune chanson avec accords à exporter",
+  "importarSinCanciones": "Aucune chanson trouvée dans les fichiers",
+  "importarArchivoMal": "Impossible de lire {archivo}",
+  "@importarArchivoMal": {
+    "placeholders": {
+      "archivo": {
+        "type": "String"
+      }
+    }
+  },
+  "guiaTitulo": "Comment fonctionne Sound Check Pro",
+  "guiaPaso1": "Créez une salle ou rejoignez-en une avec le code à 8 caractères (ou en scannant le QR). Musiciens et ingénieur du son restent connectés en direct.",
+  "guiaPaso2": "Envoyez des demandes en un geste à l’ingénieur du son (« plus de guitare », « volume retour ») et voyez quand elles sont vues et traitées.",
+  "guiaPaso3": "Importez vos PDF de paroles et d’accords dans votre répertoire, composez le setlist de la salle et transposez la tonalité en un geste.",
+  "comoFunciona": "Comment ça marche",
+  "vacioRepertorioTitulo": "Votre répertoire est vide",
+  "vacioRepertorioAyuda": "Importez vos PDF de paroles et d’accords, ou des chansons depuis un fichier texte avec le menu ci-dessus.",
+  "subirUnPdf": "Importer un PDF",
+  "vacioSetlistTitulo": "Aucune chanson dans la liste pour l’instant",
+  "vacioSetlistAyuda": "Touchez + pour ajouter des chansons de votre répertoire ou des bibliothèques de la salle.",
+  "vacioSalasTitulo": "Vous n’avez rejoint aucune salle",
+  "vacioSalasAyuda": "Quand vous rejoindrez une salle, elle apparaîtra ici pour y revenir vite.",
+  "instalarApp": "Installer sur le téléphone",
+  "instalarAppTitulo": "Installer l’application",
+  "instalarIphone": "iPhone : ouvrez cette page dans Safari, touchez Partager et choisissez « Sur l’écran d’accueil ».",
+  "instalarAndroid": "Android : dans Chrome, touchez le menu ⋮ et choisissez « Installer l’application » ou « Ajouter à l’écran d’accueil ».",
+  "autoDesplazamiento": "Défilement automatique",
+  "velocidadLenta": "Lent",
+  "velocidadNormal": "Normal",
+  "velocidadRapida": "Rapide",
+  "comprimiendoAudio": "Compression de l'audio{contador}",
+  "@comprimiendoAudio": {
+    "placeholders": {
+      "contador": {
+        "type": "Object"
+      }
+    }
+  },
+  "comprimiendoAudio2": "Compression de l'audio {porcentaje} %{contador}",
+  "@comprimiendoAudio2": {
+    "placeholders": {
+      "porcentaje": {
+        "type": "Object"
+      },
+      "contador": {
+        "type": "Object"
+      }
+    }
+  },
+  "seComprimieronAudios": "Compressés pour économiser de l'espace (AAC, jusqu'à 128 kbps) :\n{lista}",
+  "@seComprimieronAudios": {
+    "placeholders": {
+      "lista": {
+        "type": "Object"
+      }
+    }
+  },
+  "audioNoSoportado": "Impossible de lire cet audio. Essayez un MP3 ou un WAV 16 bits.",
+  "audioMuyLargo": "Cet audio est trop long pour tenir dans {limite}. Essayez un audio plus court ou découpez-le.",
+  "@audioMuyLargo": {
+    "placeholders": {
+      "limite": {
+        "type": "Object"
+      }
+    }
+  }
 }

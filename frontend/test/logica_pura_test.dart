@@ -11,8 +11,11 @@ import 'dart:typed_data';
 import 'dart:ui';
 
 import 'package:appsonido_frontend/l10n/app_localizations_es.dart';
+import 'package:audioplayers/audioplayers.dart' show PlayerState;
+import 'package:just_audio/just_audio.dart' as ja;
 import 'package:appsonido_frontend/main.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:syncfusion_flutter_pdf/pdf.dart' as sf;
 import 'package:http/http.dart' as http;
 
 void main() {
@@ -998,6 +1001,139 @@ Tu gloria llena la tierra///
     });
   });
 
+  group('Acordes: gramática ampliada y revisión (B-43)', () {
+    test('se transponen acordes complejos que antes no se reconocían', () {
+      expect(
+          ChordTransposer.transponerTexto(
+              'C7sus4  G7(b9)  C6/9  Am7(add9)  A7M', 2),
+          'D7sus4  A7(b9)  D6/9  Bm7(add9)  B7M');
+      expect(ChordTransposer.esLineaDeAcordes('C7sus4  G7(b9)  Dm7b5'), isTrue);
+    });
+    test('las palabras de la letra no se confunden con acordes', () {
+      for (final l in ['Bad Dad Cafe', 'Ella am la', 'Dime que sí']) {
+        expect(ChordTransposer.esLineaDeAcordes(l), isFalse, reason: l);
+      }
+    });
+    test('un acorde absurdamente largo no cuelga la búsqueda', () {
+      final reloj = Stopwatch()..start();
+      final raro = 'C${'9' * 20000}x';
+      expect(ChordTransposer.esLineaDeAcordes('$raro  Am'), isFalse);
+      expect(reloj.elapsedMilliseconds, lessThan(1000));
+    });
+
+    test('corrige raíz en minúscula, H alemán y símbolos ♯ ♭', () {
+      expect(RevisorDeAcordes.aplicar('Am  F  c  G'), 'Am  F  C  G');
+      expect(RevisorDeAcordes.aplicar('am  F  C  G'), 'Am  F  C  G');
+      expect(RevisorDeAcordes.aplicar('Hm  E  F#m'), 'Bm  E  F#m');
+      expect(RevisorDeAcordes.aplicar('B♭  F♯m  E'), 'Bb  F#m  E');
+      expect(RevisorDeAcordes.aplicar('(am)  F  C'), '(Am)  F  C');
+    });
+    test('revisar dice qué, dónde y por qué', () {
+      final p = RevisorDeAcordes.revisar('Letra de la canción\nAm  F  c  G');
+      expect(p, hasLength(1));
+      expect(p.single.linea, 1);
+      expect(p.single.columna, 7);
+      expect(p.single.original, 'c');
+      expect(p.single.sugerencia, 'C');
+      expect(p.single.motivo, MotivoAcorde.minuscula);
+    });
+    test(
+        'no toca la letra ni las líneas dudosas ni los acordes entre corchetes',
+        () {
+      const texto =
+          'a la mi sol\nEl señor es mi pastor\nAm  la\nAma[c]zing gra[g]ce';
+      expect(RevisorDeAcordes.revisar(texto), isEmpty);
+      expect(RevisorDeAcordes.aplicar(texto), texto);
+    });
+    test('un acorde corregido más largo empuja al siguiente sin pisarlo', () {
+      expect(RevisorDeAcordes.aplicar('Am F C c♯m'), 'Am F C C#m');
+    });
+  });
+
+  group('Importar y exportar canciones (B-21)', () {
+    test('ChordPro: los acordes de arriba pasan a ir dentro de la letra', () {
+      const c =
+          CancionTexto('Sublime gracia', 'G', 'G       Em\nSublime gracia');
+      expect(ChordPro.exportar(c),
+          '{title: Sublime gracia}\n{key: G}\n[G]Sublime [Em]gracia');
+    });
+    test('ChordPro: ida y vuelta conserva título, tonalidad y cifrado', () {
+      const c = CancionTexto('Sublime gracia', 'G',
+          'Intro\nC G\n\nG       Em\nSublime gracia\nC   D\nque dulce suena');
+      final salida = ChordPro.importar(ChordPro.exportar(c));
+      expect(salida, hasLength(1));
+      expect(salida.single.titulo, 'Sublime gracia');
+      expect(salida.single.tonalidad, 'G');
+      expect(salida.single.cifrado, c.cifrado);
+    });
+    test('importar entiende varias canciones, comentarios y acordes sueltos',
+        () {
+      const texto =
+          '# un comentario\n{title: Uno}\n{key: Dm}\n{comment: Coro}\n[Dm] [Am]\n[Dm]Hola [Am]mundo\n'
+          '{new_song}\n{t: Dos}\n[C]Chau\n';
+      final r = ChordPro.importar(texto);
+      expect(r.map((c) => c.titulo), ['Uno', 'Dos']);
+      expect(r[0].tonalidad, 'Dm');
+      expect(r[0].cifrado, 'Coro\nDm Am\nDm   Am\nHola mundo');
+      expect(r[1].cifrado, 'C\nChau');
+    });
+    test('importar usa el título de respaldo y detecta la tonalidad', () {
+      final r = ChordPro.importar(
+          '[Am]Hola [F]mundo [C]hoy [G]bien\n[Am]Otra [F]vez [C]mas [G]fuerte\n'
+          '[Am]Y [G]asi [F]va [Am]todo',
+          titulo: 'mi archivo');
+      expect(r.single.titulo, 'mi archivo');
+      expect(r.single.tonalidad, isNotEmpty);
+    });
+    test('un archivo vacío no da canciones', () {
+      expect(ChordPro.importar('  \n\n'), isEmpty);
+    });
+
+    test('copia de respaldo: ida y vuelta y rechazo de lo que no es una copia',
+        () {
+      const canciones = [
+        CancionTexto('Uno', 'Dm', 'Dm\nHola'),
+        CancionTexto('Dos', '', ''),
+      ];
+      final json = CopiaRepertorio.exportar(canciones,
+          ahora: DateTime.utc(2026, 11, 12));
+      expect(json, contains('2026-11-12T00:00:00.000Z'));
+      final r = CopiaRepertorio.importar(json)!;
+      expect(r.map((c) => c.titulo), ['Uno', 'Dos']);
+      expect(r.first.cifrado, 'Dm\nHola');
+      expect(CopiaRepertorio.importar('no es json'), isNull);
+      expect(CopiaRepertorio.importar('{"app":"otra","canciones":[]}'), isNull);
+    });
+
+    test('pdfDesdeCifrado arma un PDF de varias páginas con el texto',
+        () async {
+      final cifrado =
+          [for (var i = 0; i < 150; i++) 'Linea $i de la cancion'].join('\n');
+      final bytes = await pdfDesdeCifrado('Mi canción', cifrado);
+      expect(String.fromCharCodes(bytes.sublist(0, 5)), '%PDF-');
+      final doc = sf.PdfDocument(inputBytes: bytes);
+      expect(doc.pages.count, greaterThan(1));
+      doc.dispose();
+      expect(RepertorioService.extraerTextoPdf(bytes), contains('Linea 0'));
+    });
+  });
+
+  group('Enlace de sala', () {
+    test('enlaceDeSala y codigoDeSalaDesdeUri son inversas', () {
+      const codigo = 'ABCD2345';
+      expect(codigoDeSalaDesdeUri(Uri.parse(enlaceDeSala(codigo))), codigo);
+    });
+    test('el código se normaliza y se rechaza lo que no sirve', () {
+      expect(codigoDeSalaDesdeUri(Uri.parse('https://x.test/?sala=abcd2345')),
+          'ABCD2345');
+      expect(codigoDeSalaDesdeUri(Uri.parse('https://x.test/?sala=corto')),
+          isNull);
+      expect(codigoDeSalaDesdeUri(Uri.parse('https://x.test/?sala=ABCD-345')),
+          isNull);
+      expect(codigoDeSalaDesdeUri(Uri.parse('https://x.test/')), isNull);
+    });
+  });
+
   group('Archivos: límites, cuota y almacenamiento (PLAN_COSTOS.md)', () {
     // Cabecera de un cuadro MP3 (MPEG1, capa III): FF FB, byte de bitrate, 00.
     Uint8List mp3(int byteBitrate, {List<int> antes = const []}) =>
@@ -1140,6 +1276,88 @@ Tu gloria llena la tierra///
           archivosParaBorrar(existentes, {}, maximo: 30, ahora: base);
       expect(borrar.length, 5);
       expect(borrar, containsAll(['a0.audio', 'a4.audio']));
+    });
+  });
+
+  group('Compresión de audio en Android', () {
+    final l = AppLocalizationsEs();
+
+    test('un audio demasiado largo dice el tamaño máximo', () {
+      final m = mensajeErrorAudio(l, 'muy_largo');
+      expect(m, contains('dura demasiado'));
+      expect(m, contains(SecuenciasService.formatearMb(kMaxBytesAudio)));
+    });
+
+    test('cualquier otro fallo recomienda MP3 o WAV de 16 bits', () {
+      for (final codigo in ['no_soportado', 'error', 'otro']) {
+        expect(mensajeErrorAudio(l, codigo), contains('MP3'));
+        expect(mensajeErrorAudio(l, codigo), contains('16 bits'));
+      }
+    });
+
+    test('lo que se elige puede ser mucho más grande que lo que se sube', () {
+      expect(kMaxBytesAudioOriginal, greaterThan(kMaxBytesAudio));
+      // Un WAV de 10 minutos (44,1 kHz, 16 bits, estéreo) se puede elegir...
+      const wavDeDiezMinutos = 10 * 60 * 44100 * 4;
+      expect(wavDeDiezMinutos, lessThan(kMaxBytesAudioOriginal));
+      // ...y comprimido a 128 kbps entra en el tope de subida.
+      const aacDeDiezMinutos = 10 * 60 * 128 * 1000 ~/ 8;
+      expect(
+          aacDeDiezMinutos, lessThan(SecuenciasService.tamanoObjetivoMp3Bytes));
+    });
+
+    test('con 128 kbps entran unos 30 minutos en el objetivo de 28 MB', () {
+      const segundos = SecuenciasService.tamanoObjetivoMp3Bytes *
+          8 ~/
+          (kKbpsAudioAndroid * 1000);
+      expect(segundos ~/ 60, greaterThan(28));
+    });
+  });
+
+  group('Tono de las secuencias en Android', () {
+    test('factorDeTono: una octava es el doble y la mitad', () {
+      expect(factorDeTono(0), 1.0);
+      expect(factorDeTono(12), closeTo(2.0, 1e-9));
+      expect(factorDeTono(-12), closeTo(0.5, 1e-9));
+    });
+
+    test('factorDeTono: un semitono es la raíz doceava de 2 y es simétrico',
+        () {
+      expect(factorDeTono(1), closeTo(1.059463, 1e-6));
+      for (var n = 1; n <= 12; n++) {
+        expect(factorDeTono(n) * factorDeTono(-n), closeTo(1.0, 1e-9));
+      }
+    });
+
+    PlayerState traducir(bool sonando, ja.ProcessingState proceso,
+            {bool detenido = false}) =>
+        estadoDesdeJustAudio(ja.PlayerState(sonando, proceso),
+            detenido: detenido);
+
+    test('sonando y en pausa', () {
+      expect(traducir(true, ja.ProcessingState.ready), PlayerState.playing);
+      expect(traducir(false, ja.ProcessingState.ready), PlayerState.paused);
+      // Mientras carga o llena el búfer sigue contando como sonando si se pidió.
+      expect(traducir(true, ja.ProcessingState.buffering), PlayerState.playing);
+      expect(traducir(true, ja.ProcessingState.loading), PlayerState.playing);
+    });
+
+    test('al terminar, aunque just_audio deje "sonando", es completado', () {
+      expect(
+          traducir(true, ja.ProcessingState.completed), PlayerState.completed);
+      expect(
+          traducir(false, ja.ProcessingState.completed), PlayerState.completed);
+    });
+
+    test('sin pista o detenida a propósito es detenido, no en pausa', () {
+      expect(traducir(false, ja.ProcessingState.idle), PlayerState.stopped);
+      expect(traducir(false, ja.ProcessingState.ready, detenido: true),
+          PlayerState.stopped);
+    });
+
+    test('Android admite tono; la web usa su propio reproductor', () {
+      // En las pruebas la plataforma es Android por defecto y no es web.
+      expect(ReproductorSecuencias.soportaTono, isTrue);
     });
   });
 }

@@ -793,7 +793,107 @@
   },
   "volverAlVisor": "Volver a la canción",
   "archivoPesaMasDelMaximo": "El archivo pesa {tamano} y el máximo es {maximo}. Probá con una versión más liviana.",
-  "@archivoPesaMasDelMaximo": {"placeholders":{"tamano":{"type":"Object"},"maximo":{"type":"Object"}}},
+  "@archivoPesaMasDelMaximo": {
+    "placeholders": {
+      "tamano": {
+        "type": "Object"
+      },
+      "maximo": {
+        "type": "Object"
+      }
+    }
+  },
   "espacioInsuficiente": "No hay espacio suficiente: usás {usado} de {cuota}. Eliminá canciones o secuencias para liberar lugar.",
-  "@espacioInsuficiente": {"placeholders":{"usado":{"type":"Object"},"cuota":{"type":"Object"}}}
+  "@espacioInsuficiente": {
+    "placeholders": {
+      "usado": {
+        "type": "Object"
+      },
+      "cuota": {
+        "type": "Object"
+      }
+    }
+  },
+  "compartirSalaTitulo": "Compartir sala",
+  "compartirSalaAyuda": "Escaneá el código con la cámara del celular para unirte, o compartí el enlace.",
+  "corregirAcordes": "{cantidad, plural, =1{Corregir 1 acorde mal escrito} other{Corregir {cantidad} acordes mal escritos}} ({ejemplos})",
+  "@corregirAcordes": {
+    "placeholders": {
+      "cantidad": {
+        "type": "int"
+      },
+      "ejemplos": {
+        "type": "String"
+      }
+    }
+  },
+  "exportarChordPro": "Exportar repertorio (ChordPro)",
+  "exportarCopia": "Guardar copia de respaldo",
+  "importarTexto": "Importar canciones de texto",
+  "nadaParaExportar": "No hay canciones con cifrado para exportar",
+  "importarSinCanciones": "No se encontraron canciones en los archivos",
+  "importarArchivoMal": "No se pudo leer {archivo}",
+  "@importarArchivoMal": {
+    "placeholders": {
+      "archivo": {
+        "type": "String"
+      }
+    }
+  },
+  "guiaTitulo": "Así funciona Sound Check Pro",
+  "guiaPaso1": "Creá una sala o unite con el código de 8 caracteres (o escaneando el QR). Los músicos y el sonidista quedan conectados en vivo.",
+  "guiaPaso2": "Mandá pedidos de un toque al sonidista (\"más guitarra\", \"volumen retorno\") y mirá cuándo los ve y los atiende.",
+  "guiaPaso3": "Subí tus PDF de letra y acordes a tu repertorio, armá el setlist de la sala y transponé el tono con un toque.",
+  "comoFunciona": "Cómo funciona",
+  "vacioRepertorioTitulo": "Tu repertorio está vacío",
+  "vacioRepertorioAyuda": "Subí tus PDF de letra y acordes, o importá canciones de un archivo de texto desde el menú de arriba.",
+  "subirUnPdf": "Subir un PDF",
+  "vacioSetlistTitulo": "Todavía no hay temas en la lista",
+  "vacioSetlistAyuda": "Tocá + para sumar canciones de tu repertorio o de las bibliotecas de la sala.",
+  "vacioSalasTitulo": "Todavía no entraste a ninguna sala",
+  "vacioSalasAyuda": "Cuando entres a una sala va a aparecer acá para volver rápido.",
+  "instalarApp": "Instalar en el celular",
+  "instalarAppTitulo": "Instalar la app",
+  "instalarIphone": "iPhone: abrí esta página en Safari, tocá Compartir y elegí \"Agregar a pantalla de inicio\".",
+  "instalarAndroid": "Android: en Chrome tocá el menú ⋮ y elegí \"Instalar app\" o \"Agregar a pantalla de inicio\".",
+  "autoDesplazamiento": "Desplazamiento automático",
+  "velocidadLenta": "Lento",
+  "velocidadNormal": "Normal",
+  "velocidadRapida": "Rápido",
+  "comprimiendoAudio": "Comprimiendo audio{contador}",
+  "@comprimiendoAudio": {
+    "placeholders": {
+      "contador": {
+        "type": "Object"
+      }
+    }
+  },
+  "comprimiendoAudio2": "Comprimiendo audio {porcentaje}%{contador}",
+  "@comprimiendoAudio2": {
+    "placeholders": {
+      "porcentaje": {
+        "type": "Object"
+      },
+      "contador": {
+        "type": "Object"
+      }
+    }
+  },
+  "seComprimieronAudios": "Se comprimieron para ahorrar espacio (AAC, hasta 128 kbps):\n{lista}",
+  "@seComprimieronAudios": {
+    "placeholders": {
+      "lista": {
+        "type": "Object"
+      }
+    }
+  },
+  "audioNoSoportado": "No se pudo leer este audio. Probá con un MP3 o un WAV de 16 bits.",
+  "audioMuyLargo": "Este audio dura demasiado para entrar en {limite}. Probá con uno más corto o dividilo en partes.",
+  "@audioMuyLargo": {
+    "placeholders": {
+      "limite": {
+        "type": "Object"
+      }
+    }
+  }
 }

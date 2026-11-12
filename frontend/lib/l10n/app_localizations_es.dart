@@ -1289,4 +1289,135 @@ class AppLocalizationsEs extends AppLocalizations {
   String espacioInsuficiente(Object usado, Object cuota) {
     return 'No hay espacio suficiente: usás $usado de $cuota. Eliminá canciones o secuencias para liberar lugar.';
   }
+
+  @override
+  String get compartirSalaTitulo => 'Compartir sala';
+
+  @override
+  String get compartirSalaAyuda =>
+      'Escaneá el código con la cámara del celular para unirte, o compartí el enlace.';
+
+  @override
+  String corregirAcordes(int cantidad, String ejemplos) {
+    String _temp0 = intl.Intl.pluralLogic(
+      cantidad,
+      locale: localeName,
+      other: 'Corregir $cantidad acordes mal escritos',
+      one: 'Corregir 1 acorde mal escrito',
+    );
+    return '$_temp0 ($ejemplos)';
+  }
+
+  @override
+  String get exportarChordPro => 'Exportar repertorio (ChordPro)';
+
+  @override
+  String get exportarCopia => 'Guardar copia de respaldo';
+
+  @override
+  String get importarTexto => 'Importar canciones de texto';
+
+  @override
+  String get nadaParaExportar => 'No hay canciones con cifrado para exportar';
+
+  @override
+  String get importarSinCanciones =>
+      'No se encontraron canciones en los archivos';
+
+  @override
+  String importarArchivoMal(String archivo) {
+    return 'No se pudo leer $archivo';
+  }
+
+  @override
+  String get guiaTitulo => 'Así funciona Sound Check Pro';
+
+  @override
+  String get guiaPaso1 =>
+      'Creá una sala o unite con el código de 8 caracteres (o escaneando el QR). Los músicos y el sonidista quedan conectados en vivo.';
+
+  @override
+  String get guiaPaso2 =>
+      'Mandá pedidos de un toque al sonidista (\"más guitarra\", \"volumen retorno\") y mirá cuándo los ve y los atiende.';
+
+  @override
+  String get guiaPaso3 =>
+      'Subí tus PDF de letra y acordes a tu repertorio, armá el setlist de la sala y transponé el tono con un toque.';
+
+  @override
+  String get comoFunciona => 'Cómo funciona';
+
+  @override
+  String get vacioRepertorioTitulo => 'Tu repertorio está vacío';
+
+  @override
+  String get vacioRepertorioAyuda =>
+      'Subí tus PDF de letra y acordes, o importá canciones de un archivo de texto desde el menú de arriba.';
+
+  @override
+  String get subirUnPdf => 'Subir un PDF';
+
+  @override
+  String get vacioSetlistTitulo => 'Todavía no hay temas en la lista';
+
+  @override
+  String get vacioSetlistAyuda =>
+      'Tocá + para sumar canciones de tu repertorio o de las bibliotecas de la sala.';
+
+  @override
+  String get vacioSalasTitulo => 'Todavía no entraste a ninguna sala';
+
+  @override
+  String get vacioSalasAyuda =>
+      'Cuando entres a una sala va a aparecer acá para volver rápido.';
+
+  @override
+  String get instalarApp => 'Instalar en el celular';
+
+  @override
+  String get instalarAppTitulo => 'Instalar la app';
+
+  @override
+  String get instalarIphone =>
+      'iPhone: abrí esta página en Safari, tocá Compartir y elegí \"Agregar a pantalla de inicio\".';
+
+  @override
+  String get instalarAndroid =>
+      'Android: en Chrome tocá el menú ⋮ y elegí \"Instalar app\" o \"Agregar a pantalla de inicio\".';
+
+  @override
+  String get autoDesplazamiento => 'Desplazamiento automático';
+
+  @override
+  String get velocidadLenta => 'Lento';
+
+  @override
+  String get velocidadNormal => 'Normal';
+
+  @override
+  String get velocidadRapida => 'Rápido';
+
+  @override
+  String comprimiendoAudio(Object contador) {
+    return 'Comprimiendo audio$contador';
+  }
+
+  @override
+  String comprimiendoAudio2(Object porcentaje, Object contador) {
+    return 'Comprimiendo audio $porcentaje%$contador';
+  }
+
+  @override
+  String seComprimieronAudios(Object lista) {
+    return 'Se comprimieron para ahorrar espacio (AAC, hasta 128 kbps):\n$lista';
+  }
+
+  @override
+  String get audioNoSoportado =>
+      'No se pudo leer este audio. Probá con un MP3 o un WAV de 16 bits.';
+
+  @override
+  String audioMuyLargo(Object limite) {
+    return 'Este audio dura demasiado para entrar en $limite. Probá con uno más corto o dividilo en partes.';
+  }
 }

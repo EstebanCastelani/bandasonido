@@ -6,7 +6,11 @@ import 'dart:io' show Directory, File;
 
 import 'dart:math';
 
+import 'dart:ui' show PlatformDispatcher;
+
 import 'package:audioplayers/audioplayers.dart';
+
+import 'package:just_audio/just_audio.dart' as ja;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 
@@ -18,9 +22,12 @@ import 'package:firebase_auth/firebase_auth.dart';
 
 import 'package:firebase_core/firebase_core.dart';
 
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
+
 import 'package:firebase_storage/firebase_storage.dart';
 
-import 'package:flutter/foundation.dart' show kIsWeb, listEquals;
+import 'package:flutter/foundation.dart'
+    show kDebugMode, kIsWeb, listEquals, defaultTargetPlatform, TargetPlatform;
 
 import 'package:flutter_localizations/flutter_localizations.dart';
 
@@ -38,6 +45,8 @@ import 'package:crypto/crypto.dart' show sha256;
 import 'package:http/http.dart' as http;
 
 import 'package:path_provider/path_provider.dart';
+
+import 'package:qr_flutter/qr_flutter.dart';
 
 import 'package:share_plus/share_plus.dart';
 
@@ -149,6 +158,28 @@ Future<void> _activarAppCheckSiCorresponde() async {
   }
 }
 
+/// Manda a Crashlytics los errores que cortan la app o que Flutter no atrapa,
+/// para enterarse de las fallas en celulares que no son el propio. Solo en la
+/// app instalada (no en la web ni mientras se desarrolla). Lleva el modelo del
+/// celular, la versión de Android y el detalle técnico del error; no el
+/// contenido de la app. Hay que declararlo en la política de privacidad y en
+/// "Seguridad de los datos" de Google Play (registros de fallas).
+Future<void> _activarRegistroDeErrores() async {
+  // En desarrollo no se toca nada: así Flutter sigue mostrando los errores en
+  // la consola de depuración.
+  if (kIsWeb || kDebugMode) return;
+  try {
+    await FirebaseCrashlytics.instance.setCrashlyticsCollectionEnabled(true);
+    FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
+    PlatformDispatcher.instance.onError = (error, stack) {
+      FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+      return true;
+    };
+  } catch (e) {
+    debugPrint('No se pudo activar el registro de errores: $e');
+  }
+}
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -166,6 +197,7 @@ void main() async {
     }
 
     await _activarAppCheckSiCorresponde();
+    await _activarRegistroDeErrores();
   } catch (e) {
     debugPrint("Error inicializando Firebase: $e");
   }
@@ -439,6 +471,72 @@ String? codigoDeSalaDesdeUri(Uri uri) {
 
 /// Enlace para unirse a una sala desde el navegador.
 String enlaceDeSala(String codigo) => '$kUrlWeb?sala=$codigo';
+
+/// Muestra el código QR y el enlace de la sala para que otros se unan: se
+/// escanea con la cámara del celular y abre la web con el código cargado.
+Future<void> mostrarCompartirSala(BuildContext context, String codigo) {
+  return showDialog<void>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: Text(context.l10n.compartirSalaTitulo),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Tamaño fijo: QrImageView usa un LayoutBuilder, que no se puede
+            // medir dentro de un AlertDialog (falla en modo debug).
+            SizedBox(
+              width: 224,
+              height: 224,
+              child: ColoredBox(
+                color: Colors.white,
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: QrImageView(
+                    data: enlaceDeSala(codigo),
+                    size: 200,
+                    backgroundColor: Colors.white,
+                    semanticsLabel: context.l10n.compartirSalaTitulo,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(codigo,
+                style: TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 2,
+                    color: context.acento)),
+            const SizedBox(height: 8),
+            Text(context.l10n.compartirSalaAyuda,
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 13)),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () {
+            Clipboard.setData(ClipboardData(text: codigo));
+            ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text(context.l10n.codigoDeSalaCopiado)));
+          },
+          child: Text(context.l10n.copiar),
+        ),
+        TextButton(
+          onPressed: () =>
+              Share.share(context.l10n.enlaceSalaTexto(enlaceDeSala(codigo))),
+          child: Text(context.l10n.compartir),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(context),
+          child: Text(context.l10n.cerrar),
+        ),
+      ],
+    ),
+  );
+}
 
 /// Entra al panel del sonidista de la sala [codigo] (lo mismo que "Acceso
 /// sonidista"), y lo deja guardado para volver a abrirlo al reabrir la app.
@@ -1139,8 +1237,12 @@ class ChordTransposer {
     'B',
   ];
 
+  /// Acorde (notación inglesa) con su sufijo: acepta calificadores apilados
+  /// ("C7sus4", "Dm7b5", "Cmaj7#11"), alteraciones entre paréntesis
+  /// ("G7(b9)", "Am(add9)"), "C6/9", "A7M" y bajo ("D/F#"). Cada parte es de
+  /// un solo carácter o palabra fija, así que no hay retroceso exponencial.
   static final RegExp _tokenAcorde = RegExp(
-    r'^([A-G])(#|b)?((?:maj|min|dim|aug|sus|add|m)?[0-9⁰¹²³⁴⁵⁶⁷⁸⁹]*(?:[#b][0-9]+)?\+?)?(?:/([A-G])(#|b)?)?$',
+    r'^([A-G])(#|b)?((?:maj|min|dim|aug|sus|add|-[0-9]|[mM+°ºø#b0-9⁰¹²³⁴⁵⁶⁷⁸⁹])*(?:\([^)\s]*\))?(?:/[0-9]+)?)?(?:/([A-G])(#|b)?)?$',
   );
 
   static final RegExp _entreCorchetes = RegExp(r'\[([^\]]+)\]');
@@ -1175,7 +1277,7 @@ class ChordTransposer {
     'Si',
   ];
   static final RegExp _tokenLatino = RegExp(
-    r'^(Do|Re|Mi|Fa|Sol|La|Si)(#|b)?((?:maj|min|dim|aug|sus|add|m)?[0-9⁰¹²³⁴⁵⁶⁷⁸⁹]*(?:[#b][0-9]+)?\+?)?(?:/(Do|Re|Mi|Fa|Sol|La|Si)(#|b)?)?$',
+    r'^(Do|Re|Mi|Fa|Sol|La|Si)(#|b)?((?:maj|min|dim|aug|sus|add|-[0-9]|[mM+°ºø#b0-9⁰¹²³⁴⁵⁶⁷⁸⁹])*(?:\([^)\s]*\))?(?:/[0-9]+)?)?(?:/(Do|Re|Mi|Fa|Sol|La|Si)(#|b)?)?$',
   );
 
   static String transponerTexto(String texto, int semitonos) {
@@ -1258,13 +1360,17 @@ class ChordTransposer {
 
   /// El acorde sin los paréntesis ni el "x2" que lo rodean ("E)x2" -> "E").
   static String _sinParentesis(String w) {
+    if (_tokenAcorde.hasMatch(w) || _tokenLatino.hasMatch(w)) return w;
     final m = _envuelto.firstMatch(w);
     if (m == null || m.group(2)!.isEmpty) return w;
     return m.group(2)!;
   }
 
   static String? _transponerToken(String token, int semitonos) {
-    final envuelto = _envuelto.firstMatch(token);
+    final envuelto = (_tokenAcorde.hasMatch(token) ||
+            _tokenLatino.hasMatch(token))
+        ? null // "G7(b9)": los paréntesis son parte del acorde, no un envoltorio
+        : _envuelto.firstMatch(token);
     if (envuelto != null &&
         envuelto.group(2)!.isNotEmpty &&
         (envuelto.group(1)!.isNotEmpty || envuelto.group(3)!.isNotEmpty)) {
@@ -1321,6 +1427,367 @@ class ChordTransposer {
 
     final tablaDestino = usaBemoles ? _bemoles : _sostenidos;
     return tablaDestino[nuevoIndice];
+  }
+}
+
+// --- IMPORTAR Y EXPORTAR CANCIONES (CHORDPRO Y COPIA DE RESPALDO) ---
+
+/// Una canción como texto: título, tonalidad y el cifrado con los acordes
+/// arriba de la letra (el formato que usa el visor de la app).
+class CancionTexto {
+  final String titulo;
+  final String tonalidad;
+  final String cifrado;
+  const CancionTexto(this.titulo, this.tonalidad, this.cifrado);
+}
+
+/// ChordPro (.cho): formato abierto de cifrados que entienden muchas apps. Los
+/// acordes van entre corchetes dentro de la letra ("Sublime [G]gracia") y
+/// datos como el título en líneas "{title: ...}". Acá se convierte de y hacia
+/// el cifrado con los acordes arriba de la letra.
+class ChordPro {
+  static final RegExp _acordeEntreCorchetes = RegExp(r'\[([^\]]*)\]');
+
+  /// Una canción en ChordPro.
+  static String exportar(CancionTexto c) {
+    final b = StringBuffer('{title: ${c.titulo}}\n');
+    if (c.tonalidad.isNotEmpty) b.write('{key: ${c.tonalidad}}\n');
+    b.write(_desdeCifrado(c.cifrado));
+    return b.toString();
+  }
+
+  /// Varias canciones en un solo archivo, separadas por {new_song}.
+  static String exportarVarias(List<CancionTexto> canciones) =>
+      canciones.map(exportar).join('\n{new_song}\n');
+
+  /// El cifrado (acordes arriba de la letra) pasado a acordes dentro de la letra.
+  static String _desdeCifrado(String cifrado) {
+    final lineas = cifrado.replaceAll('\r\n', '\n').split('\n');
+    final salida = <String>[];
+    var i = 0;
+    while (i < lineas.length) {
+      final linea = lineas[i];
+      if (!ChordTransposer.esLineaDeAcordes(linea)) {
+        salida.add(linea);
+        i++;
+        continue;
+      }
+      final siguiente = i + 1 < lineas.length ? lineas[i + 1] : null;
+      if (siguiente != null &&
+          siguiente.trim().isNotEmpty &&
+          !ChordTransposer.esLineaDeAcordes(siguiente)) {
+        salida.add(_mezclar(linea, siguiente));
+        i += 2;
+      } else {
+        salida.add(RegExp(r'\S+')
+            .allMatches(linea)
+            .map((m) => '[${m.group(0)}]')
+            .join(' '));
+        i++;
+      }
+    }
+    return salida.join('\n');
+  }
+
+  static String _mezclar(String acordes, String letra) {
+    final tokens = RegExp(r'\S+').allMatches(acordes).toList();
+    final ancho = tokens.fold<int>(letra.length, (a, t) => max(a, t.start));
+    final base = letra.padRight(ancho);
+    final b = StringBuffer();
+    var cursor = 0;
+    for (final t in tokens) {
+      if (t.start > cursor) {
+        b.write(base.substring(cursor, t.start));
+        cursor = t.start;
+      }
+      b.write('[${t.group(0)}]');
+    }
+    if (cursor < base.length) b.write(base.substring(cursor));
+    return b.toString().replaceFirst(RegExp(r'\s+$'), '');
+  }
+
+  /// Las canciones de un archivo ChordPro. Entiende {title}, {key}, {comment},
+  /// {new_song} y los acordes entre corchetes; ignora el resto de las
+  /// directivas y los comentarios (#). [titulo] es el de respaldo si el
+  /// archivo no dice uno.
+  static List<CancionTexto> importar(String texto, {String titulo = ''}) {
+    final canciones = <CancionTexto>[];
+    var t = titulo;
+    var key = '';
+    var cuerpo = <String>[];
+
+    void cerrar() {
+      final cifrado = cuerpo.join('\n').trim();
+      if (cifrado.isEmpty && t.isEmpty) return;
+      canciones.add(CancionTexto(
+          t.isEmpty ? titulo : t,
+          key.isNotEmpty ? key : (DetectorTonalidad.detectar(cifrado) ?? ''),
+          cifrado));
+    }
+
+    for (final cruda in texto.replaceAll('\r\n', '\n').split('\n')) {
+      final linea = cruda.trimRight();
+      if (linea.startsWith('#')) continue;
+      final dir = RegExp(r'^\s*\{\s*([A-Za-z_]+)\s*(?::\s*(.*?))?\s*\}\s*$')
+          .firstMatch(linea);
+      if (dir != null) {
+        final nombre = dir.group(1)!.toLowerCase();
+        final valor = dir.group(2) ?? '';
+        switch (nombre) {
+          case 'new_song' || 'ns':
+            cerrar();
+            t = '';
+            key = '';
+            cuerpo = [];
+          case 'title' || 't':
+            t = valor;
+          case 'key':
+            key = valor;
+          case 'comment' ||
+                'c' ||
+                'comment_italic' ||
+                'ci' ||
+                'comment_box' ||
+                'cb':
+            if (valor.isNotEmpty) cuerpo.add(valor);
+        }
+        continue;
+      }
+      cuerpo.addAll(_haciaCifrado(linea));
+    }
+    cerrar();
+    return canciones;
+  }
+
+  /// Una línea de ChordPro como una o dos líneas de cifrado (acordes arriba).
+  static List<String> _haciaCifrado(String linea) {
+    if (!_acordeEntreCorchetes.hasMatch(linea)) return [linea];
+    final letra = StringBuffer();
+    final acordes = StringBuffer();
+    var fin = 0;
+    var cursor = 0;
+    for (final m in _acordeEntreCorchetes.allMatches(linea)) {
+      letra.write(linea.substring(cursor, m.start));
+      cursor = m.end;
+      final col = max(letra.length, fin == 0 ? 0 : fin + 1);
+      while (acordes.length < col) {
+        acordes.write(' ');
+      }
+      acordes.write(m.group(1)!);
+      fin = acordes.length;
+    }
+    letra.write(linea.substring(cursor));
+    final l = letra.toString().trimRight();
+    return l.trim().isEmpty ? [acordes.toString()] : [acordes.toString(), l];
+  }
+}
+
+/// Copia de respaldo del repertorio en JSON: título, tonalidad y cifrado de
+/// cada canción (los PDF no van: quedan en la nube de cada cuenta).
+class CopiaRepertorio {
+  static String exportar(List<CancionTexto> canciones, {DateTime? ahora}) =>
+      const JsonEncoder.withIndent('  ').convert({
+        'app': 'Sound Check Pro',
+        'version': 1,
+        'exportado': (ahora ?? DateTime.now()).toUtc().toIso8601String(),
+        'canciones': [
+          for (final c in canciones)
+            {'titulo': c.titulo, 'tonalidad': c.tonalidad, 'cifrado': c.cifrado}
+        ],
+      });
+
+  /// Las canciones de una copia de respaldo, o null si el texto no lo es.
+  static List<CancionTexto>? importar(String texto) {
+    try {
+      final d = jsonDecode(texto);
+      if (d is! Map ||
+          d['app'] != 'Sound Check Pro' ||
+          d['canciones'] is! List) {
+        return null;
+      }
+      return [
+        for (final c in d['canciones'] as List)
+          if (c is Map && (c['titulo'] as String? ?? '').trim().isNotEmpty)
+            CancionTexto(
+                (c['titulo'] as String).trim(),
+                (c['tonalidad'] as String? ?? '').trim(),
+                (c['cifrado'] as String? ?? ''))
+      ];
+    } catch (_) {
+      return null;
+    }
+  }
+}
+
+/// Un PDF con el cifrado en letra monoespaciada (para que los acordes sigan
+/// alineados con la letra). Sirve para subir al repertorio una canción que
+/// llegó como texto.
+Future<Uint8List> pdfDesdeCifrado(String titulo, String cifrado) async {
+  final documento = sf_pdf.PdfDocument();
+  try {
+    documento.pageSettings.margins.all = 36;
+    final fuente = sf_pdf.PdfStandardFont(sf_pdf.PdfFontFamily.courier, 10);
+    final fuenteTitulo = sf_pdf.PdfStandardFont(
+        sf_pdf.PdfFontFamily.helvetica, 16,
+        style: sf_pdf.PdfFontStyle.bold);
+    var pagina = documento.pages.add();
+    final ancho = pagina.getClientSize().width;
+    final alto = pagina.getClientSize().height;
+    var y = 0.0;
+    pagina.graphics.drawString(titulo, fuenteTitulo,
+        bounds: Rect.fromLTWH(0, y, ancho, 22));
+    y += 30;
+    // Courier solo tiene los caracteres latinos habituales.
+    final texto = cifrado
+        .replaceAll('♯', '#')
+        .replaceAll('♭', 'b')
+        .replaceAll('\t', '    ');
+    for (final linea in texto.replaceAll('\r\n', '\n').split('\n')) {
+      if (y + 12 > alto) {
+        pagina = documento.pages.add();
+        y = 0;
+      }
+      pagina.graphics.drawString(linea.isEmpty ? ' ' : linea, fuente,
+          bounds: Rect.fromLTWH(0, y, ancho, 12));
+      y += 12;
+    }
+    return Uint8List.fromList(await documento.save());
+  } finally {
+    documento.dispose();
+  }
+}
+
+// --- REVISIÓN DE ACORDES ---
+
+/// Por qué se sugiere cambiar un acorde.
+enum MotivoAcorde { minuscula, notacionAlemana, simbolos }
+
+/// Un acorde que parece mal escrito y cómo quedaría.
+class ProblemaAcorde {
+  final int linea;
+  final int columna;
+  final String original;
+  final String sugerencia;
+  final MotivoAcorde motivo;
+  const ProblemaAcorde(
+      this.linea, this.columna, this.original, this.sugerencia, this.motivo);
+
+  @override
+  String toString() => '$original → $sugerencia';
+}
+
+/// Revisa los acordes de un cifrado y propone arreglos para los errores más
+/// comunes al pasar un PDF a texto: raíz en minúscula ("am", "c#m"), "H" de la
+/// notación alemana por "B" y los símbolos ♯ y ♭ en vez de # y b. Solo toca líneas que ya son claramente de
+/// acordes (al menos el 60 % de sus elementos ya son acordes válidos), para no
+/// "arreglar" por error una palabra de la letra. Nunca cambia la letra.
+class RevisorDeAcordes {
+  static bool _esAcorde(String c) =>
+      ChordTransposer._tokenAcorde.hasMatch(c) ||
+      ChordTransposer._tokenLatino.hasMatch(c);
+
+  static String _sinSimbolos(String c) =>
+      c.replaceAll('♯', '#').replaceAll('♭', 'b');
+
+  /// Cómo se escribiría bien [token] (con sus paréntesis y "x2" si los tiene),
+  /// o null si ya está bien o no parece un acorde mal escrito.
+  static ({String sugerencia, MotivoAcorde motivo})? corregirToken(
+      String token) {
+    var antes = '';
+    var despues = '';
+    var nucleo = token;
+    final envuelto = ChordTransposer._envuelto.firstMatch(token);
+    if (envuelto != null && envuelto.group(2)!.isNotEmpty) {
+      antes = envuelto.group(1)!;
+      nucleo = envuelto.group(2)!;
+      despues = envuelto.group(3)!;
+    }
+    if (_esAcorde(nucleo)) return null;
+
+    ({String sugerencia, MotivoAcorde motivo})? resultado(
+            String c, MotivoAcorde m) =>
+        _esAcorde(c) ? (sugerencia: '$antes$c$despues', motivo: m) : null;
+
+    // ♯ y ♭ por # y b (y después, si hace falta, la raíz en mayúscula)
+    var c = nucleo;
+    MotivoAcorde? motivo;
+    final sinSimbolos = _sinSimbolos(c);
+    if (sinSimbolos != c) {
+      c = sinSimbolos;
+      motivo = MotivoAcorde.simbolos;
+      final r = resultado(c, motivo);
+      if (r != null) return r;
+    }
+    // Raíz en minúscula (solo notación inglesa: "la" y "mi" son palabras)
+    if (RegExp(r'^[a-g]').hasMatch(c)) {
+      final r = resultado(c[0].toUpperCase() + c.substring(1),
+          motivo ?? MotivoAcorde.minuscula);
+      if (r != null) return r;
+    }
+    // "H" alemán es el Si natural
+    if (c.startsWith('H')) {
+      final r = resultado('B${c.substring(1)}', MotivoAcorde.notacionAlemana);
+      if (r != null) return r;
+    }
+    return null;
+  }
+
+  static bool _esLineaClaraDeAcordes(List<String> palabras) {
+    if (palabras.isEmpty) return false;
+    final validas = palabras
+        .where(
+            (p) => _esAcorde(_sinSimbolos(ChordTransposer._sinParentesis(p))))
+        .length;
+    return validas >= 1 && validas / palabras.length >= 0.6;
+  }
+
+  /// Los acordes que parecen mal escritos, línea por línea.
+  static List<ProblemaAcorde> revisar(String texto) {
+    final problemas = <ProblemaAcorde>[];
+    final lineas = texto.split('\n');
+    for (var i = 0; i < lineas.length; i++) {
+      final linea = lineas[i];
+      if (linea.contains('[')) continue; // acordes entre corchetes: no se toca
+      final tokens = RegExp(r'\S+').allMatches(linea).toList();
+      if (!_esLineaClaraDeAcordes([for (final t in tokens) t.group(0)!])) {
+        continue;
+      }
+      for (final t in tokens) {
+        final c = corregirToken(t.group(0)!);
+        if (c != null) {
+          problemas.add(
+              ProblemaAcorde(i, t.start, t.group(0)!, c.sugerencia, c.motivo));
+        }
+      }
+    }
+    return problemas;
+  }
+
+  /// El texto con todos los arreglos aplicados. Cada acorde corregido queda en
+  /// la misma columna; solo se empuja el siguiente si el nuevo es más largo.
+  static String aplicar(String texto) {
+    final porLinea = <int, List<ProblemaAcorde>>{};
+    for (final p in revisar(texto)) {
+      porLinea.putIfAbsent(p.linea, () => []).add(p);
+    }
+    if (porLinea.isEmpty) return texto;
+    final lineas = texto.split('\n');
+    for (final e in porLinea.entries) {
+      final cambios = {for (final p in e.value) p.columna: p.sugerencia};
+      final salida = StringBuffer();
+      for (final m in RegExp(r'\S+').allMatches(lineas[e.key])) {
+        final nuevo = cambios[m.start] ?? m.group(0)!;
+        while (salida.length < m.start) {
+          salida.write(' ');
+        }
+        if (salida.length > 0 && !salida.toString().endsWith(' ')) {
+          salida.write(' ');
+        }
+        salida.write(nuevo);
+      }
+      lineas[e.key] = salida.toString();
+    }
+    return lineas.join('\n');
   }
 }
 
@@ -2252,6 +2719,88 @@ bool audioYaEsEstandar(String nombre, Uint8List bytes) {
       bytes.length <= kMaxBytesAudio;
 }
 
+/// Lo más grande que se deja ELEGIR en Android antes de comprimir: un WAV de 10
+/// minutos pesa unos 100 MB. Lo que finalmente se sube nunca pasa de
+/// [kMaxBytesAudio].
+const int kMaxBytesAudioOriginal = 200 * 1024 * 1024;
+
+/// Bitrate al que Android comprime las secuencias (AAC de 128 kbps: suena como
+/// un MP3 de 192 y pesa ~1 MB por minuto).
+const int kKbpsAudioAndroid = 128;
+
+/// El texto para quien eligió un audio que el compresor no pudo procesar.
+/// [codigo] viene de CompresorAudio.kt: `muy_largo` (no entra en el tamaño
+/// permitido ni con el bitrate más bajo) o cualquier otro (formato o frecuencia
+/// que Android no sabe codificar).
+String mensajeErrorAudio(AppLocalizations l, String codigo) =>
+    codigo == 'muy_largo'
+        ? l.audioMuyLargo(SecuenciasService.formatearMb(kMaxBytesAudio))
+        : l.audioNoSoportado;
+
+/// El compresor no pudo con este audio.
+class ErrorCompresionAudio implements Exception {
+  final String codigo;
+  const ErrorCompresionAudio(this.codigo);
+
+  @override
+  String toString() => mensajeErrorAudio(L10n.t, codigo);
+}
+
+/// Qué hizo el compresor con un audio.
+class AudioComprimido {
+  /// Ya era liviano (con pérdidas y de bitrate bajo): no se tocó y se sube el original.
+  final bool omitido;
+  final int kbps;
+  const AudioComprimido({required this.omitido, required this.kbps});
+}
+
+/// Compresor de audio de Android (CompresorAudio.kt): pasa WAV, MP3, M4A, OGG o
+/// FLAC a AAC dentro de un .m4a con los codificadores del sistema. En la web lo
+/// hace conversor_mp3.js; en otras plataformas no hay compresor.
+class CompresorAudio {
+  static const _canal = MethodChannel('soundcheckpro/audio');
+  static void Function(double)? _alAvanzar;
+  static bool _escuchando = false;
+
+  static bool get disponible =>
+      !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+
+  /// Comprime [entrada] en [salida] (si no la omite). [maxBytes] es el tamaño
+  /// al que apunta: baja el bitrate si hace falta para que entre.
+  static Future<AudioComprimido> comprimir(
+    String entrada,
+    String salida, {
+    required int maxBytes,
+    int kbps = kKbpsAudioAndroid,
+    void Function(double progreso)? alAvanzar,
+  }) async {
+    _alAvanzar = alAvanzar;
+    if (!_escuchando) {
+      _escuchando = true;
+      _canal.setMethodCallHandler((llamada) async {
+        if (llamada.method == 'progreso') {
+          _alAvanzar?.call((llamada.arguments as num).toDouble());
+        }
+      });
+    }
+    try {
+      final r = await _canal.invokeMapMethod<String, dynamic>('comprimir', {
+        'entrada': entrada,
+        'salida': salida,
+        'kbps': kbps,
+        'maxBytes': maxBytes,
+      });
+      return AudioComprimido(
+          omitido: r?['omitido'] == true,
+          kbps: (r?['kbps'] as num?)?.toInt() ?? kbps);
+    } on PlatformException catch (e) {
+      throw ErrorCompresionAudio(e.code);
+    } finally {
+      _alAvanzar = null;
+    }
+  }
+}
+
 /// Huella digital (SHA-256, en hexadecimal) del contenido de un archivo: dos
 /// archivos idénticos byte a byte tienen la misma. Se guarda en los datos de
 /// cada PDF y secuencia para poder medir cuántos se repiten y, más adelante,
@@ -3068,6 +3617,177 @@ void rwFadeOut(double segundos) => _soloWeb();
 ({double posicion, double duracion, bool sonando, bool termino}) rwEstado() =>
     _soloWeb();
 
+// --- MOTORES DE AUDIO DE LAS SECUENCIAS (ANDROID) ---
+
+/// Cuánto hay que multiplicar la frecuencia para subir [semitonos] (negativos
+/// bajan): +12 es el doble (una octava), −12 la mitad.
+double factorDeTono(int semitonos) => pow(2, semitonos / 12).toDouble();
+
+/// El estado de just_audio expresado como el de audioplayers (el que usa el
+/// resto del código). [detenido]: la pista se detuvo a propósito, así que no
+/// cuenta como en pausa. Al terminar, just_audio deja `playing` en verdadero:
+/// por eso "terminó" se mira primero.
+PlayerState estadoDesdeJustAudio(ja.PlayerState s, {required bool detenido}) {
+  if (s.processingState == ja.ProcessingState.completed) {
+    return PlayerState.completed;
+  }
+  if (detenido || s.processingState == ja.ProcessingState.idle) {
+    return PlayerState.stopped;
+  }
+  return s.playing ? PlayerState.playing : PlayerState.paused;
+}
+
+/// Lo que [ReproductorSecuencias] necesita de un reproductor nativo. Hay dos
+/// motores: [MotorNativo] (audioplayers: arranca casi al instante con la pista
+/// ya preparada, pero solo cambia el tempo) y [MotorConTono] (just_audio:
+/// cambia el tono sin tocar el tempo, pero abre el archivo al dar play). Se usa
+/// el segundo solo cuando se pide un tono distinto del original.
+abstract class MotorAudio {
+  Stream<PlayerState> get estados;
+  Stream<Duration> get posiciones;
+  Stream<Duration> get duraciones;
+  Future<void> pausar();
+  Future<void> reanudar();
+  Future<void> detener();
+  Future<void> irA(Duration destino);
+  Future<void> volumen(double valor);
+  Future<void> tempo(double valor);
+  Future<void> repetir(bool si);
+  Future<void> soltar();
+}
+
+/// El reproductor de siempre (audioplayers): pistas preparadas, tempo sin tono.
+class MotorNativo implements MotorAudio {
+  final AudioPlayer reproductor;
+  MotorNativo(this.reproductor);
+
+  @override
+  Stream<PlayerState> get estados => reproductor.onPlayerStateChanged;
+  @override
+  Stream<Duration> get posiciones => reproductor.onPositionChanged;
+  @override
+  Stream<Duration> get duraciones => reproductor.onDurationChanged;
+  @override
+  Future<void> pausar() => reproductor.pause();
+  @override
+  Future<void> reanudar() => reproductor.resume();
+  @override
+  Future<void> detener() => reproductor.stop();
+  @override
+  Future<void> irA(Duration destino) => reproductor.seek(destino);
+  @override
+  Future<void> volumen(double valor) => reproductor.setVolume(valor);
+  @override
+  Future<void> tempo(double valor) => reproductor.setPlaybackRate(valor);
+  @override
+  Future<void> repetir(bool si) =>
+      reproductor.setReleaseMode(si ? ReleaseMode.loop : ReleaseMode.stop);
+  @override
+  Future<void> soltar() => reproductor.dispose();
+}
+
+/// Reproductor con tono y tempo independientes (just_audio, ExoPlayer de
+/// Android). Traduce sus estados a los de audioplayers para que el resto del
+/// código no note la diferencia.
+class MotorConTono implements MotorAudio {
+  final ja.AudioPlayer _p = ja.AudioPlayer();
+  final StreamController<PlayerState> _estados =
+      StreamController<PlayerState>.broadcast();
+  StreamSubscription<ja.PlayerState>? _sub;
+
+  /// Después de detener la pista no se considera ni en pausa ni sonando.
+  bool _detenido = true;
+  bool _soltado = false;
+
+  MotorConTono() {
+    _sub = _p.playerStateStream.listen((s) => _estados.add(_traducir(s)));
+  }
+
+  PlayerState _traducir(ja.PlayerState s) =>
+      estadoDesdeJustAudio(s, detenido: _detenido);
+
+  /// Abre la pista (del celular si [ruta] no es null, si no por red) con todos
+  /// los ajustes, en la posición [desde], y la hace sonar si [reproducir].
+  /// Devuelve la duración.
+  Future<Duration?> abrir(
+    String? ruta,
+    String url, {
+    required double tempo,
+    required int semitonos,
+    required double volumen,
+    required bool repetir,
+    Duration desde = Duration.zero,
+    bool reproducir = true,
+  }) async {
+    _detenido = false;
+    final duracion =
+        ruta != null ? await _p.setFilePath(ruta) : await _p.setUrl(url);
+    await _p.setSpeed(tempo);
+    await _p.setPitch(factorDeTono(semitonos));
+    await _p.setVolume(volumen);
+    await _p.setLoopMode(repetir ? ja.LoopMode.one : ja.LoopMode.off);
+    if (desde > Duration.zero) await _p.seek(desde);
+    if (reproducir) _tocar();
+    return duracion;
+  }
+
+  /// `play()` de just_audio termina cuando la pista termina o se pausa: no se
+  /// espera.
+  void _tocar() {
+    unawaited(_p.play().catchError((Object e) {
+      debugPrint('Error al reproducir con tono: $e');
+    }));
+  }
+
+  Future<void> tono(int semitonos) => _p.setPitch(factorDeTono(semitonos));
+
+  @override
+  Stream<PlayerState> get estados => _estados.stream;
+  @override
+  Stream<Duration> get posiciones => _p.positionStream;
+  @override
+  Stream<Duration> get duraciones =>
+      _p.durationStream.where((d) => d != null).map((d) => d!);
+  @override
+  Future<void> pausar() => _p.pause();
+  @override
+  Future<void> reanudar() async {
+    _detenido = false;
+    // Si la pista había terminado o se detuvo, vuelve a empezar.
+    if (_p.processingState == ja.ProcessingState.completed) {
+      await _p.seek(Duration.zero);
+    }
+    _tocar();
+  }
+
+  @override
+  Future<void> detener() async {
+    _detenido = true;
+    await _p.pause();
+    await _p.seek(Duration.zero);
+    _estados.add(PlayerState.stopped);
+  }
+
+  @override
+  Future<void> irA(Duration destino) => _p.seek(destino);
+  @override
+  Future<void> volumen(double valor) => _p.setVolume(valor);
+  @override
+  Future<void> tempo(double valor) => _p.setSpeed(valor);
+  @override
+  Future<void> repetir(bool si) =>
+      _p.setLoopMode(si ? ja.LoopMode.one : ja.LoopMode.off);
+
+  @override
+  Future<void> soltar() async {
+    if (_soltado) return;
+    _soltado = true;
+    await _sub?.cancel();
+    await _estados.close();
+    await _p.dispose();
+  }
+}
+
 /// Reproductor compartido por la pestaña Secuencias de la sala y por "Mis
 /// secuencias": una sola pista a la vez (dar play a otra corta la anterior).
 /// Cada dispositivo reproduce por su cuenta — no se sincroniza el play entre
@@ -3077,10 +3797,13 @@ void rwFadeOut(double segundos) => _soloWeb();
 /// Tono y tempo independientes (como Music Speed Changer): en web se usa el
 /// reproductor de web/reproductor_secuencias.js (reproduce mientras baja;
 /// tempo del navegador, tono con SoundTouch), que es único para toda la
-/// página; fuera de la web, audioplayers, que solo cambia el tempo
-/// (soportaTono = false).
+/// página; en Android, audioplayers (pistas preparadas, arranque casi
+/// instantáneo, solo cambia el tempo) y, cuando se pide un tono distinto del
+/// original, just_audio (tono y tempo independientes; ver [MotorConTono]).
 class ReproductorSecuencias extends ChangeNotifier {
-  static bool get soportaTono => puente.reproductorWebDisponible;
+  static bool get soportaTono =>
+      puente.reproductorWebDisponible ||
+      (!kIsWeb && defaultTargetPlatform == TargetPlatform.android);
 
   /// En web hay un solo reproductor JS para toda la página: el último que
   /// cargó una pista es el "dueño"; si otro toma el control, este queda
@@ -3088,7 +3811,14 @@ class ReproductorSecuencias extends ChangeNotifier {
   static ReproductorSecuencias? _duenoWeb;
 
   final bool _web = puente.reproductorWebDisponible;
-  AudioPlayer? _player;
+
+  /// El motor que está a cargo de la pista actual.
+  MotorAudio? _player;
+
+  /// El motor de tono (se crea la primera vez que se pide un tono) y el
+  /// nativo que se dejó guardado mientras suena el de tono.
+  MotorConTono? _motorTono;
+  MotorNativo? _motorNativoGuardado;
   final List<StreamSubscription> _subs = [];
   Timer? _sondeo;
 
@@ -3114,28 +3844,28 @@ class ReproductorSecuencias extends ChangeNotifier {
   ReproductorSecuencias() {
     _cambiosCache.addListener(notifyListeners);
     if (_web) return;
-    final player = AudioPlayer();
+    final player = MotorNativo(AudioPlayer());
     _player = player;
     _suscribir(player);
   }
 
   /// Escucha los eventos de [player] (y deja de escuchar al anterior): es el
   /// reproductor que está a cargo de la pista actual.
-  void _suscribir(AudioPlayer player) {
+  void _suscribir(MotorAudio player) {
     for (final s in _subs) {
       s.cancel();
     }
     _subs.clear();
-    _subs.add(player.onPlayerStateChanged.listen((s) {
+    _subs.add(player.estados.listen((s) {
       estado = s;
       if (s == PlayerState.completed) posicion = Duration.zero;
       notifyListeners();
     }));
-    _subs.add(player.onPositionChanged.listen((p) {
+    _subs.add(player.posiciones.listen((p) {
       posicion = p;
       notifyListeners();
     }));
-    _subs.add(player.onDurationChanged.listen((d) {
+    _subs.add(player.duraciones.listen((d) {
       duracion = d;
       notifyListeners();
     }));
@@ -3386,7 +4116,7 @@ class ReproductorSecuencias extends ChangeNotifier {
   void _cancelarFadeNativo() {
     _fadeNativo?.cancel();
     _fadeNativo = null;
-    if (!_web && enFadeOut) _player!.setVolume(volumen);
+    if (!_web && enFadeOut) _player!.volumen(volumen);
     enFadeOut = false;
   }
 
@@ -3413,7 +4143,7 @@ class ReproductorSecuencias extends ChangeNotifier {
           estado = PlayerState.paused;
           notifyListeners();
         } else {
-          await _player!.pause();
+          await _player!.pausar();
         }
       } else {
         if (_web) {
@@ -3422,7 +4152,7 @@ class ReproductorSecuencias extends ChangeNotifier {
           _empezarSondeo();
           notifyListeners();
         } else {
-          await _player!.resume();
+          await _player!.reanudar();
         }
       }
       return;
@@ -3451,7 +4181,22 @@ class ReproductorSecuencias extends ChangeNotifier {
         duracion = Duration(milliseconds: (segundos * 1000).round());
         estado = PlayerState.playing;
         _empezarSondeo();
+      } else if (soportaTono && this.semitonos != 0) {
+        // Un tono distinto del original: lo hace just_audio, que abre el
+        // archivo al dar play (tarda un poco más que una pista preparada).
+        _urlActual = url;
+        await _pasarAMotorConTono();
+        final d = await _motorTono!.abrir(
+          await _rutaEnCache(url),
+          url,
+          tempo: this.tempo,
+          semitonos: this.semitonos,
+          volumen: this.volumen,
+          repetir: repetir,
+        );
+        duracion = d ?? duracion;
       } else {
+        await _pasarAMotorNativo();
         final listo = _listos.remove(url);
         final urlAnterior = _urlActual;
         _urlActual = url;
@@ -3459,29 +4204,29 @@ class ReproductorSecuencias extends ChangeNotifier {
           // Ya está abierta y preparada: solo falta arrancar. La anterior se
           // corta sin esperarla y se repone en segundo plano.
           final anterior = _player!;
-          _player = listo;
-          _suscribir(listo);
+          final nuevo = MotorNativo(listo);
+          _player = nuevo;
+          _suscribir(nuevo);
           unawaited(() async {
-            await anterior.stop();
-            await anterior.dispose();
+            await anterior.detener();
+            await anterior.soltar();
             if (urlAnterior != null) await _prepararListo(urlAnterior);
           }());
-          await listo
-              .setReleaseMode(repetir ? ReleaseMode.loop : ReleaseMode.stop);
-          await listo.setVolume(this.volumen);
-          await listo.setPlaybackRate(this.tempo);
-          await listo.resume();
+          await nuevo.repetir(repetir);
+          await nuevo.volumen(this.volumen);
+          await nuevo.tempo(this.tempo);
+          await nuevo.reanudar();
           duracion = await listo.getDuration() ?? Duration.zero;
         } else {
-          await _player!.stop();
-          await _player!
-              .setReleaseMode(repetir ? ReleaseMode.loop : ReleaseMode.stop);
-          await _player!.setVolume(this.volumen);
+          final nativo = _player! as MotorNativo;
+          await nativo.detener();
+          await nativo.repetir(repetir);
+          await nativo.volumen(this.volumen);
           // Si la pista ya está en el celular suena de ahí (sin red).
           final local = await _rutaEnCache(url);
-          await _player!
+          await nativo.reproductor
               .play(local != null ? DeviceFileSource(local) : UrlSource(url));
-          await _player!.setPlaybackRate(this.tempo);
+          await nativo.tempo(this.tempo);
         }
       }
     } finally {
@@ -3519,11 +4264,68 @@ class ReproductorSecuencias extends ChangeNotifier {
         if (cambioTono) puente.rwSemitonos(semitonos);
         if (cambioVolumen) puente.rwVolumen(volumen);
       }
+    } else if (cambioTono && soportaTono && _player is! MotorConTono) {
+      // Es la primera vez que se pide un tono para esta pista: pasa al motor
+      // de tono en el mismo punto, y suena o queda en pausa como estaba.
+      await _cambiarAMotorConTono();
     } else {
-      if (cambioTempo) await _player!.setPlaybackRate(tempo);
-      if (cambioVolumen && !enFadeOut) await _player!.setVolume(volumen);
+      if (cambioTono && _player is MotorConTono) {
+        await _motorTono!.tono(semitonos);
+      }
+      if (cambioTempo) await _player!.tempo(tempo);
+      if (cambioVolumen && !enFadeOut) await _player!.volumen(volumen);
     }
     notifyListeners();
+  }
+
+  /// Pasa a sonar con [MotorConTono] (si no lo estaba): corta el motor nativo
+  /// y deja listo el de tono.
+  Future<void> _pasarAMotorConTono() async {
+    if (_player is MotorConTono) return;
+    final nativo = _player;
+    await nativo?.detener();
+    if (nativo is MotorNativo) _motorNativoGuardado = nativo;
+    final tono = _motorTono ??= MotorConTono();
+    _player = tono;
+    _suscribir(tono);
+  }
+
+  /// Vuelve al motor nativo (si sonaba el de tono) para una pista nueva sin
+  /// tono.
+  Future<void> _pasarAMotorNativo() async {
+    if (_player is! MotorConTono) return;
+    await _player!.detener();
+    final nativo = _motorNativoGuardado ?? MotorNativo(AudioPlayer());
+    _motorNativoGuardado = null;
+    _player = nativo;
+    _suscribir(nativo);
+  }
+
+  /// La pista actual ya estaba sonando (o en pausa) con el motor nativo y se
+  /// pidió un tono: sigue en la misma posición con el motor de tono.
+  Future<void> _cambiarAMotorConTono() async {
+    final url = _urlActual;
+    if (url == null) return;
+    final desde = posicion;
+    final sonaba = estado == PlayerState.playing;
+    _cancelarFadeNativo();
+    await _pasarAMotorConTono();
+    cargando = true;
+    notifyListeners();
+    try {
+      await _motorTono!.abrir(
+        await _rutaEnCache(url),
+        url,
+        tempo: tempo,
+        semitonos: semitonos,
+        volumen: volumen,
+        repetir: repetir,
+        desde: desde,
+        reproducir: sonaba,
+      );
+    } finally {
+      cargando = false;
+    }
   }
 
   /// Baja el volumen hasta silencio en [duracionFadeOut] y frena, para
@@ -3542,12 +4344,12 @@ class ReproductorSecuencias extends ChangeNotifier {
     var paso = 0;
     _fadeNativo = Timer.periodic(duracionFadeOut ~/ pasos, (t) async {
       paso++;
-      await _player!.setVolume(volumen * (1 - paso / pasos));
+      await _player!.volumen(volumen * (1 - paso / pasos));
       if (paso >= pasos) {
         t.cancel();
         _fadeNativo = null;
-        await _player!.stop();
-        await _player!.setVolume(volumen);
+        await _player!.detener();
+        await _player!.volumen(volumen);
         enFadeOut = false;
         posicion = Duration.zero;
         notifyListeners();
@@ -3562,7 +4364,7 @@ class ReproductorSecuencias extends ChangeNotifier {
       _sondeo?.cancel();
       estado = PlayerState.stopped;
     } else {
-      await _player!.stop();
+      await _player!.detener();
     }
     posicion = Duration.zero;
     notifyListeners();
@@ -3574,7 +4376,7 @@ class ReproductorSecuencias extends ChangeNotifier {
       posicion = destino;
       notifyListeners();
     } else {
-      await _player!.seek(destino);
+      await _player!.irA(destino);
     }
   }
 
@@ -3583,8 +4385,7 @@ class ReproductorSecuencias extends ChangeNotifier {
     if (_web) {
       if (_duenoWeb == this) puente.rwRepetir(repetir);
     } else {
-      await _player!
-          .setReleaseMode(repetir ? ReleaseMode.loop : ReleaseMode.stop);
+      await _player!.repetir(repetir);
     }
     notifyListeners();
   }
@@ -3607,7 +4408,9 @@ class ReproductorSecuencias extends ChangeNotifier {
     for (final s in _subs) {
       s.cancel();
     }
-    _player?.dispose();
+    for (final motor in {_player, _motorTono, _motorNativoGuardado}) {
+      motor?.soltar();
+    }
     super.dispose();
   }
 }
@@ -3913,6 +4716,7 @@ class _SoundCheckProAppState extends State<SoundCheckProApp> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      navigatorKey: navegadorGlobal,
       debugShowCheckedModeBanner: false,
 
       title: 'Sound Check Pro',
@@ -3937,17 +4741,18 @@ class _SoundCheckProAppState extends State<SoundCheckProApp> {
       onGenerateTitle: (context) => context.l10n.nombreApp,
       builder: (context, child) {
         L10n.t = AppLocalizations.of(context);
-        return CapasGlobales(
-            child: ColoredBox(
-                color: Theme.of(context).scaffoldBackgroundColor,
-                child: Align(
-                  alignment: Alignment.topCenter,
-                  child: ConstrainedBox(
-                    constraints:
-                        const BoxConstraints(maxWidth: kAnchoMaximoContenido),
-                    child: child ?? const SizedBox.shrink(),
-                  ),
-                )));
+        return EscuchaCompartidos(
+            child: CapasGlobales(
+                child: ColoredBox(
+                    color: Theme.of(context).scaffoldBackgroundColor,
+                    child: Align(
+                      alignment: Alignment.topCenter,
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(
+                            maxWidth: kAnchoMaximoContenido),
+                        child: child ?? const SizedBox.shrink(),
+                      ),
+                    ))));
       },
 
       home: const SplashScreen(),
@@ -5128,6 +5933,54 @@ class BotonIrAPedidos extends StatelessWidget {
       );
 }
 
+/// Botón de desplazamiento automático de los visores: activa o pausa el
+/// avance y deja elegir la velocidad (lento, normal o rápido).
+class BotonAutoDesplazar extends StatelessWidget {
+  final bool activo;
+  final double velocidad;
+  final VoidCallback alAlternar;
+  final ValueChanged<double> alElegirVelocidad;
+  const BotonAutoDesplazar({
+    super.key,
+    required this.activo,
+    required this.velocidad,
+    required this.alAlternar,
+    required this.alElegirVelocidad,
+  });
+
+  /// Puntos por segundo de cada velocidad.
+  static const lenta = 12.0;
+  static const normal = 24.0;
+  static const rapida = 48.0;
+
+  @override
+  Widget build(BuildContext context) => Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          IconButton(
+            icon: Icon(activo ? Icons.pause_circle : Icons.play_circle),
+            tooltip: context.l10n.autoDesplazamiento,
+            color: activo ? context.acento : null,
+            onPressed: alAlternar,
+          ),
+          PopupMenuButton<double>(
+            tooltip: context.l10n.autoDesplazamiento,
+            icon: const Icon(Icons.speed),
+            initialValue: velocidad,
+            onSelected: alElegirVelocidad,
+            itemBuilder: (context) => [
+              PopupMenuItem(
+                  value: lenta, child: Text(context.l10n.velocidadLenta)),
+              PopupMenuItem(
+                  value: normal, child: Text(context.l10n.velocidadNormal)),
+              PopupMenuItem(
+                  value: rapida, child: Text(context.l10n.velocidadRapida)),
+            ],
+          ),
+        ],
+      );
+}
+
 /// Sobre la pestaña Pedidos: botón para volver al último PDF/cifrado que se
 /// estaba viendo (lo mismo que deslizar hacia abajo).
 class ConBotonVolverAlVisor extends StatelessWidget {
@@ -5928,83 +6781,86 @@ class IngressMenuScreen extends StatelessWidget {
           ),
         ],
       ),
-      body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) => SingleChildScrollView(
-            padding: rellenoFormulario(context),
-            child: ConstrainedBox(
-              constraints:
-                  BoxConstraints(minHeight: constraints.maxHeight - 48),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const LogoApp(tamano: 96),
-                  const SizedBox(height: 24),
-                  const Text(
-                    'SOUND CHECK PRO',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                        fontSize: 28,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 2),
-                  ),
-                  if (registrado) ...[
-                    const SizedBox(height: 8),
-                    Text(
-                      context.l10n
-                          .sesion(user!.email ?? user.displayName ?? user.uid),
+      body: GuiaPrimeraVez(
+        child: SafeArea(
+          child: LayoutBuilder(
+            builder: (context, constraints) => SingleChildScrollView(
+              padding: rellenoFormulario(context),
+              child: ConstrainedBox(
+                constraints:
+                    BoxConstraints(minHeight: constraints.maxHeight - 48),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const LogoApp(tamano: 96),
+                    const SizedBox(height: 24),
+                    const Text(
+                      'SOUND CHECK PRO',
                       textAlign: TextAlign.center,
-                      style: const TextStyle(fontSize: 12, color: Colors.grey),
+                      style: TextStyle(
+                          fontSize: 28,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 2),
                     ),
-                  ],
-                  const SizedBox(height: 48),
-                  FilledButton.icon(
-                    icon: const Icon(Icons.add),
-                    label: Text(context.l10n.crearNuevaSala),
-                    onPressed: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (_) => const CrearSalaScreen())),
-                    style: FilledButton.styleFrom(
-                        padding: const EdgeInsets.all(16)),
-                  ),
-                  const SizedBox(height: 12),
-                  OutlinedButton.icon(
-                    icon: const Icon(Icons.login),
-                    label: Text(context.l10n.unirmeASala),
-                    onPressed: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (_) => const UnirmeSalaScreen())),
-                    style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.all(16)),
-                  ),
-                  const SizedBox(height: 12),
-                  if (registrado) ...[
-                    OutlinedButton.icon(
-                      icon: const Icon(Icons.history),
-                      label: Text(context.l10n.misSalas),
+                    if (registrado) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        context.l10n.sesion(
+                            user!.email ?? user.displayName ?? user.uid),
+                        textAlign: TextAlign.center,
+                        style:
+                            const TextStyle(fontSize: 12, color: Colors.grey),
+                      ),
+                    ],
+                    const SizedBox(height: 48),
+                    FilledButton.icon(
+                      icon: const Icon(Icons.add),
+                      label: Text(context.l10n.crearNuevaSala),
                       onPressed: () => Navigator.push(
                           context,
                           MaterialPageRoute(
-                              builder: (_) => const MisSalasScreen())),
+                              builder: (_) => const CrearSalaScreen())),
+                      style: FilledButton.styleFrom(
+                          padding: const EdgeInsets.all(16)),
+                    ),
+                    const SizedBox(height: 12),
+                    OutlinedButton.icon(
+                      icon: const Icon(Icons.login),
+                      label: Text(context.l10n.unirmeASala),
+                      onPressed: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) => const UnirmeSalaScreen())),
+                      style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.all(16)),
+                    ),
+                    const SizedBox(height: 12),
+                    if (registrado) ...[
+                      OutlinedButton.icon(
+                        icon: const Icon(Icons.history),
+                        label: Text(context.l10n.misSalas),
+                        onPressed: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (_) => const MisSalasScreen())),
+                        style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.all(16)),
+                      ),
+                    ],
+                    const SizedBox(height: 12),
+                    OutlinedButton.icon(
+                      icon: const Icon(Icons.tune),
+                      label: Text(context.l10n.accesoSonidista),
+                      onPressed: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) => const SonidistaPinScreen())),
                       style: OutlinedButton.styleFrom(
                           padding: const EdgeInsets.all(16)),
                     ),
                   ],
-                  const SizedBox(height: 12),
-                  OutlinedButton.icon(
-                    icon: const Icon(Icons.tune),
-                    label: Text(context.l10n.accesoSonidista),
-                    onPressed: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (_) => const SonidistaPinScreen())),
-                    style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.all(16)),
-                  ),
-                ],
+                ),
               ),
             ),
           ),
@@ -6012,6 +6868,225 @@ class IngressMenuScreen extends StatelessWidget {
       ),
     );
   }
+}
+
+// --- ARCHIVOS COMPARTIDOS DESDE OTRAS APPS (ANDROID) ---
+
+/// Navegador de toda la app: sirve para abrir pantallas desde fuera del árbol
+/// de widgets (por ejemplo al recibir un archivo compartido).
+final GlobalKey<NavigatorState> navegadorGlobal = GlobalKey<NavigatorState>();
+
+/// Un archivo que otra app compartió con Sound Check Pro.
+class ArchivoCompartido {
+  final String nombre;
+  final Uint8List bytes;
+  const ArchivoCompartido(this.nombre, this.bytes);
+}
+
+/// Recibe lo que otra app comparte ("Compartir → Sound Check Pro"): PDF,
+/// archivos de texto y texto suelto. El lado Android es MainActivity.kt.
+class ArchivosCompartidos {
+  static const _canal = MethodChannel('soundcheckpro/compartir');
+
+  /// Los archivos pendientes, que se entregan una sola vez.
+  static Future<List<ArchivoCompartido>> tomar() async {
+    if (kIsWeb) return const [];
+    try {
+      final r = await _canal.invokeMethod<List<dynamic>>('tomarArchivos');
+      return [
+        for (final e in r ?? const [])
+          ArchivoCompartido((e as Map)['nombre'] as String,
+              Uint8List.fromList((e['bytes'] as List).cast<int>()))
+      ];
+    } catch (_) {
+      return const [];
+    }
+  }
+}
+
+/// Mientras la app está abierta, atiende lo que le comparten: al arrancar y
+/// cada vez que Android avisa que llegó algo nuevo, abre "Mi repertorio" con
+/// esos archivos para subirlos.
+class EscuchaCompartidos extends StatefulWidget {
+  final Widget child;
+  const EscuchaCompartidos({super.key, required this.child});
+
+  @override
+  State<EscuchaCompartidos> createState() => _EscuchaCompartidosState();
+}
+
+class _EscuchaCompartidosState extends State<EscuchaCompartidos> {
+  @override
+  void initState() {
+    super.initState();
+    if (kIsWeb) return;
+    ArchivosCompartidos._canal.setMethodCallHandler((llamada) async {
+      if (llamada.method == 'hayArchivos') await _atender();
+    });
+    // Después del primer cuadro, cuando la app ya eligió su pantalla inicial.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Future.delayed(const Duration(milliseconds: 1500), _atender);
+    });
+  }
+
+  Future<void> _atender() async {
+    final archivos = await ArchivosCompartidos.tomar();
+    if (archivos.isEmpty) return;
+    navegadorGlobal.currentState?.push(MaterialPageRoute(
+        builder: (_) => MiRepertorioScreen(compartidos: archivos)));
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
+}
+
+// --- PRIMERA VEZ GUIADA Y ESTADOS VACÍOS ---
+
+/// Clave donde se recuerda que la persona ya vio la guía de bienvenida.
+const String kClaveGuiaVista = 'guia_primera_vez_vista';
+
+/// Guía corta de cómo funciona la app: tres pasos. Se muestra sola la primera
+/// vez que se llega al menú principal y se puede volver a abrir desde el menú.
+Future<void> mostrarGuiaDeBienvenida(BuildContext context) {
+  Widget paso(BuildContext context, IconData icono, String texto) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icono, color: context.acento),
+            const SizedBox(width: 12),
+            Expanded(child: Text(texto)),
+          ],
+        ),
+      );
+  return showDialog<void>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: Text(context.l10n.guiaTitulo),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            paso(context, Icons.groups, context.l10n.guiaPaso1),
+            paso(context, Icons.bolt, context.l10n.guiaPaso2),
+            paso(context, Icons.library_music, context.l10n.guiaPaso3),
+          ],
+        ),
+      ),
+      actions: [
+        FilledButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(context.l10n.entendido)),
+      ],
+    ),
+  );
+}
+
+/// Cómo instalar la web como app en el celular (en iPhone no hay un botón
+/// automático: hay que usar "Agregar a pantalla de inicio" de Safari).
+Future<void> mostrarComoInstalar(BuildContext context) => showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(context.l10n.instalarAppTitulo),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(context.l10n.instalarIphone),
+            const SizedBox(height: 12),
+            Text(context.l10n.instalarAndroid),
+          ],
+        ),
+        actions: [
+          FilledButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text(context.l10n.entendido)),
+        ],
+      ),
+    );
+
+/// Muestra la guía de bienvenida una sola vez, la primera vez que se abre el
+/// menú principal con sesión (o como invitado).
+class GuiaPrimeraVez extends StatefulWidget {
+  final Widget child;
+  const GuiaPrimeraVez({super.key, required this.child});
+
+  @override
+  State<GuiaPrimeraVez> createState() => _GuiaPrimeraVezState();
+}
+
+class _GuiaPrimeraVezState extends State<GuiaPrimeraVez> {
+  @override
+  void initState() {
+    super.initState();
+    _mostrarSiHaceFalta();
+  }
+
+  Future<void> _mostrarSiHaceFalta() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (prefs.getBool(kClaveGuiaVista) ?? false) return;
+      await prefs.setBool(kClaveGuiaVista, true);
+    } catch (_) {
+      return; // sin almacenamiento no se insiste
+    }
+    if (!mounted) return;
+    await mostrarGuiaDeBienvenida(context);
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
+}
+
+/// Pantalla vacía con un ícono, un título, una ayuda corta y, si corresponde,
+/// el botón que lleva a hacer lo que falta.
+class EstadoVacio extends StatelessWidget {
+  final IconData icono;
+  final String titulo;
+  final String? ayuda;
+  final String? textoBoton;
+  final VoidCallback? alTocarBoton;
+  const EstadoVacio({
+    super.key,
+    required this.icono,
+    required this.titulo,
+    this.ayuda,
+    this.textoBoton,
+    this.alTocarBoton,
+  });
+
+  @override
+  Widget build(BuildContext context) => Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icono,
+                  size: 56, color: context.acento.withValues(alpha: 0.7)),
+              const SizedBox(height: 16),
+              Text(titulo,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                      fontSize: 18, fontWeight: FontWeight.w600)),
+              if (ayuda != null) ...[
+                const SizedBox(height: 8),
+                Text(ayuda!,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(fontSize: 14, color: Colors.grey)),
+              ],
+              if (textoBoton != null && alTocarBoton != null) ...[
+                const SizedBox(height: 20),
+                FilledButton.icon(
+                  icon: const Icon(Icons.upload_file),
+                  label: Text(textoBoton!),
+                  onPressed: alTocarBoton,
+                ),
+              ],
+            ],
+          ),
+        ),
+      );
 }
 
 // --- SELECTOR DE IDENTIDAD DE COLOR ---
@@ -6046,6 +7121,10 @@ class MenuHamburguesa extends StatelessWidget {
           Navigator.push(context, MaterialPageRoute(builder: (_) => pantalla));
         } else if (valor == 'salir') {
           alSalir?.call();
+        } else if (valor == 'guia') {
+          mostrarGuiaDeBienvenida(context);
+        } else if (valor == 'instalar') {
+          mostrarComoInstalar(context);
         }
       },
       itemBuilder: (context) => [
@@ -6057,6 +7136,10 @@ class MenuHamburguesa extends StatelessWidget {
               value: 'secuencias', child: Text(context.l10n.misSecuencias2)),
         ],
         _ItemConfiguracion(conCuenta: conCuenta),
+        PopupMenuItem(value: 'guia', child: Text(context.l10n.comoFunciona)),
+        if (kIsWeb)
+          PopupMenuItem(
+              value: 'instalar', child: Text(context.l10n.instalarApp)),
         if (conCuenta)
           PopupMenuItem(value: 'salir', child: Text(context.l10n.cerrarSesion)),
       ],
@@ -6883,8 +7966,10 @@ class MisSalasScreen extends StatelessWidget {
                     }
                     final docs = snapshot.data!.docs;
                     if (docs.isEmpty) {
-                      return Center(
-                          child: Text(context.l10n.todaviaNoEntrasteANinguna));
+                      return EstadoVacio(
+                          icono: Icons.history,
+                          titulo: context.l10n.vacioSalasTitulo,
+                          ayuda: context.l10n.vacioSalasAyuda);
                     }
                     return ListView.separated(
                       itemCount: docs.length,
@@ -7402,11 +8487,7 @@ class _RequestScreenState extends State<RequestScreen>
       appBar: AppBar(
         title: InkWell(
           borderRadius: BorderRadius.circular(12),
-          onTap: () {
-            Clipboard.setData(ClipboardData(text: widget.codigoSala));
-            ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text(context.l10n.codigoDeSalaCopiado)));
-          },
+          onTap: () => mostrarCompartirSala(context, widget.codigoSala),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -8262,7 +9343,10 @@ class SetlistTab extends StatelessWidget {
           final docs = snapshot.data!.docs;
 
           if (docs.isEmpty) {
-            return Center(child: Text(context.l10n.todaviaNoHayTemasEn));
+            return EstadoVacio(
+                icono: Icons.queue_music,
+                titulo: context.l10n.vacioSetlistTitulo,
+                ayuda: context.l10n.vacioSetlistAyuda);
           }
 
           // Los PDF del setlist se guardan en el celular para abrirlos sin red.
@@ -9273,7 +10357,11 @@ class FrasesAdminScreen extends StatelessWidget {
 // --- MI REPERTORIO (BIBLIOTECA PERSONAL DE PARTITURAS) ---
 
 class MiRepertorioScreen extends StatefulWidget {
-  const MiRepertorioScreen({super.key});
+  /// Archivos que otra app compartió con Sound Check Pro (PDF o texto): al
+  /// abrir la pantalla se ofrecen para subir.
+  final List<ArchivoCompartido> compartidos;
+
+  const MiRepertorioScreen({super.key, this.compartidos = const []});
 
   @override
   State<MiRepertorioScreen> createState() => _MiRepertorioScreenState();
@@ -9281,6 +10369,27 @@ class MiRepertorioScreen extends StatefulWidget {
 
 class _MiRepertorioScreenState extends State<MiRepertorioScreen> {
   bool _subiendo = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.compartidos.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        final usuario = AuthService.currentUser;
+        if (!mounted || usuario == null || usuario.isAnonymous) return;
+        final cola = await _colaDeArchivos([
+          for (final a in widget.compartidos) (nombre: a.nombre, bytes: a.bytes)
+        ]);
+        if (!mounted) return;
+        if (cola.isEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(context.l10n.importarSinCanciones)));
+          return;
+        }
+        await _procesarCola(usuario.uid, cola);
+      });
+    }
+  }
 
   final _busquedaTituloController = TextEditingController();
 
@@ -9336,6 +10445,12 @@ class _MiRepertorioScreenState extends State<MiRepertorioScreen> {
 
     if (cola.isEmpty || !mounted) return;
 
+    await _procesarCola(uid, cola);
+  }
+
+  /// Sube de a una las canciones de [cola], preguntando por cada una (ver
+  /// procesarColaDeSubida), y avisa cuántas se subieron, omitieron o quedaron.
+  Future<void> _procesarCola(String uid, List<PdfPorSubir> cola) async {
     final resumen = await procesarColaDeSubida<PdfPorSubir>(
       cola,
       confirmar: (pdf, indice, total) async {
@@ -9414,6 +10529,130 @@ class _MiRepertorioScreenState extends State<MiRepertorioScreen> {
     }
   }
 
+  /// Copia el repertorio (título, tonalidad y cifrado de cada canción) en
+  /// ChordPro o en una copia de respaldo y lo comparte; si no se puede
+  /// compartir (por ejemplo en algunos navegadores) lo deja en el portapapeles.
+  Future<void> _exportar(String uid, {required bool respaldo}) async {
+    final snap = await FirebaseFirestore.instance
+        .collection('usuarios')
+        .doc(uid)
+        .collection('mi_repertorio')
+        .get();
+    final canciones = [
+      for (final d in snap.docs)
+        if ((d.data()['cifradoTexto'] as String? ?? '').trim().isNotEmpty)
+          CancionTexto(
+              (d.data()['titulo'] as String? ?? '').trim(),
+              (d.data()['tonalidad'] as String? ?? '').trim(),
+              d.data()['cifradoTexto'] as String)
+    ]..sort((a, b) =>
+        normalizarBusqueda(a.titulo).compareTo(normalizarBusqueda(b.titulo)));
+    if (!mounted) return;
+    if (canciones.isEmpty) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(context.l10n.nadaParaExportar)));
+      return;
+    }
+    final texto = respaldo
+        ? CopiaRepertorio.exportar(canciones)
+        : ChordPro.exportarVarias(canciones);
+    final nombre =
+        respaldo ? 'sound-check-pro-respaldo.json' : 'repertorio.cho';
+    try {
+      await Share.shareXFiles([
+        XFile.fromData(Uint8List.fromList(utf8.encode(texto)),
+            mimeType: respaldo ? 'application/json' : 'text/plain',
+            name: nombre)
+      ]);
+    } catch (_) {
+      await Clipboard.setData(ClipboardData(text: texto));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(context.l10n.copiadoAlPortapapeles)));
+      }
+    }
+  }
+
+  /// Pasa archivos a canciones para subir: los PDF van tal cual; los de texto
+  /// (ChordPro, acordes arriba de la letra, copia de respaldo) se convierten en
+  /// un PDF. Los que no se entienden se avisan y se saltean.
+  Future<List<PdfPorSubir>> _colaDeArchivos(
+      List<({String nombre, Uint8List bytes})> archivos) async {
+    const extensiones = ['cho', 'crd', 'chopro', 'pro', 'txt', 'json'];
+    final cola = <PdfPorSubir>[];
+    for (final archivo in archivos) {
+      final ext = archivo.nombre.contains('.')
+          ? archivo.nombre.split('.').last.toLowerCase()
+          : '';
+      if (ext == 'pdf') {
+        cola.add(PdfPorSubir(archivo.nombre, archivo.bytes));
+        continue;
+      }
+      if (!extensiones.contains(ext)) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+              content: Text(context.l10n.importarArchivoMal(archivo.nombre))));
+        }
+        continue;
+      }
+      final texto = utf8.decode(archivo.bytes, allowMalformed: true);
+      final canciones = ext == 'json'
+          ? CopiaRepertorio.importar(texto)
+          : ChordPro.importar(texto,
+              titulo: tituloDesdeArchivo(archivo.nombre));
+      if (canciones == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+              content: Text(context.l10n.importarArchivoMal(archivo.nombre))));
+        }
+        continue;
+      }
+      for (final c in canciones) {
+        if (c.cifrado.trim().isEmpty) continue;
+        final pdf = PdfPorSubir(
+            '${c.titulo}.pdf', await pdfDesdeCifrado(c.titulo, c.cifrado));
+        pdf.titulo = c.titulo;
+        pdf.tonalidad = c.tonalidad;
+        pdf.cifrado = c.cifrado;
+        pdf.preparado = true;
+        cola.add(pdf);
+      }
+    }
+    return cola;
+  }
+
+  /// Importa canciones de archivos ChordPro, de texto con los acordes arriba
+  /// de la letra o de una copia de respaldo: cada una se convierte en un PDF y
+  /// entra por la misma cola de subida (se confirma título y tonalidad).
+  Future<void> _importar(String uid) async {
+    final esPro = kFuncionesProGratisPorAhora ||
+        await UsuarioService.streamEsPro(uid).first;
+    if (!esPro) {
+      if (mounted) await _mostrarUpsellPro(context);
+      return;
+    }
+    // Se piden todos los archivos: Android no deja elegir extensiones que no
+    // conoce (.cho, .crd) si se filtra por extensión; se filtran acá.
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.any,
+      allowMultiple: true,
+      withData: true,
+    );
+    if (result == null || !mounted) return;
+
+    final cola = await _colaDeArchivos([
+      for (final archivo in result.files)
+        if (archivo.bytes != null) (nombre: archivo.name, bytes: archivo.bytes!)
+    ]);
+    if (!mounted) return;
+    if (cola.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(context.l10n.importarSinCanciones)));
+      return;
+    }
+    await _procesarCola(uid, cola);
+  }
+
   /// Pregunta qué hacer con un PDF de la cola: ajustar título y tonalidad
   /// (ya vienen sugeridos) y subirlo, omitirlo o cancelar todos. Sin
   /// autofocus: el teclado solo se abre cuando se toca un campo.
@@ -9422,6 +10661,9 @@ class _MiRepertorioScreenState extends State<MiRepertorioScreen> {
     final tituloController = TextEditingController(text: pdf.titulo);
     final tonalidadController = TextEditingController(text: pdf.tonalidad);
     final formKey = GlobalKey<FormState>();
+    // Acordes que parecen mal escritos ("am", "Hm"...): se ofrece corregirlos.
+    final problemas = RevisorDeAcordes.revisar(pdf.cifrado);
+    var corregir = true;
     final accion = await showDialog<AccionCola>(
       context: context,
       barrierDismissible: false,
@@ -9465,6 +10707,24 @@ class _MiRepertorioScreenState extends State<MiRepertorioScreen> {
                         labelText: context.l10n.tonalidadOpcional,
                         border: const OutlineInputBorder()),
                   ),
+                  if (problemas.isNotEmpty)
+                    StatefulBuilder(
+                      builder: (context, setLocal) => CheckboxListTile(
+                        contentPadding: EdgeInsets.zero,
+                        controlAffinity: ListTileControlAffinity.leading,
+                        value: corregir,
+                        onChanged: (v) => setLocal(() => corregir = v ?? false),
+                        title: Text(
+                            context.l10n.corregirAcordes(
+                                problemas.length,
+                                problemas
+                                    .take(3)
+                                    .map((p) =>
+                                        '${p.original} → ${p.sugerencia}')
+                                    .join(', ')),
+                            style: const TextStyle(fontSize: 13)),
+                      ),
+                    ),
                 ],
               ),
             ),
@@ -9482,6 +10742,9 @@ class _MiRepertorioScreenState extends State<MiRepertorioScreen> {
               if (!(formKey.currentState?.validate() ?? false)) return;
               pdf.titulo = tituloController.text.trim();
               pdf.tonalidad = tonalidadController.text.trim();
+              if (corregir && problemas.isNotEmpty) {
+                pdf.cifrado = RevisorDeAcordes.aplicar(pdf.cifrado);
+              }
               Navigator.pop(context, AccionCola.aceptar);
             },
             child: Text(context.l10n.aceptarYSubir),
@@ -9714,6 +10977,23 @@ class _MiRepertorioScreenState extends State<MiRepertorioScreen> {
               tooltip: context.l10n.regenerarCifradosDesdeLosPdf,
               onPressed: () => _regenerarCifrados(user.uid),
             ),
+          if (user != null && !user.isAnonymous)
+            PopupMenuButton<String>(
+              icon: const Icon(Icons.import_export),
+              onSelected: (v) {
+                if (v == 'cho') _exportar(user.uid, respaldo: false);
+                if (v == 'json') _exportar(user.uid, respaldo: true);
+                if (v == 'importar') _importar(user.uid);
+              },
+              itemBuilder: (context) => [
+                PopupMenuItem(
+                    value: 'cho', child: Text(context.l10n.exportarChordPro)),
+                PopupMenuItem(
+                    value: 'json', child: Text(context.l10n.exportarCopia)),
+                PopupMenuItem(
+                    value: 'importar', child: Text(context.l10n.importarTexto)),
+              ],
+            ),
         ],
       ),
       body: (user == null || user.isAnonymous)
@@ -9840,9 +11120,12 @@ class _MiRepertorioScreenState extends State<MiRepertorioScreen> {
 
                       if (docs.isEmpty) {
                         if (todasLasCanciones.isEmpty) {
-                          return Center(
-                            child: Text(
-                                context.l10n.todaviaNoSubisteNingunaCancion),
+                          return EstadoVacio(
+                            icono: Icons.library_music,
+                            titulo: context.l10n.vacioRepertorioTitulo,
+                            ayuda: context.l10n.vacioRepertorioAyuda,
+                            textoBoton: context.l10n.subirUnPdf,
+                            alTocarBoton: () => _subirNuevaCancion(user.uid),
                           );
                         }
                         return SinResultadosBusqueda(
@@ -10012,18 +11295,22 @@ class _MisSecuenciasScreenState extends State<MisSecuenciasScreen> {
       type: FileType.custom,
       allowedExtensions: SecuenciasService.extensionesPermitidas,
       allowMultiple: true,
-      withData: true,
+      // En Android el compresor lee el archivo por su ruta: no se carga entero
+      // en memoria (un WAV de 10 minutos pesa ~100 MB).
+      withData: !CompresorAudio.disponible,
     );
     if (result == null || result.files.isEmpty) return;
 
     // Supabase gratis rechaza los archivos de más de 50 MB con un error poco
-    // claro. En web se convierten a MP3 antes de subirlos; fuera de la web
-    // (sin conversor) se avisa acá y se sigue con los demás.
+    // claro. En web se convierten a MP3 antes de subirlos y en Android se
+    // comprimen a AAC; fuera de eso (sin conversor) se avisa acá y se sigue con
+    // los demás.
     const limite = SecuenciasService.tamanoMaximoBytes;
+    final tope = CompresorAudio.disponible ? kMaxBytesAudioOriginal : limite;
     var aSubir = result.files;
     if (!puente.conversorMp3Disponible) {
-      final grandes = result.files.where((a) => a.size > limite).toList();
-      aSubir = result.files.where((a) => a.size <= limite).toList();
+      final grandes = result.files.where((a) => a.size > tope).toList();
+      aSubir = result.files.where((a) => a.size <= tope).toList();
       if (grandes.isNotEmpty) {
         if (!mounted) return;
         await showDialog<void>(
@@ -10038,7 +11325,7 @@ class _MisSecuenciasScreenState extends State<MisSecuenciasScreen> {
                       .map((a) =>
                           '• ${a.name} (${SecuenciasService.formatearMb(a.size)})')
                       .join('\n'),
-                  SecuenciasService.formatearMb(limite)),
+                  SecuenciasService.formatearMb(tope)),
             ),
             actions: [
               TextButton(
@@ -10057,14 +11344,20 @@ class _MisSecuenciasScreenState extends State<MisSecuenciasScreen> {
     try {
       for (var i = 0; i < aSubir.length; i++) {
         final archivo = aSubir[i];
-        if (archivo.bytes == null) continue;
+        final enAndroid = CompresorAudio.disponible;
+        if (!enAndroid && archivo.bytes == null) continue;
         final contador =
             aSubir.length > 1 ? ' (${i + 1}/${aSubir.length})' : '';
         final titulo = tituloDesdeArchivo(archivo.name);
         var nombreArchivo = archivo.name;
-        var bytes = archivo.bytes!;
+        var bytes = archivo.bytes ?? Uint8List(0);
         try {
-          if (!audioYaEsEstandar(archivo.name, bytes)) {
+          if (enAndroid) {
+            final listo = await _prepararAudioAndroid(
+                archivo, titulo, contador, convertidos);
+            bytes = listo.bytes;
+            nombreArchivo = listo.nombre;
+          } else if (!audioYaEsEstandar(archivo.name, bytes)) {
             setState(() =>
                 _progresoSubida = context.l10n.convirtiendoAMp3(contador));
             final mp3 = await puente.convertirAMp3(
@@ -10098,6 +11391,10 @@ class _MisSecuenciasScreenState extends State<MisSecuenciasScreen> {
       }
     } finally {
       if (mounted) setState(() => _subiendo = false);
+      // Android: el selector deja una copia de cada archivo elegido.
+      if (CompresorAudio.disponible) {
+        unawaited(FilePicker.platform.clearTemporaryFiles());
+      }
     }
     if (!mounted) return;
     if (convertidos.isNotEmpty || errores.isNotEmpty) {
@@ -10109,7 +11406,10 @@ class _MisSecuenciasScreenState extends State<MisSecuenciasScreen> {
               : context.l10n.algunasSecuenciasNoSeSubieron),
           content: SingleChildScrollView(
             child: Text([
-              if (convertidos.isNotEmpty)
+              if (convertidos.isNotEmpty && CompresorAudio.disponible)
+                context.l10n.seComprimieronAudios(
+                    convertidos.map((c) => '• $c').join('\n'))
+              else if (convertidos.isNotEmpty)
                 context.l10n.seConvirtieronAMp3Porque(
                     SecuenciasService.formatearMb(limite),
                     convertidos.map((c) => '• $c').join('\n')),
@@ -10125,6 +11425,65 @@ class _MisSecuenciasScreenState extends State<MisSecuenciasScreen> {
           ],
         ),
       );
+    }
+  }
+
+  /// Android: deja el audio listo para subir. Un MP3 liviano se sube tal cual;
+  /// cualquier otro se comprime a AAC (.m4a) con el codificador del sistema (un
+  /// WAV de 80 MB queda en ~7 MB). Apunta a [SecuenciasService.tamanoObjetivoMp3Bytes].
+  Future<({Uint8List bytes, String nombre})> _prepararAudioAndroid(
+    PlatformFile archivo,
+    String titulo,
+    String contador,
+    List<String> convertidos,
+  ) async {
+    final ruta = archivo.path;
+    if (ruta == null) throw const ErrorCompresionAudio('error');
+    final original = File(ruta);
+    if (archivo.size <= kMaxBytesAudio) {
+      final bytes = await original.readAsBytes();
+      if (audioYaEsEstandar(archivo.name, bytes)) {
+        return (bytes: bytes, nombre: archivo.name);
+      }
+    }
+    if (mounted) {
+      setState(
+          () => _progresoSubida = context.l10n.comprimiendoAudio(contador));
+    }
+    final carpeta = await getTemporaryDirectory();
+    final salida = File(
+        '${carpeta.path}/scp_audio_${DateTime.now().microsecondsSinceEpoch}.m4a');
+    try {
+      final r = await CompresorAudio.comprimir(
+        ruta,
+        salida.path,
+        maxBytes: SecuenciasService.tamanoObjetivoMp3Bytes,
+        alAvanzar: (p) {
+          if (mounted) {
+            setState(() => _progresoSubida =
+                context.l10n.comprimiendoAudio2((p * 100).round(), contador));
+          }
+        },
+      );
+      if (r.omitido) {
+        // Ya era liviano: se sube el original (si no pasa del máximo).
+        if (archivo.size > kMaxBytesAudio) {
+          throw ArchivoDemasiadoGrande(archivo.size, kMaxBytesAudio);
+        }
+        return (bytes: await original.readAsBytes(), nombre: archivo.name);
+      }
+      final bytes = await salida.readAsBytes();
+      if (bytes.length > kMaxBytesAudio) {
+        throw ArchivoDemasiadoGrande(bytes.length, kMaxBytesAudio);
+      }
+      convertidos.add(
+          '$titulo (${SecuenciasService.formatearMb(archivo.size)} → '
+          '${SecuenciasService.formatearMb(bytes.length)}, ${r.kbps} kbps)');
+      return (bytes: bytes, nombre: '$titulo.m4a');
+    } finally {
+      try {
+        if (await salida.exists()) await salida.delete();
+      } catch (_) {}
     }
   }
 
@@ -10466,6 +11825,72 @@ class _CifradoViewerScreenState extends State<CifradoViewerScreen> {
     widget.onIrAPedidos?.call(widget);
   }
 
+  // ---- Desplazamiento automático y teclas (pedal Bluetooth) ----
+  Timer? _auto;
+  double _puntosPorSegundo = BotonAutoDesplazar.normal;
+
+  void _alternarAuto() {
+    if (_auto != null) {
+      _auto!.cancel();
+      if (mounted) setState(() => _auto = null);
+      return;
+    }
+    setState(() {
+      _auto = Timer.periodic(const Duration(milliseconds: 33), (_) {
+        if (!_scrollVertical.hasClients) return;
+        final p = _scrollVertical.position;
+        final nuevo = p.pixels + _puntosPorSegundo * 0.033;
+        if (nuevo >= p.maxScrollExtent) {
+          _scrollVertical.jumpTo(p.maxScrollExtent);
+          _alternarAuto();
+        } else {
+          _scrollVertical.jumpTo(nuevo);
+        }
+      });
+    });
+  }
+
+  /// Teclas de un pedal Bluetooth (o de un teclado): abajo, página abajo o
+  /// espacio avanzan; arriba y página arriba retroceden; derecha e izquierda
+  /// pasan al tema siguiente o anterior del setlist.
+  KeyEventResult _alTeclado(FocusNode nodo, KeyEvent evento) {
+    if (evento is! KeyDownEvent) return KeyEventResult.ignored;
+    final k = evento.logicalKey;
+    Future<void> mover(int signo) async {
+      if (!_scrollVertical.hasClients) return;
+      final p = _scrollVertical.position;
+      final destino = (p.pixels + signo * p.viewportDimension * 0.85)
+          .clamp(0.0, p.maxScrollExtent);
+      await _scrollVertical.animateTo(destino,
+          duration: const Duration(milliseconds: 250), curve: Curves.easeOut);
+    }
+
+    void cambiarTema(int delta) {
+      final lista = widget.setlistItems;
+      final indice = widget.indiceEnSetlist;
+      if (lista == null || indice == null) return;
+      final nuevo = indice + delta;
+      if (nuevo < 0 || nuevo >= lista.length) return;
+      _navegarAIndice(nuevo);
+    }
+
+    if (k == LogicalKeyboardKey.arrowDown ||
+        k == LogicalKeyboardKey.pageDown ||
+        k == LogicalKeyboardKey.space) {
+      mover(1);
+    } else if (k == LogicalKeyboardKey.arrowUp ||
+        k == LogicalKeyboardKey.pageUp) {
+      mover(-1);
+    } else if (k == LogicalKeyboardKey.arrowRight) {
+      cambiarTema(1);
+    } else if (k == LogicalKeyboardKey.arrowLeft) {
+      cambiarTema(-1);
+    } else {
+      return KeyEventResult.ignored;
+    }
+    return KeyEventResult.handled;
+  }
+
   /// Posición del scroll cuando se apoyó el dedo: si al levantarlo cambió,
   /// el gesto fue para desplazarse por la letra, no un swipe (sin esto,
   /// bajar por la letra arrastrando hacia arriba volvía a Pedidos).
@@ -10478,6 +11903,7 @@ class _CifradoViewerScreenState extends State<CifradoViewerScreen> {
 
   @override
   void dispose() {
+    _auto?.cancel();
     _scrollVertical.dispose();
     _scrollHorizontal.dispose();
     super.dispose();
@@ -10550,6 +11976,12 @@ class _CifradoViewerScreenState extends State<CifradoViewerScreen> {
       appBar: AppBar(
         title: Text(widget.titulo, overflow: TextOverflow.ellipsis),
         actions: [
+          BotonAutoDesplazar(
+            activo: _auto != null,
+            velocidad: _puntosPorSegundo,
+            alAlternar: _alternarAuto,
+            alElegirVelocidad: (v) => setState(() => _puntosPorSegundo = v),
+          ),
           if (widget.puedeTransponer)
             IconButton(
               icon: const Icon(Icons.remove_circle_outline),
@@ -10590,68 +12022,72 @@ class _CifradoViewerScreenState extends State<CifradoViewerScreen> {
       floatingActionButton: widget.onIrAPedidos == null
           ? null
           : BotonIrAPedidos(onPressed: _irAPedidos),
-      body: Listener(
-        onPointerDown: (evento) {
-          _swipe.alBajar(evento);
-          _scrollAlBajar = _posicionScroll;
-        },
+      body: Focus(
+        autofocus: true,
+        onKeyEvent: _alTeclado,
+        child: Listener(
+          onPointerDown: (evento) {
+            _swipe.alBajar(evento);
+            _scrollAlBajar = _posicionScroll;
+          },
 
-        onPointerUp: _manejarSwipe,
+          onPointerUp: _manejarSwipe,
 
-        onPointerCancel: _swipe.alCancelar,
+          onPointerCancel: _swipe.alCancelar,
 
-        // Los acordes quedan alineados con la letra solo si ninguna línea se
-        // parte en dos: se achica la letra para que entre el renglón más
-        // largo (Roboto Mono mide 0,6 veces su tamaño de ancho por carácter)
-        // y, si aun así no entra, se puede desplazar hacia el costado.
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final columnas =
-                texto.split('\n').fold<int>(0, (m, l) => max(m, l.length));
+          // Los acordes quedan alineados con la letra solo si ninguna línea se
+          // parte en dos: se achica la letra para que entre el renglón más
+          // largo (Roboto Mono mide 0,6 veces su tamaño de ancho por carácter)
+          // y, si aun así no entra, se puede desplazar hacia el costado.
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final columnas =
+                  texto.split('\n').fold<int>(0, (m, l) => max(m, l.length));
 
-            final disponible = constraints.maxWidth - 32;
+              final disponible = constraints.maxWidth - 32;
 
-            final tamano = columnas == 0
-                ? 14.0
-                : (disponible / (columnas * 0.6)).clamp(9.0, 14.0);
+              final tamano = columnas == 0
+                  ? 14.0
+                  : (disponible / (columnas * 0.6)).clamp(9.0, 14.0);
 
-            // Ocupa toda la pantalla aunque la letra sea corta: si no, el
-            // scroll medía solo lo que el texto y el swipe no funcionaba
-            // sobre el espacio vacío de abajo.
-            return SizedBox.expand(
-              child: SingleChildScrollView(
-                controller: _scrollVertical,
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (widget.puedeTransponer &&
-                        !ChordTransposer.hayAcordes(texto))
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
-                        child: Text(
-                          context.l10n.noHayAcordesParaTransponer,
+              // Ocupa toda la pantalla aunque la letra sea corta: si no, el
+              // scroll medía solo lo que el texto y el swipe no funcionaba
+              // sobre el espacio vacío de abajo.
+              return SizedBox.expand(
+                child: SingleChildScrollView(
+                  controller: _scrollVertical,
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (widget.puedeTransponer &&
+                          !ChordTransposer.hayAcordes(texto))
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: Text(
+                            context.l10n.noHayAcordesParaTransponer,
+                            style: TextStyle(
+                                color: context.acento,
+                                fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                      SingleChildScrollView(
+                        controller: _scrollHorizontal,
+                        scrollDirection: Axis.horizontal,
+                        child: SelectableText(
+                          texto,
                           style: TextStyle(
-                              color: context.acento,
-                              fontWeight: FontWeight.w600),
+                              fontFamily: 'RobotoMono',
+                              fontSize: tamano,
+                              height: 1.6),
                         ),
                       ),
-                    SingleChildScrollView(
-                      controller: _scrollHorizontal,
-                      scrollDirection: Axis.horizontal,
-                      child: SelectableText(
-                        texto,
-                        style: TextStyle(
-                            fontFamily: 'RobotoMono',
-                            fontSize: tamano,
-                            height: 1.6),
-                      ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-            );
-          },
+              );
+            },
+          ),
         ),
       ),
     );
@@ -10762,6 +12198,64 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
     widget.onIrAPedidos?.call(widget);
   }
 
+  // ---- Desplazamiento automático y teclas (pedal Bluetooth) ----
+  Timer? _auto;
+  double _puntosPorSegundo = BotonAutoDesplazar.normal;
+  int _quietos = 0;
+
+  void _alternarAuto() {
+    if (_auto != null) {
+      _auto!.cancel();
+      if (mounted) setState(() => _auto = null);
+      return;
+    }
+    _quietos = 0;
+    setState(() {
+      _auto = Timer.periodic(const Duration(milliseconds: 33), (_) {
+        final antes = _pdfController.scrollOffset;
+        _pdfController.jumpTo(
+            xOffset: antes.dx, yOffset: antes.dy + _puntosPorSegundo * 0.033);
+        // Si ya no avanza es que se llegó al final: se detiene sola.
+        _quietos = (_pdfController.scrollOffset.dy - antes.dy).abs() < 0.01
+            ? _quietos + 1
+            : 0;
+        if (_quietos >= 15) _alternarAuto();
+      });
+    });
+  }
+
+  /// Teclas de un pedal Bluetooth (o de un teclado): abajo, página abajo o
+  /// espacio pasan de página; arriba y página arriba vuelven; derecha e
+  /// izquierda pasan al tema siguiente o anterior del setlist.
+  KeyEventResult _alTeclado(FocusNode nodo, KeyEvent evento) {
+    if (evento is! KeyDownEvent) return KeyEventResult.ignored;
+    final k = evento.logicalKey;
+    void cambiarTema(int delta) {
+      final lista = widget.setlistItems;
+      final indice = widget.indiceEnSetlist;
+      if (lista == null || indice == null) return;
+      final nuevo = indice + delta;
+      if (nuevo < 0 || nuevo >= lista.length) return;
+      _navegarAIndice(nuevo);
+    }
+
+    if (k == LogicalKeyboardKey.arrowDown ||
+        k == LogicalKeyboardKey.pageDown ||
+        k == LogicalKeyboardKey.space) {
+      _pdfController.nextPage();
+    } else if (k == LogicalKeyboardKey.arrowUp ||
+        k == LogicalKeyboardKey.pageUp) {
+      _pdfController.previousPage();
+    } else if (k == LogicalKeyboardKey.arrowRight) {
+      cambiarTema(1);
+    } else if (k == LogicalKeyboardKey.arrowLeft) {
+      cambiarTema(-1);
+    } else {
+      return KeyEventResult.ignored;
+    }
+    return KeyEventResult.handled;
+  }
+
   /// Al volver de Pedidos, deja el PDF con el zoom y la posición de antes.
   void _restaurarPosicion(PdfDocumentLoadedDetails _) {
     final p = widget.posicion;
@@ -10780,6 +12274,7 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
 
   @override
   void dispose() {
+    _auto?.cancel();
     _pdfController.dispose();
     super.dispose();
   }
@@ -10842,73 +12337,85 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
       backgroundColor: Colors.black,
       appBar: AppBar(
         title: Text(widget.titulo, overflow: TextOverflow.ellipsis),
+        actions: [
+          BotonAutoDesplazar(
+            activo: _auto != null,
+            velocidad: _puntosPorSegundo,
+            alAlternar: _alternarAuto,
+            alElegirVelocidad: (v) => setState(() => _puntosPorSegundo = v),
+          ),
+        ],
       ),
       floatingActionButton: widget.onIrAPedidos == null
           ? null
           : BotonIrAPedidos(onPressed: _irAPedidos),
-      body: Listener(
-        onPointerDown: (evento) {
-          _swipe.alBajar(evento);
-          _scrollAlBajar = _pdfController.scrollOffset;
-        },
-        onPointerUp: _manejarSwipe,
-        onPointerCancel: _swipe.alCancelar,
-        child: _error != null
-            ? Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.error_outline,
-                          color: Colors.redAccent, size: 48),
-                      const SizedBox(height: 12),
-                      Text(
-                        context.l10n.noSePudoCargarEl('$_error'),
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(color: Colors.white),
-                      ),
-                    ],
+      body: Focus(
+        autofocus: true,
+        onKeyEvent: _alTeclado,
+        child: Listener(
+          onPointerDown: (evento) {
+            _swipe.alBajar(evento);
+            _scrollAlBajar = _pdfController.scrollOffset;
+          },
+          onPointerUp: _manejarSwipe,
+          onPointerCancel: _swipe.alCancelar,
+          child: _error != null
+              ? Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.error_outline,
+                            color: Colors.redAccent, size: 48),
+                        const SizedBox(height: 12),
+                        Text(
+                          context.l10n.noSePudoCargarEl('$_error'),
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(color: Colors.white),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              )
-            : !_resuelto
-                ? const Center(child: CircularProgressIndicator())
-                : _bytesLocal != null
-                    ? SfPdfViewer.memory(
-                        _bytesLocal!,
-                        controller: _pdfController,
-                        onDocumentLoaded: _restaurarPosicion,
-                        onZoomLevelChanged: (details) =>
-                            _zoom = details.newZoomLevel,
-                        onDocumentLoadFailed: (details) {
-                          CachePdfs.borrar(widget.pdfUrl);
-                          setState(() => _bytesLocal = null);
-                        },
-                      )
-                    : _rutaLocal != null
-                        ? SfPdfViewer.file(
-                            File(_rutaLocal!),
-                            controller: _pdfController,
-                            onDocumentLoaded: _restaurarPosicion,
-                            onZoomLevelChanged: (details) =>
-                                _zoom = details.newZoomLevel,
-                            onDocumentLoadFailed: (details) {
-                              // Copia dañada: se descarta y se abre por la red.
-                              CachePdfs.borrar(widget.pdfUrl);
-                              setState(() => _rutaLocal = null);
-                            },
-                          )
-                        : SfPdfViewer.network(
-                            widget.pdfUrl,
-                            controller: _pdfController,
-                            onDocumentLoaded: _restaurarPosicion,
-                            onZoomLevelChanged: (details) =>
-                                _zoom = details.newZoomLevel,
-                            onDocumentLoadFailed: (details) {
-                              setState(() => _error = details.description);
-                            },
-                          ),
+                )
+              : !_resuelto
+                  ? const Center(child: CircularProgressIndicator())
+                  : _bytesLocal != null
+                      ? SfPdfViewer.memory(
+                          _bytesLocal!,
+                          controller: _pdfController,
+                          onDocumentLoaded: _restaurarPosicion,
+                          onZoomLevelChanged: (details) =>
+                              _zoom = details.newZoomLevel,
+                          onDocumentLoadFailed: (details) {
+                            CachePdfs.borrar(widget.pdfUrl);
+                            setState(() => _bytesLocal = null);
+                          },
+                        )
+                      : _rutaLocal != null
+                          ? SfPdfViewer.file(
+                              File(_rutaLocal!),
+                              controller: _pdfController,
+                              onDocumentLoaded: _restaurarPosicion,
+                              onZoomLevelChanged: (details) =>
+                                  _zoom = details.newZoomLevel,
+                              onDocumentLoadFailed: (details) {
+                                // Copia dañada: se descarta y se abre por la red.
+                                CachePdfs.borrar(widget.pdfUrl);
+                                setState(() => _rutaLocal = null);
+                              },
+                            )
+                          : SfPdfViewer.network(
+                              widget.pdfUrl,
+                              controller: _pdfController,
+                              onDocumentLoaded: _restaurarPosicion,
+                              onZoomLevelChanged: (details) =>
+                                  _zoom = details.newZoomLevel,
+                              onDocumentLoadFailed: (details) {
+                                setState(() => _error = details.description);
+                              },
+                            ),
+        ),
       ),
     );
   }

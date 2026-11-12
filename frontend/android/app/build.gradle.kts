@@ -10,6 +10,8 @@ plugins {
     // que "Continuar con Google" funcione nativo en Android — sin ese archivo
     // el build falla.
     id("com.google.gms.google-services")
+    // Registro de errores (Crashlytics): ver main.dart, _activarRegistroDeErrores.
+    id("com.google.firebase.crashlytics")
 }
 
 // Firma de release: se lee de android/key.properties, que NO está en Git (ver

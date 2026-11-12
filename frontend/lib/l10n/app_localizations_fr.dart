@@ -1293,4 +1293,135 @@ class AppLocalizationsFr extends AppLocalizations {
   String espacioInsuficiente(Object usado, Object cuota) {
     return 'Espace insuffisant : vous utilisez $usado sur $cuota. Supprimez des morceaux ou des séquences pour libérer de la place.';
   }
+
+  @override
+  String get compartirSalaTitulo => 'Partager la salle';
+
+  @override
+  String get compartirSalaAyuda =>
+      'Scannez le code avec la caméra du téléphone pour rejoindre, ou partagez le lien.';
+
+  @override
+  String corregirAcordes(int cantidad, String ejemplos) {
+    String _temp0 = intl.Intl.pluralLogic(
+      cantidad,
+      locale: localeName,
+      other: 'Corriger $cantidad accords mal écrits',
+      one: 'Corriger 1 accord mal écrit',
+    );
+    return '$_temp0 ($ejemplos)';
+  }
+
+  @override
+  String get exportarChordPro => 'Exporter le répertoire (ChordPro)';
+
+  @override
+  String get exportarCopia => 'Enregistrer une copie de sauvegarde';
+
+  @override
+  String get importarTexto => 'Importer des chansons depuis du texte';
+
+  @override
+  String get nadaParaExportar => 'Aucune chanson avec accords à exporter';
+
+  @override
+  String get importarSinCanciones => 'Aucune chanson trouvée dans les fichiers';
+
+  @override
+  String importarArchivoMal(String archivo) {
+    return 'Impossible de lire $archivo';
+  }
+
+  @override
+  String get guiaTitulo => 'Comment fonctionne Sound Check Pro';
+
+  @override
+  String get guiaPaso1 =>
+      'Créez une salle ou rejoignez-en une avec le code à 8 caractères (ou en scannant le QR). Musiciens et ingénieur du son restent connectés en direct.';
+
+  @override
+  String get guiaPaso2 =>
+      'Envoyez des demandes en un geste à l’ingénieur du son (« plus de guitare », « volume retour ») et voyez quand elles sont vues et traitées.';
+
+  @override
+  String get guiaPaso3 =>
+      'Importez vos PDF de paroles et d’accords dans votre répertoire, composez le setlist de la salle et transposez la tonalité en un geste.';
+
+  @override
+  String get comoFunciona => 'Comment ça marche';
+
+  @override
+  String get vacioRepertorioTitulo => 'Votre répertoire est vide';
+
+  @override
+  String get vacioRepertorioAyuda =>
+      'Importez vos PDF de paroles et d’accords, ou des chansons depuis un fichier texte avec le menu ci-dessus.';
+
+  @override
+  String get subirUnPdf => 'Importer un PDF';
+
+  @override
+  String get vacioSetlistTitulo =>
+      'Aucune chanson dans la liste pour l’instant';
+
+  @override
+  String get vacioSetlistAyuda =>
+      'Touchez + pour ajouter des chansons de votre répertoire ou des bibliothèques de la salle.';
+
+  @override
+  String get vacioSalasTitulo => 'Vous n’avez rejoint aucune salle';
+
+  @override
+  String get vacioSalasAyuda =>
+      'Quand vous rejoindrez une salle, elle apparaîtra ici pour y revenir vite.';
+
+  @override
+  String get instalarApp => 'Installer sur le téléphone';
+
+  @override
+  String get instalarAppTitulo => 'Installer l’application';
+
+  @override
+  String get instalarIphone =>
+      'iPhone : ouvrez cette page dans Safari, touchez Partager et choisissez « Sur l’écran d’accueil ».';
+
+  @override
+  String get instalarAndroid =>
+      'Android : dans Chrome, touchez le menu ⋮ et choisissez « Installer l’application » ou « Ajouter à l’écran d’accueil ».';
+
+  @override
+  String get autoDesplazamiento => 'Défilement automatique';
+
+  @override
+  String get velocidadLenta => 'Lent';
+
+  @override
+  String get velocidadNormal => 'Normal';
+
+  @override
+  String get velocidadRapida => 'Rapide';
+
+  @override
+  String comprimiendoAudio(Object contador) {
+    return 'Compression de l\'audio$contador';
+  }
+
+  @override
+  String comprimiendoAudio2(Object porcentaje, Object contador) {
+    return 'Compression de l\'audio $porcentaje %$contador';
+  }
+
+  @override
+  String seComprimieronAudios(Object lista) {
+    return 'Compressés pour économiser de l\'espace (AAC, jusqu\'à 128 kbps) :\n$lista';
+  }
+
+  @override
+  String get audioNoSoportado =>
+      'Impossible de lire cet audio. Essayez un MP3 ou un WAV 16 bits.';
+
+  @override
+  String audioMuyLargo(Object limite) {
+    return 'Cet audio est trop long pour tenir dans $limite. Essayez un audio plus court ou découpez-le.';
+  }
 }

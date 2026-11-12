@@ -2245,6 +2245,210 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'No hay espacio suficiente: usás {usado} de {cuota}. Eliminá canciones o secuencias para liberar lugar.'**
   String espacioInsuficiente(Object usado, Object cuota);
+
+  /// No description provided for @compartirSalaTitulo.
+  ///
+  /// In es, this message translates to:
+  /// **'Compartir sala'**
+  String get compartirSalaTitulo;
+
+  /// No description provided for @compartirSalaAyuda.
+  ///
+  /// In es, this message translates to:
+  /// **'Escaneá el código con la cámara del celular para unirte, o compartí el enlace.'**
+  String get compartirSalaAyuda;
+
+  /// No description provided for @corregirAcordes.
+  ///
+  /// In es, this message translates to:
+  /// **'{cantidad, plural, =1{Corregir 1 acorde mal escrito} other{Corregir {cantidad} acordes mal escritos}} ({ejemplos})'**
+  String corregirAcordes(int cantidad, String ejemplos);
+
+  /// No description provided for @exportarChordPro.
+  ///
+  /// In es, this message translates to:
+  /// **'Exportar repertorio (ChordPro)'**
+  String get exportarChordPro;
+
+  /// No description provided for @exportarCopia.
+  ///
+  /// In es, this message translates to:
+  /// **'Guardar copia de respaldo'**
+  String get exportarCopia;
+
+  /// No description provided for @importarTexto.
+  ///
+  /// In es, this message translates to:
+  /// **'Importar canciones de texto'**
+  String get importarTexto;
+
+  /// No description provided for @nadaParaExportar.
+  ///
+  /// In es, this message translates to:
+  /// **'No hay canciones con cifrado para exportar'**
+  String get nadaParaExportar;
+
+  /// No description provided for @importarSinCanciones.
+  ///
+  /// In es, this message translates to:
+  /// **'No se encontraron canciones en los archivos'**
+  String get importarSinCanciones;
+
+  /// No description provided for @importarArchivoMal.
+  ///
+  /// In es, this message translates to:
+  /// **'No se pudo leer {archivo}'**
+  String importarArchivoMal(String archivo);
+
+  /// No description provided for @guiaTitulo.
+  ///
+  /// In es, this message translates to:
+  /// **'Así funciona Sound Check Pro'**
+  String get guiaTitulo;
+
+  /// No description provided for @guiaPaso1.
+  ///
+  /// In es, this message translates to:
+  /// **'Creá una sala o unite con el código de 8 caracteres (o escaneando el QR). Los músicos y el sonidista quedan conectados en vivo.'**
+  String get guiaPaso1;
+
+  /// No description provided for @guiaPaso2.
+  ///
+  /// In es, this message translates to:
+  /// **'Mandá pedidos de un toque al sonidista (\"más guitarra\", \"volumen retorno\") y mirá cuándo los ve y los atiende.'**
+  String get guiaPaso2;
+
+  /// No description provided for @guiaPaso3.
+  ///
+  /// In es, this message translates to:
+  /// **'Subí tus PDF de letra y acordes a tu repertorio, armá el setlist de la sala y transponé el tono con un toque.'**
+  String get guiaPaso3;
+
+  /// No description provided for @comoFunciona.
+  ///
+  /// In es, this message translates to:
+  /// **'Cómo funciona'**
+  String get comoFunciona;
+
+  /// No description provided for @vacioRepertorioTitulo.
+  ///
+  /// In es, this message translates to:
+  /// **'Tu repertorio está vacío'**
+  String get vacioRepertorioTitulo;
+
+  /// No description provided for @vacioRepertorioAyuda.
+  ///
+  /// In es, this message translates to:
+  /// **'Subí tus PDF de letra y acordes, o importá canciones de un archivo de texto desde el menú de arriba.'**
+  String get vacioRepertorioAyuda;
+
+  /// No description provided for @subirUnPdf.
+  ///
+  /// In es, this message translates to:
+  /// **'Subir un PDF'**
+  String get subirUnPdf;
+
+  /// No description provided for @vacioSetlistTitulo.
+  ///
+  /// In es, this message translates to:
+  /// **'Todavía no hay temas en la lista'**
+  String get vacioSetlistTitulo;
+
+  /// No description provided for @vacioSetlistAyuda.
+  ///
+  /// In es, this message translates to:
+  /// **'Tocá + para sumar canciones de tu repertorio o de las bibliotecas de la sala.'**
+  String get vacioSetlistAyuda;
+
+  /// No description provided for @vacioSalasTitulo.
+  ///
+  /// In es, this message translates to:
+  /// **'Todavía no entraste a ninguna sala'**
+  String get vacioSalasTitulo;
+
+  /// No description provided for @vacioSalasAyuda.
+  ///
+  /// In es, this message translates to:
+  /// **'Cuando entres a una sala va a aparecer acá para volver rápido.'**
+  String get vacioSalasAyuda;
+
+  /// No description provided for @instalarApp.
+  ///
+  /// In es, this message translates to:
+  /// **'Instalar en el celular'**
+  String get instalarApp;
+
+  /// No description provided for @instalarAppTitulo.
+  ///
+  /// In es, this message translates to:
+  /// **'Instalar la app'**
+  String get instalarAppTitulo;
+
+  /// No description provided for @instalarIphone.
+  ///
+  /// In es, this message translates to:
+  /// **'iPhone: abrí esta página en Safari, tocá Compartir y elegí \"Agregar a pantalla de inicio\".'**
+  String get instalarIphone;
+
+  /// No description provided for @instalarAndroid.
+  ///
+  /// In es, this message translates to:
+  /// **'Android: en Chrome tocá el menú ⋮ y elegí \"Instalar app\" o \"Agregar a pantalla de inicio\".'**
+  String get instalarAndroid;
+
+  /// No description provided for @autoDesplazamiento.
+  ///
+  /// In es, this message translates to:
+  /// **'Desplazamiento automático'**
+  String get autoDesplazamiento;
+
+  /// No description provided for @velocidadLenta.
+  ///
+  /// In es, this message translates to:
+  /// **'Lento'**
+  String get velocidadLenta;
+
+  /// No description provided for @velocidadNormal.
+  ///
+  /// In es, this message translates to:
+  /// **'Normal'**
+  String get velocidadNormal;
+
+  /// No description provided for @velocidadRapida.
+  ///
+  /// In es, this message translates to:
+  /// **'Rápido'**
+  String get velocidadRapida;
+
+  /// No description provided for @comprimiendoAudio.
+  ///
+  /// In es, this message translates to:
+  /// **'Comprimiendo audio{contador}'**
+  String comprimiendoAudio(Object contador);
+
+  /// No description provided for @comprimiendoAudio2.
+  ///
+  /// In es, this message translates to:
+  /// **'Comprimiendo audio {porcentaje}%{contador}'**
+  String comprimiendoAudio2(Object porcentaje, Object contador);
+
+  /// No description provided for @seComprimieronAudios.
+  ///
+  /// In es, this message translates to:
+  /// **'Se comprimieron para ahorrar espacio (AAC, hasta 128 kbps):\n{lista}'**
+  String seComprimieronAudios(Object lista);
+
+  /// No description provided for @audioNoSoportado.
+  ///
+  /// In es, this message translates to:
+  /// **'No se pudo leer este audio. Probá con un MP3 o un WAV de 16 bits.'**
+  String get audioNoSoportado;
+
+  /// No description provided for @audioMuyLargo.
+  ///
+  /// In es, this message translates to:
+  /// **'Este audio dura demasiado para entrar en {limite}. Probá con uno más corto o dividilo en partes.'**
+  String audioMuyLargo(Object limite);
 }
 
 class _AppLocalizationsDelegate
