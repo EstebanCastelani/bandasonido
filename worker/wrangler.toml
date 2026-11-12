@@ -1,0 +1,16 @@
+# Configuración del servidor de archivos (ver README.md). Se despliega con
+#   npx wrangler deploy
+name = "sound-check-pro-archivos"
+main = "src/index.js"
+compatibility_date = "2026-11-01"
+
+# Id del proyecto de Firebase (el token de cada persona se verifica contra él).
+[vars]
+FIREBASE_PROJECT_ID = "appbandasonido"
+# Sitios que pueden subir y borrar desde un navegador (separados por coma).
+ORIGENES_PERMITIDOS = "https://estebancastelani.github.io,http://localhost:5000"
+
+# Bucket de R2 donde viven los archivos (se crea en el panel de Cloudflare).
+[[r2_buckets]]
+binding = "BUCKET"
+bucket_name = "sound-check-pro-archivos"
