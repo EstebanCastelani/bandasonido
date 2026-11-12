@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'dart:convert';
+
 import 'dart:io' show Directory, File;
 
 import 'dart:math';
@@ -30,6 +32,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'package:google_sign_in/google_sign_in.dart';
+
+import 'package:crypto/crypto.dart' show sha256;
 
 import 'package:http/http.dart' as http;
 
@@ -2248,6 +2252,21 @@ bool audioYaEsEstandar(String nombre, Uint8List bytes) {
       bytes.length <= kMaxBytesAudio;
 }
 
+/// Huella digital (SHA-256, en hexadecimal) del contenido de un archivo: dos
+/// archivos idénticos byte a byte tienen la misma. Se guarda en los datos de
+/// cada PDF y secuencia para poder medir cuántos se repiten y, más adelante,
+/// guardar una sola copia (ver PLAN_COSTOS.md, sección 10). Por ahora no se
+/// usa para nada más.
+String huellaDeArchivo(Uint8List bytes) => sha256.convert(bytes).toString();
+
+/// Respuesta al desafío del servidor para enlazar una copia ya existente: la
+/// huella de cada trozo [desde, largo] pedido. Solo quien tiene el archivo
+/// completo puede calcularlas.
+List<String> respuestasAlDesafio(Uint8List bytes, List<List<int>> trozos) => [
+      for (final t in trozos)
+        huellaDeArchivo(Uint8List.sublistView(bytes, t[0], t[0] + t[1]))
+    ];
+
 /// Rechaza un PDF de más de [kMaxBytesPdf] con [ArchivoDemasiadoGrande].
 /// No se intenta recomprimirlo: probado con Syncfusion, al volver a guardar un
 /// PDF existente conserva sus flujos tal cual y el tamaño no baja. Los PDF que
@@ -2347,7 +2366,44 @@ class ArchivosR2 {
     final r =
         await http.put(uri(ruta), headers: await _cabeceras(tipo), body: bytes);
     if (r.statusCode != 200 && r.statusCode != 201) throw errorDe(r);
-    return uri(ruta).toString();
+    return (jsonDecode(r.body) as Map<String, dynamic>)['url'] as String;
+  }
+
+  /// Enlaza [ruta] a una copia que el servidor ya tiene del mismo archivo, sin
+  /// volver a subirlo. El servidor pide la huella de unos trozos al azar del
+  /// archivo: solo quien lo tiene puede responder. Devuelve la dirección de la
+  /// copia, o null si no existe o algo falló (entonces se sube normalmente).
+  /// Si la cuenta no tiene espacio lanza [EspacioInsuficiente].
+  static Future<String?> vincular(
+      String ruta, Uint8List bytes, String huella) async {
+    try {
+      final cabeceras = {
+        ...await _cabeceras('application/json'),
+      };
+      final ini = await http.post(Uri.parse('$kR2WorkerUrl/vincular/iniciar'),
+          headers: cabeceras,
+          body: jsonEncode({'sha256': huella, 'ruta': ruta}));
+      if (ini.statusCode != 200) return null; // 404: no existe, hay que subirlo
+      final d = jsonDecode(ini.body) as Map<String, dynamic>;
+      final trozos = [
+        for (final t in d['rangos'] as List)
+          [for (final n in t as List) (n as num).toInt()]
+      ];
+      final fin = await http.post(Uri.parse('$kR2WorkerUrl/vincular/confirmar'),
+          headers: cabeceras,
+          body: jsonEncode({
+            'id': d['id'],
+            'respuestas': respuestasAlDesafio(bytes, trozos)
+          }));
+      if (fin.statusCode == 507) throw errorDe(fin);
+      if (fin.statusCode != 201) return null;
+      return (jsonDecode(fin.body) as Map<String, dynamic>)['url'] as String;
+    } on EspacioInsuficiente {
+      rethrow;
+    } catch (e) {
+      debugPrint('No se pudo enlazar a una copia existente: $e');
+      return null;
+    }
   }
 
   static Future<void> borrar(String ruta) async {
@@ -2369,9 +2425,12 @@ class ArchivosR2 {
 Future<({String proveedor, String url})> subirArchivo(
     String ruta, Uint8List bytes, String tipo) async {
   if (ArchivosR2.disponible) {
+    // Si el servidor ya tiene una copia idéntica no se sube nada: se enlaza.
+    final copia =
+        await ArchivosR2.vincular(ruta, bytes, huellaDeArchivo(bytes));
     return (
       proveedor: kProveedorR2,
-      url: await ArchivosR2.subir(ruta, bytes, tipo)
+      url: copia ?? await ArchivosR2.subir(ruta, bytes, tipo)
     );
   }
   await supabase.storage.from(kSupabaseRepertorioBucket).uploadBinary(
@@ -2569,6 +2628,7 @@ class RepertorioService {
       'storagePath': storagePath,
       'storageProvider': subido.proveedor,
       'bytes': bytes.length,
+      'sha256': huellaDeArchivo(bytes),
       'cifradoTexto': cifradoTexto,
       'cifradoVersion': kVersionCifrado,
       'createdAt': FieldValue.serverTimestamp(),
@@ -2880,6 +2940,7 @@ class SecuenciasService {
       'storagePath': storagePath,
       'storageProvider': subido.proveedor,
       'bytes': bytes.length,
+      'sha256': huellaDeArchivo(bytes),
       'createdAt': FieldValue.serverTimestamp(),
     });
     CuotaArchivos.sumar(uid, bytes.length);

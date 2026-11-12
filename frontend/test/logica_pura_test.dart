@@ -1075,6 +1075,52 @@ Tu gloria llena la tierra///
       expect(otro.toString(), contains('500'));
     });
 
+    test('huellaDeArchivo: SHA-256 conocido, estable y sensible a un solo byte',
+        () {
+      // Vectores de la especificación de SHA-256.
+      expect(huellaDeArchivo(Uint8List(0)),
+          'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855');
+      expect(huellaDeArchivo(Uint8List.fromList('abc'.codeUnits)),
+          'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad');
+      final a = Uint8List.fromList(List.generate(1000, (i) => i % 256));
+      final b = Uint8List.fromList(a)..[500] ^= 1;
+      expect(huellaDeArchivo(a), huellaDeArchivo(Uint8List.fromList(a)));
+      expect(huellaDeArchivo(a), isNot(huellaDeArchivo(b)));
+      expect(huellaDeArchivo(a), hasLength(64));
+    });
+
+    test('respuestasAlDesafio: una huella por trozo, dependiente del contenido',
+        () {
+      final a = Uint8List.fromList(List.generate(500, (i) => i % 251));
+      final r = respuestasAlDesafio(a, [
+        [0, 64],
+        [100, 64],
+        [436, 64],
+      ]);
+      expect(r, hasLength(3));
+      expect(r[0], huellaDeArchivo(Uint8List.sublistView(a, 0, 64)));
+      expect(r[2], huellaDeArchivo(Uint8List.sublistView(a, 436, 500)));
+      expect(r.toSet(), hasLength(3));
+      // Un archivo distinto en esos trozos da otras respuestas.
+      final b = Uint8List.fromList(a)..[10] ^= 1;
+      expect(
+          respuestasAlDesafio(b, [
+            [0, 64]
+          ]),
+          isNot([r[0]]));
+      expect(
+          respuestasAlDesafio(b, [
+            [100, 64]
+          ]),
+          [r[1]]);
+    });
+
+    test('huellaDeArchivo de un audio de 30 MB tarda poco', () {
+      final reloj = Stopwatch()..start();
+      huellaDeArchivo(Uint8List(kMaxBytesAudio));
+      expect(reloj.elapsedMilliseconds, lessThan(3000));
+    });
+
     test('validarPesoPdf deja pasar hasta 5 MB y rechaza lo que pase', () {
       validarPesoPdf(Uint8List(1000));
       validarPesoPdf(Uint8List(kMaxBytesPdf));
