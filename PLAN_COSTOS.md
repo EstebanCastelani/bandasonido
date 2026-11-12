@@ -88,6 +88,17 @@ Orden recomendado: 0 → 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8. Esfuerzo: 
 - Aviso de presupuesto configurado y probado.
 - Hay un tablero (o una planilla) con MB guardados, descargas y lecturas de Firestore por mes.
 
+## 8b. Estado (11-nov-2026, rama `desarrollo`, sin publicar)
+| Fase | Estado |
+|---|---|
+| 0 Medir y proteger | **Parcial**: topes por archivo (5 MB PDF, 30 MB audio) y tamaño guardado en cada archivo. Faltan las alertas de presupuesto 🔑 |
+| 1 Cuotas por cuenta | **Hecha en la app y en el servidor** (500 MB, una sola cuota; falta decidir gratis vs Pro 🔑). El servidor no está desplegado |
+| 2 Archivos más livianos | **Hecha en la web** (MP3 ≤ 192 kbps). **Android no puede convertir**; el PDF no se puede recomprimir (probado) |
+| 3 Almacenamiento nuevo | **Código y pruebas listos** (`worker/` + `ArchivosR2`); falta la cuenta de Cloudflare, desplegar y compilar con `R2_WORKER_URL` 🔑 |
+| 4 a 8 | Sin empezar |
+| 6 Firestore | **Topes puestos** en 6 escuchas; falta el Historial (B-16) y revisar la región 🔑 |
+| Caché | Carpeta persistente y más retención, hecho |
+
 ## 9. Qué se puede hacer ya, sin esperar decisiones
 - **B-39 (parte de auditoría):** contar escuchas y lecturas por pantalla y poner topes que no cambian el comportamiento.
 - **B-33 (parte de código):** registrar tamaño y cantidad por cuenta; dejar el tope de PDF configurable.

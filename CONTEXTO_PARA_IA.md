@@ -874,6 +874,27 @@ registrada sin chequear `esPro` — ver §8 para cómo revertir esto.
     llama a `guardarLocal` para sembrar la caché de quien sube. En web no se usa nada de esto (reproductor
     JS aparte). Trampas: no pasar a `PlayerMode.lowLatency` (es para sonidos cortos) y no olvidar que el
     evento de duración de un reproductor preparado llega antes de suscribirse (se lee con `getDuration`).
+49. **Archivos: límites, cuota y R2 (11-nov-2026, rama `desarrollo`)**: sección nueva `// --- ARCHIVOS: LÍMITES,
+    CUOTAS, COMPRESIÓN Y ALMACENAMIENTO ---` en `main.dart` (antes de SERVICIO DE REPERTORIO): topes
+    `kMaxBytesPdf` (5 MB), `kMaxBytesAudio` (30 MB), `kKbpsMaximoAudio` (192), `kCuotaBytesPorUsuario` (500 MB);
+    `validarPesoPdf`, `kbpsDeMp3` y `audioYaEsEstandar` (puras, probadas); `CuotaArchivos` (suma el campo `bytes` de
+    `mi_repertorio` y `mis_secuencias`, se lee una vez por sesión y se ajusta con cada subida/borrado; los documentos
+    viejos sin `bytes` cuentan 0; es un aviso, el tope real lo pone el servidor); `ArchivosR2` + `subirArchivo`,
+    `borrarArchivoDe`, `bajarArchivoDe` (todo el acceso a Supabase/R2/Firebase Storage pasa por estas tres; `eliminarCancion`,
+    `eliminarSecuencia`, `CuentaService._borrarArchivo` y `regenerarCifrados` las usan). `kR2WorkerUrl` sale de
+    `--dart-define=R2_WORKER_URL`: vacío = Supabase. Excepciones `ArchivoDemasiadoGrande` y `EspacioInsuficiente`
+    (mensajes en los 5 idiomas, también las construye `ArchivosR2.errorDe` desde los códigos 413 y 507 del servidor).
+    **Compresión de PDF: probada y descartada**: Syncfusion al volver a guardar un PDF existente conserva sus
+    flujos y el tamaño no baja, así que solo se valida el peso. **Audio**: la web convierte todo lo que no sea ya un MP3
+    ≤ 192 kbps (`convertirAMp3(..., kbpsMaximo:)` en `conversor_mp3.js`; nunca sube el bitrate original); Android no puede
+    convertir (no hay codificador), solo acepta archivos de hasta 30 MB. **Cachés**: `carpetaDeCache` usa la carpeta de
+    datos de la app (`path_provider`, nueva dependencia directa) y no la temporal; `CachePdfs` guarda 100 PDF,
+    `ReproductorSecuencias` 30 pistas. **Firestore**: constantes `kMaximoSetlist`, `kMaximoSecuenciasSala`, `kMaximoBiblioteca`,
+    `kMaximoFrases`, `kMaximoSalasHistorial` como `.limit()` de las escuchas; el Historial de pedidos sigue sin tope (B-16, necesita
+    índice). **Servidor**: `worker/` (Cloudflare Worker + R2; `node --test` corre 24 pruebas sin cuenta de Cloudflare; ver
+    `worker/README.md` para desplegar). Los topes de `worker/src/index.js` deben coincidir con los de `main.dart`.
+    Trampa de la rama: `applicationId` es `com.soundcheckpro.app` y falta su `google-services.json`; para compilar y probar
+    en el celular se cambió a mano al id viejo y se volvió a poner.
 47. **Botón flotante Pedidos ⇄ visor (2-nov-2026, prueba de diseño)**: `BotonIrAPedidos` es el
     `floatingActionButton` de `PdfViewerScreen` y `CifradoViewerScreen` (llama a `onIrAPedidos`, igual
     que el swipe); `ConBotonVolverAlVisor` envuelve la pestaña Pedidos (músico y sonidista) y, si hay
