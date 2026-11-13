@@ -3877,6 +3877,18 @@ class ReproductorSecuencias extends ChangeNotifier {
     await _prepararListos();
   }
 
+  /// Si la pista que suena viene de la red, la guarda en el celular en segundo
+  /// plano: la próxima vez suena de ahí y no vuelve a gastar datos ni cuota del
+  /// servidor. Respeta el tope de pistas guardadas (se borran las más viejas).
+  static void guardarSiFalta(String url) {
+    if (kIsWeb || puente.reproductorWebDisponible || url.isEmpty) return;
+    unawaited(() async {
+      if (await _rutaEnCache(url) != null) return;
+      await (_descargas[url] ??= _descargar(url));
+      if (_enCache.contains(url)) await _limpiarCache({..._urlsSala, url});
+    }());
+  }
+
   /// Guarda en el celular una pista que ya está en memoria (la que se acaba
   /// de subir), como si se hubiera bajado.
   static Future<void> guardarLocal(String url, Uint8List bytes) async {
@@ -4107,6 +4119,7 @@ class ReproductorSecuencias extends ChangeNotifier {
           repetir: repetir,
         );
         duracion = d ?? duracion;
+        guardarSiFalta(url);
       } else {
         await _pasarAMotorNativo();
         final listo = _listos.remove(url);
@@ -4139,6 +4152,7 @@ class ReproductorSecuencias extends ChangeNotifier {
           await nativo.reproductor
               .play(local != null ? DeviceFileSource(local) : UrlSource(url));
           await nativo.tempo(this.tempo);
+          if (local == null) guardarSiFalta(url);
         }
       }
     } finally {
@@ -12325,8 +12339,16 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
   void initState() {
     super.initState();
     Future(() async {
-      final ruta = await CachePdfs.ruta(widget.pdfUrl);
-      final bytes = ruta == null ? await CachePdfs.bytes(widget.pdfUrl) : null;
+      var ruta = await CachePdfs.ruta(widget.pdfUrl);
+      var bytes = ruta == null ? await CachePdfs.bytes(widget.pdfUrl) : null;
+      if (ruta == null && bytes == null && widget.pdfUrl.isNotEmpty) {
+        // No estaba guardado (p. ej. viene de Mi repertorio): se baja una sola
+        // vez al celular y las próximas veces se abre de ahí, sin gastar cuota
+        // del servidor. Si falla, se abre por la red como antes.
+        await CachePdfs.precargar([widget.pdfUrl]);
+        ruta = await CachePdfs.ruta(widget.pdfUrl);
+        bytes = ruta == null ? await CachePdfs.bytes(widget.pdfUrl) : null;
+      }
       if (mounted) {
         setState(() {
           _rutaLocal = ruta;
