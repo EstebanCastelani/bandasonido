@@ -1135,11 +1135,12 @@ class DetectorSwipe {
   }
 }
 
-/// Mientras no haya cobro real implementado, las funciones Pro (subir
-/// partituras a la biblioteca personal) quedan liberadas para cualquier
-/// usuario logueado, para poder probarlas. Volver a `false` cuando se
-/// active el cobro.
-const bool kFuncionesProGratisPorAhora = true;
+/// Si es `true`, las funciones Pro (Mi repertorio, Mis secuencias, el
+/// interruptor de la pantalla de inicio) quedan liberadas para cualquier
+/// usuario logueado, para poder probarlas. En `false` solo las tiene quien
+/// es Pro de verdad: `esPro` en su perfil o su mail en la lista Pro gratis
+/// (menú ⋮ → Pro gratis). Todavía no hay cobro: Pro se da a mano.
+const bool kFuncionesProGratisPorAhora = false;
 
 // --- TRANSPOSICIÓN DE CIFRADOS (ACORDES EN TEXTO) ---
 
