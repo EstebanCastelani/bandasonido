@@ -6786,7 +6786,8 @@ class IngressMenuScreen extends StatelessWidget {
 /// Dónde se ven "Mis frases", "Mi repertorio" y "Mis secuencias": en la
 /// pantalla de inicio (lo normal) o solo en el menú ⋮. Lo elige cada persona
 /// con la versión Pro (Configuración → Pantalla de inicio); quien no la tiene
-/// los ve siempre en el inicio. Se guarda en este dispositivo.
+/// los ve siempre en el inicio, a propósito: ver las funciones Pro invita a
+/// pagar. Se guarda en este dispositivo.
 class AccesosInicio {
   static const _clave = 'accesos_en_inicio';
   static final ValueNotifier<bool> enInicio = ValueNotifier<bool>(true);
@@ -6824,7 +6825,8 @@ class AccesosInicioScreen extends StatelessWidget {
               ? const Stream<bool>.empty()
               : UsuarioService.streamEsPro(uid),
           builder: (context, snapshot) {
-            final puede = kFuncionesProGratisPorAhora || snapshot.data == true;
+            // Solo quien pagó (esPro) puede elegir; no depende de la bandera de pruebas.
+            final puede = snapshot.data == true;
             return ValueListenableBuilder<bool>(
               valueListenable: AccesosInicio.enInicio,
               builder: (context, enInicio, _) => ListView(
@@ -6975,7 +6977,8 @@ class _BotonesDeCuenta extends StatelessWidget {
                 ),
               ),
             );
-        final puedeElegir = kFuncionesProGratisPorAhora || !noEsPro;
+        // Solo quien pagó (esPro) puede sacarlos del inicio; el resto los ve siempre.
+        final puedeElegir = snapshot.data == true;
         return ValueListenableBuilder<bool>(
           valueListenable: AccesosInicio.enInicio,
           builder: (context, enInicio, _) => (puedeElegir && !enInicio)
