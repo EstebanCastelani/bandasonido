@@ -527,7 +527,7 @@
   "planProSubtitulo": "Più strumenti per la tua band",
   "planProRepertorio": "Il mio repertorio senza limite: la versione gratuita permette fino a 4 PDF.",
   "planProSecuencias": "Le mie sequenze senza limite: la versione gratuita permette fino a 3 tracce audio.",
-  "planProTono": "Alzare e abbassare la tonalità in una sala dove qualcuno ha la versione Pro.",
+  "planProTono": "Alzare e abbassare la tonalità di cifrari e tracce; tutti nella sala la vedono e la sentono.",
   "planProPrecio": "Prezzo: prossimamente",
   "planProTuPlanPro": "Il tuo piano: Pro",
   "planProTuPlanGratis": "Il tuo piano: gratuito",
@@ -549,5 +549,6 @@
   "limiteGratisPdfs": "La versione gratuita permette di tenere fino a {n} PDF. Con Pro, senza limite.",
   "limiteGratisSecuencias": "La versione gratuita permette di tenere fino a {n} sequenze. Con Pro, senza limite.",
   "limiteGratisSubidos": "Per il limite della versione gratuita, vengono caricati solo i primi {n}.",
-  "fueraDelCupoGratis": "Fuori dalla quota della versione gratuita. Resta salvato e torna con Pro."
+  "fueraDelCupoGratis": "Fuori dalla quota della versione gratuita. Resta salvato e torna con Pro.",
+  "tonoSoloPro": "Cambiare la tonalità è una funzione Pro."
 }

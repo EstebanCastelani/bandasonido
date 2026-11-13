@@ -527,7 +527,7 @@
   "planProSubtitulo": "Plus d’outils pour votre groupe",
   "planProRepertorio": "Mon répertoire sans limite : la version gratuite permet jusqu’à 4 PDF.",
   "planProSecuencias": "Mes séquences sans limite : la version gratuite permet jusqu’à 3 pistes audio.",
-  "planProTono": "Monter et baisser le ton dans une salle où quelqu’un a la version Pro.",
+  "planProTono": "Monter et baisser la tonalité des grilles et des pistes ; tout le monde dans la salle la voit et l’entend.",
   "planProPrecio": "Prix : bientôt disponible",
   "planProTuPlanPro": "Votre offre : Pro",
   "planProTuPlanGratis": "Votre offre : gratuite",
@@ -549,5 +549,6 @@
   "limiteGratisPdfs": "La version gratuite permet de garder jusqu’à {n} PDF. Avec Pro, sans limite.",
   "limiteGratisSecuencias": "La version gratuite permet de garder jusqu’à {n} séquences. Avec Pro, sans limite.",
   "limiteGratisSubidos": "À cause de la limite de la version gratuite, seuls les {n} premiers sont envoyés.",
-  "fueraDelCupoGratis": "Hors du quota de la version gratuite. Il reste enregistré et revient avec Pro."
+  "fueraDelCupoGratis": "Hors du quota de la version gratuite. Il reste enregistré et revient avec Pro.",
+  "tonoSoloPro": "Changer la tonalité est une fonction Pro."
 }

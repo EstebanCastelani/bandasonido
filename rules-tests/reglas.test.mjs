@@ -261,6 +261,64 @@ for (const juego of juegos) {
       });
     });
 
+    describe('tono: solo con Pro', () => {
+      const ctx = (uid, extra = {}, proveedor = 'google.com') =>
+        entorno
+          .authenticatedContext(uid, { firebase: { sign_in_provider: proveedor }, ...extra })
+          .firestore();
+      const gratis = () => ctx('free1', { email: 'gratis@mail.com', email_verified: true });
+      const proPerfil = () => ctx('pro1', { email: 'pro@mail.com', email_verified: true });
+      const proLista = () => ctx('pro2', { email: 'Lista@Mail.com', email_verified: true });
+      const proListaSinVerificar = () => ctx('pro3', { email: 'lista@mail.com', email_verified: false });
+      const setlist = `salas/${SALA}/setlist/t1`;
+      const secuencia = `salas/${SALA}/secuencias/s1`;
+
+      async function preparar() {
+        await limpiar();
+        await sembrar(entorno, 'usuarios/pro1', { esPro: true, nombre: 'Pro' });
+        await sembrar(entorno, 'usuarios/free1', { esPro: false, nombre: 'Gratis' });
+        await sembrar(entorno, 'pro_gratis/lista@mail.com', { email: 'lista@mail.com' });
+        await sembrar(entorno, setlist, { titulo: 'Tema', orden: 0, transposicion: 0, estado: 'pendiente' });
+        await sembrar(entorno, secuencia, { titulo: 'Pista', semitonos: 0, tempoPorcentaje: 100, volumenPorcentaje: 100 });
+      }
+
+      it('con Pro (perfil o lista) se cambia el tono del cifrado', async () => {
+        await preparar();
+        await assertSucceeds(updateDoc(doc(proPerfil(), setlist), { transposicion: 2 }));
+        await assertSucceeds(updateDoc(doc(proLista(), setlist), { transposicion: -1 }));
+      });
+      it('sin Pro, con perfil gratis, anónimo o mail sin verificar, no se cambia', async () => {
+        await preparar();
+        await assertFails(updateDoc(doc(gratis(), setlist), { transposicion: 2 }));
+        await assertFails(updateDoc(doc(p.anonimo, setlist), { transposicion: 2 }));
+        await assertFails(updateDoc(doc(proListaSinVerificar(), setlist), { transposicion: 2 }));
+        await assertFails(updateDoc(doc(ctx('sinperfil', { email: 'x@mail.com', email_verified: true }), setlist), { transposicion: 2 }));
+      });
+      it('un gratuito sí cambia lo demás del setlist y puede escribir 0 al crear', async () => {
+        await preparar();
+        await assertSucceeds(updateDoc(doc(gratis(), setlist), { estado: 'tocado' }));
+        await assertSucceeds(setDoc(doc(gratis(), `salas/${SALA}/setlist/t2`), { titulo: 'Otro', orden: 1 }));
+        await assertSucceeds(setDoc(doc(gratis(), `salas/${SALA}/setlist/t3`), { titulo: 'Otro', orden: 2, transposicion: 0 }));
+      });
+      it('crear un tema ya transpuesto también pide Pro', async () => {
+        await preparar();
+        await assertFails(setDoc(doc(gratis(), `salas/${SALA}/setlist/t4`), { titulo: 'X', orden: 3, transposicion: 3 }));
+        await assertSucceeds(setDoc(doc(proPerfil(), `salas/${SALA}/setlist/t4`), { titulo: 'X', orden: 3, transposicion: 3 }));
+      });
+      it('secuencias: el tono pide Pro, el tempo y el volumen no', async () => {
+        await preparar();
+        await assertFails(updateDoc(doc(gratis(), secuencia), { semitonos: 2, tempoPorcentaje: 100, volumenPorcentaje: 100 }));
+        // La app manda siempre los tres campos: con el tono igual, no cuenta como cambio de tono.
+        await assertSucceeds(updateDoc(doc(gratis(), secuencia), { semitonos: 0, tempoPorcentaje: 120, volumenPorcentaje: 80 }));
+        await assertSucceeds(updateDoc(doc(proPerfil(), secuencia), { semitonos: 2, tempoPorcentaje: 100, volumenPorcentaje: 100 }));
+      });
+      it('quien no tiene Pro puede borrar temas y leer como siempre', async () => {
+        await preparar();
+        await assertSucceeds(getDoc(doc(gratis(), setlist)));
+        await assertSucceeds(deleteDoc(doc(gratis(), setlist)));
+      });
+    });
+
     describe('lo que no está listado', () => {
       it('cualquier otra colección está cerrada', async () => {
         await limpiar();

@@ -527,7 +527,7 @@
   "planProSubtitulo": "Mais ferramentas para a sua banda",
   "planProRepertorio": "Meu repertório sem limite: a versão grátis permite até 4 PDFs.",
   "planProSecuencias": "Minhas sequências sem limite: a versão grátis permite até 3 faixas de áudio.",
-  "planProTono": "Subir e descer o tom em uma sala onde alguém tenha a versão Pro.",
+  "planProTono": "Subir e baixar o tom de cifras e sequências; todos na sala veem e ouvem.",
   "planProPrecio": "Preço: em breve",
   "planProTuPlanPro": "Seu plano: Pro",
   "planProTuPlanGratis": "Seu plano: grátis",
@@ -549,5 +549,6 @@
   "limiteGratisPdfs": "Na versão grátis você pode guardar até {n} PDFs. Com Pro, sem esse limite.",
   "limiteGratisSecuencias": "Na versão grátis você pode guardar até {n} sequências. Com Pro, sem esse limite.",
   "limiteGratisSubidos": "Pelo limite da versão grátis, só os primeiros {n} são enviados.",
-  "fueraDelCupoGratis": "Fora da cota da versão grátis. Fica guardado e volta com Pro."
+  "fueraDelCupoGratis": "Fora da cota da versão grátis. Fica guardado e volta com Pro.",
+  "tonoSoloPro": "Mudar o tom é um recurso Pro."
 }

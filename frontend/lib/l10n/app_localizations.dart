@@ -2489,7 +2489,7 @@ abstract class AppLocalizations {
   /// No description provided for @planProTono.
   ///
   /// In es, this message translates to:
-  /// **'Subir y bajar el tono en una sala donde haya alguien con la versión Pro.'**
+  /// **'Subir y bajar el tono de cifrados y secuencias; lo ven y lo escuchan todos en la sala.'**
   String get planProTono;
 
   /// No description provided for @planProPrecio.
@@ -2623,6 +2623,12 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'Fuera del cupo de la versión gratis. Queda guardado y vuelve con Pro.'**
   String get fueraDelCupoGratis;
+
+  /// No description provided for @tonoSoloPro.
+  ///
+  /// In es, this message translates to:
+  /// **'El tono es una función Pro.'**
+  String get tonoSoloPro;
 }
 
 class _AppLocalizationsDelegate

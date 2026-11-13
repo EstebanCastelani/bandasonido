@@ -10418,6 +10418,10 @@ class _SecuenciasTabState extends State<SecuenciasTab>
     var semitonos = semitonosIniciales;
     var tempo = tempoInicial;
     var volumen = volumenInicial;
+    final uid = AuthService.currentUser?.uid;
+    final esPro = kFuncionesProGratisPorAhora ||
+        (uid != null && await UsuarioService.streamEsPro(uid).first);
+    if (!mounted) return;
 
     void guardar() {
       SecuenciasService.actualizarAjustes(
@@ -10490,7 +10494,7 @@ class _SecuenciasTabState extends State<SecuenciasTab>
                         iconSize: 32,
                         icon: const Icon(Icons.remove),
                         tooltip: context.l10n.bajarUnSemitono,
-                        onPressed: soportaTono && semitonos > -12
+                        onPressed: soportaTono && esPro && semitonos > -12
                             ? () => cambiar(nuevoTono: semitonos - 1)
                             : null,
                       ),
@@ -10507,12 +10511,26 @@ class _SecuenciasTabState extends State<SecuenciasTab>
                         iconSize: 32,
                         icon: const Icon(Icons.add),
                         tooltip: context.l10n.subirUnSemitono,
-                        onPressed: soportaTono && semitonos < 12
+                        onPressed: soportaTono && esPro && semitonos < 12
                             ? () => cambiar(nuevoTono: semitonos + 1)
                             : null,
                       ),
                     ],
                   ),
+                  if (!esPro)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.lock_outline, size: 14),
+                          const SizedBox(width: 4),
+                          Flexible(
+                              child: Text(context.l10n.tonoSoloPro,
+                                  style: const TextStyle(fontSize: 12))),
+                        ],
+                      ),
+                    ),
                   if (!soportaTono)
                     Padding(
                       padding: const EdgeInsets.only(top: 4),
@@ -12461,9 +12479,29 @@ class _CifradoViewerScreenState extends State<CifradoViewerScreen> {
   /// es null o no llegó, se muestra el texto guardado.
   String? _cifradoRegenerado;
 
+  /// ¿Esta cuenta puede cambiar el tono? Solo con Pro; mientras no se sabe se
+  /// deja (las reglas de Firestore son las que realmente lo impiden).
+  bool _esPro = true;
+  StreamSubscription<bool>? _proSub;
+
   @override
   void initState() {
     super.initState();
+
+    if (!kFuncionesProGratisPorAhora) {
+      try {
+        final uid = AuthService.currentUser?.uid;
+        if (uid == null) {
+          _esPro = false;
+        } else {
+          _proSub = UsuarioService.streamEsPro(uid).listen((v) {
+            if (mounted && v != _esPro) setState(() => _esPro = v);
+          }, onError: (_) {});
+        }
+      } catch (_) {
+        // Sin Firebase (pruebas): no se bloquea nada.
+      }
+    }
 
     _regenerarSiHaceFalta();
   }
@@ -12514,6 +12552,7 @@ class _CifradoViewerScreenState extends State<CifradoViewerScreen> {
   }
 
   void _cambiarSemitonos(int nuevo) {
+    if (!_esPro) return; // sin Pro no se cambia el tono (ver el candado)
     if (widget.sincronizada && _sincronizado) {
       SetlistService.actualizarTransposicion(
           widget.codigoSala!, widget.itemId!, nuevo);
@@ -12614,6 +12653,7 @@ class _CifradoViewerScreenState extends State<CifradoViewerScreen> {
   @override
   void dispose() {
     _auto?.cancel();
+    _proSub?.cancel();
     _scrollVertical.dispose();
     _scrollHorizontal.dispose();
     super.dispose();
@@ -12692,7 +12732,7 @@ class _CifradoViewerScreenState extends State<CifradoViewerScreen> {
             alAlternar: _alternarAuto,
             alElegirVelocidad: (v) => setState(() => _puntosPorSegundo = v),
           ),
-          if (widget.puedeTransponer)
+          if (widget.puedeTransponer && _esPro)
             IconButton(
               icon: const Icon(Icons.remove_circle_outline),
               tooltip: context.l10n.bajarUnSemitono,
@@ -12706,7 +12746,14 @@ class _CifradoViewerScreenState extends State<CifradoViewerScreen> {
                       fontWeight: FontWeight.bold, fontSize: 15)),
             ),
           ),
-          if (widget.puedeTransponer) ...[
+          if (widget.puedeTransponer && !_esPro)
+            IconButton(
+              icon: const Icon(Icons.lock_outline),
+              tooltip: context.l10n.tonoSoloPro,
+              onPressed: () => Navigator.push(context,
+                  MaterialPageRoute(builder: (_) => const PlanProScreen())),
+            ),
+          if (widget.puedeTransponer && _esPro) ...[
             IconButton(
               icon: const Icon(Icons.add_circle_outline),
               tooltip: context.l10n.subirUnSemitono,

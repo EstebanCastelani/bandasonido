@@ -1438,7 +1438,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get planProTono =>
-      'Raise and lower the key in a room where someone has the Pro version.';
+      'Raise and lower the key of chord sheets and tracks; everyone in the room sees and hears it.';
 
   @override
   String get planProPrecio => 'Price: coming soon';
@@ -1516,4 +1516,7 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get fueraDelCupoGratis =>
       'Outside the free version allowance. It stays saved and comes back with Pro.';
+
+  @override
+  String get tonoSoloPro => 'Changing the key is a Pro feature.';
 }
