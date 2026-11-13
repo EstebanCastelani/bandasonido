@@ -5002,10 +5002,13 @@ class _SoundCheckProAppState extends State<SoundCheckProApp> {
                     color: Theme.of(context).scaffoldBackgroundColor,
                     child: Align(
                       alignment: Alignment.topCenter,
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(
-                            maxWidth: kAnchoMaximoContenido),
+                      child: ValueListenableBuilder<double>(
+                        valueListenable: AnchoContenido.maximo,
                         child: child ?? const SizedBox.shrink(),
+                        builder: (context, maximo, hijo) => ConstrainedBox(
+                          constraints: BoxConstraints(maxWidth: maximo),
+                          child: hijo,
+                        ),
                       ),
                     ))));
       },
@@ -6538,7 +6541,29 @@ class LogoApp extends StatelessWidget {
 
 /// Ancho máximo del contenido de la app: en una tablet o un monitor el
 /// contenido se centra en vez de estirarse de borde a borde.
-const double kAnchoMaximoContenido = 840;
+const double kAnchoMaximoContenido = 720;
+
+/// El ancho máximo que se aplica ahora. Las pantallas de sala (músico y
+/// sonidista) lo amplían para aprovechar una tablet horizontal, un monitor o
+/// una notebook, y lo devuelven al salir.
+class AnchoContenido {
+  static const double normal = kAnchoMaximoContenido;
+  static const double sala = 1600;
+  static final ValueNotifier<double> maximo = ValueNotifier<double>(normal);
+  static int _salas = 0;
+
+  static void ampliar() {
+    _salas++;
+    scheduleMicrotask(() => maximo.value = sala);
+  }
+
+  static void restaurar() {
+    _salas = max(0, _salas - 1);
+    scheduleMicrotask(() {
+      if (_salas == 0) maximo.value = normal;
+    });
+  }
+}
 
 /// Ancho máximo de los formularios y menús (botones, campos de texto).
 const double kAnchoMaximoFormulario = 480;
@@ -6547,7 +6572,11 @@ const double kAnchoMaximoFormulario = 480;
 /// anchas, el margen necesario para que el contenido quede centrado y no pase
 /// de [kAnchoMaximoFormulario].
 EdgeInsets rellenoFormulario(BuildContext context) {
-  final ancho = MediaQuery.sizeOf(context).width;
+  // El ancho disponible es el de la ventana, pero la app lo limita a una
+  // columna centrada (AnchoContenido): sin esto, en un monitor ancho el margen
+  // calculado dejaba el contenido sin lugar.
+  final ancho =
+      min(MediaQuery.sizeOf(context).width, AnchoContenido.maximo.value);
   final lateral = ancho > kAnchoMaximoFormulario + 48
       ? (ancho - kAnchoMaximoFormulario) / 2
       : 24.0;
@@ -8599,6 +8628,56 @@ enum PestanaSala {
   String etiqueta(AppLocalizations l) => nombre(l).toUpperCase();
 }
 
+/// ¿La pantalla es lo bastante ancha (tablet horizontal, notebook, monitor)
+/// para mostrar Pedidos a un lado y el resto de las pestañas al otro?
+bool esSalaAncha(BuildContext context, List<PestanaSala> pestanas) =>
+    MediaQuery.sizeOf(context).width >= 1000 &&
+    pestanas.contains(PestanaSala.pedidos) &&
+    pestanas.length >= 2;
+
+/// El cuerpo de las pantallas de sala: pestañas en pantallas normales; en las
+/// anchas, Pedidos queda siempre a la izquierda y las demás pestañas (con su
+/// propia barra) a la derecha, así se ven pedidos y setlist a la vez.
+Widget cuerpoDeSala({
+  required BuildContext context,
+  required TabController controller,
+  required List<PestanaSala> pestanas,
+  required List<Widget> contenido,
+}) {
+  if (!esSalaAncha(context, pestanas)) {
+    return TabBarView(controller: controller, children: contenido);
+  }
+  final iPedidos = pestanas.indexOf(PestanaSala.pedidos);
+  final otras = [
+    for (var i = 0; i < pestanas.length; i++)
+      if (i != iPedidos) i
+  ];
+  return Row(
+    children: [
+      Expanded(flex: 5, child: contenido[iPedidos]),
+      const VerticalDivider(width: 1),
+      Expanded(
+        flex: 4,
+        child: DefaultTabController(
+          length: otras.length,
+          child: Column(
+            children: [
+              TabBar(tabs: [
+                for (final i in otras)
+                  Tab(text: pestanas[i].etiqueta(context.l10n))
+              ]),
+              Expanded(
+                child:
+                    TabBarView(children: [for (final i in otras) contenido[i]]),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ],
+  );
+}
+
 /// Guarda en el dispositivo qué pestañas quiere ver el usuario (como la
 /// paleta de colores: funciona también para invitados sin cuenta). No se
 /// borra al salir de la sala (ver borrarSesionDeSala).
@@ -8748,6 +8827,7 @@ class _RequestScreenState extends State<RequestScreen>
     super.initState();
 
     WakelockPlus.enable();
+    AnchoContenido.ampliar();
     _vigilarConexion();
     _vigilarRespuestas();
     _precargaSub = SecuenciasService.precargarDeSala(widget.codigoSala);
@@ -8765,6 +8845,7 @@ class _RequestScreenState extends State<RequestScreen>
   @override
   void dispose() {
     WakelockPlus.disable();
+    AnchoContenido.restaurar();
 
     _customPedidoController.dispose();
     _conexionSub?.cancel();
@@ -9086,7 +9167,7 @@ class _RequestScreenState extends State<RequestScreen>
         ],
 
         // Con una sola pestaña elegida no hace falta la barra.
-        bottom: _pestanas.length < 2
+        bottom: (_pestanas.length < 2 || esSalaAncha(context, _pestanas))
             ? null
             : TabBar(
                 controller: _tabController,
@@ -9099,9 +9180,11 @@ class _RequestScreenState extends State<RequestScreen>
                 ],
               ),
       ),
-      body: TabBarView(
+      body: cuerpoDeSala(
+        context: context,
         controller: _tabController,
-        children: _contenidoDePestanas({
+        pestanas: _pestanas,
+        contenido: _contenidoDePestanas({
           PestanaSala.pedidos: ConBotonVolverAlVisor(
             visor: _ultimoVisor,
             child: Listener(
@@ -9314,7 +9397,8 @@ class _RequestScreenState extends State<RequestScreen>
                 // al abrirse el teclado la caja se achica, el diseño cambiaría
                 // a mitad del toque, se recrearía el campo y se cerraría el
                 // teclado.
-                if (MediaQuery.sizeOf(context).height < 500) {
+                if (MediaQuery.sizeOf(context).height < 500 ||
+                    caja.maxWidth >= 800) {
                   return Row(
                     children: [
                       Expanded(flex: 3, child: grilla),
@@ -13398,6 +13482,7 @@ class _SonidistaPageState extends State<SonidistaPage>
     super.initState();
 
     WakelockPlus.enable();
+    AnchoContenido.ampliar();
 
     WidgetsBinding.instance.addObserver(this);
 
@@ -13422,6 +13507,7 @@ class _SonidistaPageState extends State<SonidistaPage>
   @override
   void dispose() {
     WakelockPlus.disable();
+    AnchoContenido.restaurar();
 
     WidgetsBinding.instance.removeObserver(this);
 
@@ -13928,7 +14014,7 @@ class _SonidistaPageState extends State<SonidistaPage>
         ],
 
         // Con una sola pestaña elegida no hace falta la barra.
-        bottom: _pestanas.length < 2
+        bottom: (_pestanas.length < 2 || esSalaAncha(context, _pestanas))
             ? null
             : TabBar(
                 controller: _tabController,
@@ -13941,9 +14027,11 @@ class _SonidistaPageState extends State<SonidistaPage>
                 ],
               ),
       ),
-      body: TabBarView(
+      body: cuerpoDeSala(
+        context: context,
         controller: _tabController,
-        children: _contenidoDePestanas({
+        pestanas: _pestanas,
+        contenido: _contenidoDePestanas({
           PestanaSala.pedidos: ConBotonVolverAlVisor(
             visor: _ultimoVisor,
             child: Listener(
