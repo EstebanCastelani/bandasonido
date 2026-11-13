@@ -522,5 +522,14 @@
       }
     }
   },
-  "soloAppPaga": "Só app paga"
+  "soloAppPaga": "Só app paga",
+  "planPro": "Plano Pro",
+  "planProSubtitulo": "Mais ferramentas para a sua banda",
+  "planProRepertorio": "Meu repertório: envie seus PDFs e monte sua biblioteca de músicas.",
+  "planProSecuencias": "Minhas sequências: envie suas faixas de áudio (são comprimidas sozinhas para economizar espaço).",
+  "planProTono": "Subir e descer o tom em uma sala onde alguém tenha a versão Pro.",
+  "planProPrecio": "Preço: em breve",
+  "planProTuPlanPro": "Seu plano: Pro",
+  "planProTuPlanGratis": "Seu plano: grátis",
+  "planProSiempreGratis": "Sempre grátis: criar e entrar em salas, enviar e receber pedidos, o setlist e suas frases."
 }

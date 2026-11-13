@@ -1432,4 +1432,35 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get soloAppPaga => 'App payante uniquement';
+
+  @override
+  String get planPro => 'Offre Pro';
+
+  @override
+  String get planProSubtitulo => 'Plus d’outils pour votre groupe';
+
+  @override
+  String get planProRepertorio =>
+      'Mon répertoire : importez vos PDF et créez votre bibliothèque de chansons.';
+
+  @override
+  String get planProSecuencias =>
+      'Mes séquences : importez vos pistes audio (elles sont compressées automatiquement pour économiser de l’espace).';
+
+  @override
+  String get planProTono =>
+      'Monter et baisser le ton dans une salle où quelqu’un a la version Pro.';
+
+  @override
+  String get planProPrecio => 'Prix : bientôt disponible';
+
+  @override
+  String get planProTuPlanPro => 'Votre offre : Pro';
+
+  @override
+  String get planProTuPlanGratis => 'Votre offre : gratuite';
+
+  @override
+  String get planProSiempreGratis =>
+      'Toujours gratuit : créer et rejoindre des salles, envoyer et recevoir des demandes, le setlist et vos phrases.';
 }

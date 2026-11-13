@@ -1426,4 +1426,35 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String get soloAppPaga => 'Solo app a pagamento';
+
+  @override
+  String get planPro => 'Piano Pro';
+
+  @override
+  String get planProSubtitulo => 'Più strumenti per la tua band';
+
+  @override
+  String get planProRepertorio =>
+      'Il mio repertorio: carica i tuoi PDF e crea la tua libreria di canzoni.';
+
+  @override
+  String get planProSecuencias =>
+      'Le mie sequenze: carica le tue tracce audio (vengono compresse automaticamente per risparmiare spazio).';
+
+  @override
+  String get planProTono =>
+      'Alzare e abbassare la tonalità in una sala dove qualcuno ha la versione Pro.';
+
+  @override
+  String get planProPrecio => 'Prezzo: prossimamente';
+
+  @override
+  String get planProTuPlanPro => 'Il tuo piano: Pro';
+
+  @override
+  String get planProTuPlanGratis => 'Il tuo piano: gratuito';
+
+  @override
+  String get planProSiempreGratis =>
+      'Sempre gratis: creare e unirsi alle sale, inviare e ricevere richieste, la setlist e le tue frasi.';
 }

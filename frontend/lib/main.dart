@@ -6789,8 +6789,84 @@ class IconoSoloPago extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Tooltip(
         message: context.l10n.soloAppPaga,
-        child: const Icon(Icons.lock_outline, size: 18),
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () => Navigator.push(context,
+              MaterialPageRoute(builder: (_) => const PlanProScreen())),
+          child: const Padding(
+            padding: EdgeInsets.all(4),
+            child: Icon(Icons.lock_outline, size: 18),
+          ),
+        ),
       );
+}
+
+/// Qué incluye el plan Pro y en qué estado está tu cuenta. Todavía no cobra:
+/// el precio se define más adelante (ver BACKLOG.md). En Android no lleva
+/// ningún enlace a otro medio de pago (política de Google Play).
+class PlanProScreen extends StatelessWidget {
+  const PlanProScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final l = context.l10n;
+    final uid = AuthService.currentUser?.uid;
+    Widget beneficio(IconData icono, String texto) => Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Icon(icono, color: context.acento),
+            const SizedBox(width: 12),
+            Expanded(child: Text(texto, style: const TextStyle(fontSize: 15))),
+          ]),
+        );
+    return Scaffold(
+      appBar: AppBar(title: Text(l.planPro)),
+      body: SafeArea(
+        child: ListView(
+          padding: rellenoFormulario(context),
+          children: [
+            Icon(Icons.workspace_premium, size: 56, color: context.acento),
+            const SizedBox(height: 12),
+            Text(l.planProSubtitulo,
+                textAlign: TextAlign.center,
+                style:
+                    const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 20),
+            beneficio(Icons.library_music, l.planProRepertorio),
+            beneficio(Icons.graphic_eq, l.planProSecuencias),
+            beneficio(Icons.swap_vert, l.planProTono),
+            const SizedBox(height: 16),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Text(l.planProPrecio,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                        fontSize: 16, fontWeight: FontWeight.bold)),
+              ),
+            ),
+            if (uid != null)
+              StreamBuilder<bool>(
+                stream: UsuarioService.streamEsPro(uid),
+                builder: (context, snapshot) => Padding(
+                  padding: const EdgeInsets.only(top: 12),
+                  child: Text(
+                      snapshot.data == true
+                          ? l.planProTuPlanPro
+                          : l.planProTuPlanGratis,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(color: Colors.grey)),
+                ),
+              ),
+            const SizedBox(height: 24),
+            Text(l.planProSiempreGratis,
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 13, color: Colors.grey)),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 /// Los botones de la cuenta en la pantalla de inicio, debajo de "Mis salas":
@@ -7105,6 +7181,7 @@ class MenuHamburguesa extends StatelessWidget {
           'frases' => const FrasesAdminScreen(),
           'repertorio' => const MiRepertorioScreen(),
           'secuencias' => const MisSecuenciasScreen(),
+          'plan' => const PlanProScreen(),
           'colores' => const PaletaPickerScreen(),
           'idioma' => const IdiomaPickerScreen(),
           'alertas' => const AlertasScreen(),
@@ -7128,6 +7205,7 @@ class MenuHamburguesa extends StatelessWidget {
               value: 'repertorio', child: Text(context.l10n.miRepertorio2)),
           PopupMenuItem(
               value: 'secuencias', child: Text(context.l10n.misSecuencias2)),
+          PopupMenuItem(value: 'plan', child: Text(context.l10n.planPro)),
         ],
         _ItemConfiguracion(conCuenta: conCuenta),
         PopupMenuItem(value: 'guia', child: Text(context.l10n.comoFunciona)),

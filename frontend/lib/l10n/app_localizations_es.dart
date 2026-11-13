@@ -1428,4 +1428,35 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get soloAppPaga => 'Solo app paga';
+
+  @override
+  String get planPro => 'Plan Pro';
+
+  @override
+  String get planProSubtitulo => 'Más herramientas para tu banda';
+
+  @override
+  String get planProRepertorio =>
+      'Mi repertorio: subí tus PDF y armá tu biblioteca de canciones.';
+
+  @override
+  String get planProSecuencias =>
+      'Mis secuencias: subí tus pistas de audio (se comprimen solas para ahorrar espacio).';
+
+  @override
+  String get planProTono =>
+      'Subir y bajar el tono en una sala donde haya alguien con la versión Pro.';
+
+  @override
+  String get planProPrecio => 'Precio: próximamente';
+
+  @override
+  String get planProTuPlanPro => 'Tu plan: Pro';
+
+  @override
+  String get planProTuPlanGratis => 'Tu plan: gratis';
+
+  @override
+  String get planProSiempreGratis =>
+      'Siempre gratis: crear y unirte a salas, enviar y recibir pedidos, el setlist y tus frases.';
 }

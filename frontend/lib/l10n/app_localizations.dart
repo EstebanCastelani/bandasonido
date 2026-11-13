@@ -2461,6 +2461,60 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'Solo app paga'**
   String get soloAppPaga;
+
+  /// No description provided for @planPro.
+  ///
+  /// In es, this message translates to:
+  /// **'Plan Pro'**
+  String get planPro;
+
+  /// No description provided for @planProSubtitulo.
+  ///
+  /// In es, this message translates to:
+  /// **'Más herramientas para tu banda'**
+  String get planProSubtitulo;
+
+  /// No description provided for @planProRepertorio.
+  ///
+  /// In es, this message translates to:
+  /// **'Mi repertorio: subí tus PDF y armá tu biblioteca de canciones.'**
+  String get planProRepertorio;
+
+  /// No description provided for @planProSecuencias.
+  ///
+  /// In es, this message translates to:
+  /// **'Mis secuencias: subí tus pistas de audio (se comprimen solas para ahorrar espacio).'**
+  String get planProSecuencias;
+
+  /// No description provided for @planProTono.
+  ///
+  /// In es, this message translates to:
+  /// **'Subir y bajar el tono en una sala donde haya alguien con la versión Pro.'**
+  String get planProTono;
+
+  /// No description provided for @planProPrecio.
+  ///
+  /// In es, this message translates to:
+  /// **'Precio: próximamente'**
+  String get planProPrecio;
+
+  /// No description provided for @planProTuPlanPro.
+  ///
+  /// In es, this message translates to:
+  /// **'Tu plan: Pro'**
+  String get planProTuPlanPro;
+
+  /// No description provided for @planProTuPlanGratis.
+  ///
+  /// In es, this message translates to:
+  /// **'Tu plan: gratis'**
+  String get planProTuPlanGratis;
+
+  /// No description provided for @planProSiempreGratis.
+  ///
+  /// In es, this message translates to:
+  /// **'Siempre gratis: crear y unirte a salas, enviar y recibir pedidos, el setlist y tus frases.'**
+  String get planProSiempreGratis;
 }
 
 class _AppLocalizationsDelegate

@@ -522,5 +522,14 @@
       }
     }
   },
-  "soloAppPaga": "Solo app a pagamento"
+  "soloAppPaga": "Solo app a pagamento",
+  "planPro": "Piano Pro",
+  "planProSubtitulo": "Più strumenti per la tua band",
+  "planProRepertorio": "Il mio repertorio: carica i tuoi PDF e crea la tua libreria di canzoni.",
+  "planProSecuencias": "Le mie sequenze: carica le tue tracce audio (vengono compresse automaticamente per risparmiare spazio).",
+  "planProTono": "Alzare e abbassare la tonalità in una sala dove qualcuno ha la versione Pro.",
+  "planProPrecio": "Prezzo: prossimamente",
+  "planProTuPlanPro": "Il tuo piano: Pro",
+  "planProTuPlanGratis": "Il tuo piano: gratuito",
+  "planProSiempreGratis": "Sempre gratis: creare e unirsi alle sale, inviare e ricevere richieste, la setlist e le tue frasi."
 }

@@ -522,5 +522,14 @@
       }
     }
   },
-  "soloAppPaga": "Paid app only"
+  "soloAppPaga": "Paid app only",
+  "planPro": "Pro plan",
+  "planProSubtitulo": "More tools for your band",
+  "planProRepertorio": "My repertoire: upload your PDFs and build your song library.",
+  "planProSecuencias": "My tracks: upload your audio tracks (they are compressed automatically to save space).",
+  "planProTono": "Raise and lower the key in a room where someone has the Pro version.",
+  "planProPrecio": "Price: coming soon",
+  "planProTuPlanPro": "Your plan: Pro",
+  "planProTuPlanGratis": "Your plan: free",
+  "planProSiempreGratis": "Always free: create and join rooms, send and receive requests, the setlist and your phrases."
 }
