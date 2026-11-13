@@ -907,8 +907,8 @@
   "soloAppPaga": "Solo app paga",
   "planPro": "Plan Pro",
   "planProSubtitulo": "Más herramientas para tu banda",
-  "planProRepertorio": "Mi repertorio: subí tus PDF y armá tu biblioteca de canciones.",
-  "planProSecuencias": "Mis secuencias: subí tus pistas de audio (se comprimen solas para ahorrar espacio).",
+  "planProRepertorio": "Mi repertorio sin límite: la versión gratis permite hasta 4 PDFs.",
+  "planProSecuencias": "Mis secuencias sin límite: la versión gratis permite hasta 3 pistas de audio.",
   "planProTono": "Subir y bajar el tono en una sala donde haya alguien con la versión Pro.",
   "planProPrecio": "Precio: próximamente",
   "planProTuPlanPro": "Tu plan: Pro",
@@ -926,5 +926,31 @@
   "proGratisAgregado": "Agregado.",
   "proGratisQuitado": "Quitado.",
   "proGratisQuitarTitulo": "¿Quitar el Pro gratis a este mail?",
-  "proGratisVacio": "Todavía no agregaste a nadie."
+  "proGratisVacio": "Todavía no agregaste a nadie.",
+  "planProEspacio": "Más espacio para tus archivos: 2 GB por cuenta.",
+  "limiteGratisPdfs": "Con la versión gratis podés guardar hasta {n} PDFs. Con Pro, sin ese límite.",
+  "limiteGratisSecuencias": "Con la versión gratis podés guardar hasta {n} secuencias. Con Pro, sin ese límite.",
+  "limiteGratisSubidos": "Por el límite de la versión gratis, solo se suben los primeros {n}.",
+  "fueraDelCupoGratis": "Fuera del cupo de la versión gratis. Queda guardado y vuelve con Pro.",
+  "@limiteGratisPdfs": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "@limiteGratisSecuencias": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "@limiteGratisSubidos": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  }
 }

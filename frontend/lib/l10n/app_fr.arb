@@ -525,8 +525,8 @@
   "soloAppPaga": "App payante uniquement",
   "planPro": "Offre Pro",
   "planProSubtitulo": "Plus d’outils pour votre groupe",
-  "planProRepertorio": "Mon répertoire : importez vos PDF et créez votre bibliothèque de chansons.",
-  "planProSecuencias": "Mes séquences : importez vos pistes audio (elles sont compressées automatiquement pour économiser de l’espace).",
+  "planProRepertorio": "Mon répertoire sans limite : la version gratuite permet jusqu’à 4 PDF.",
+  "planProSecuencias": "Mes séquences sans limite : la version gratuite permet jusqu’à 3 pistes audio.",
   "planProTono": "Monter et baisser le ton dans une salle où quelqu’un a la version Pro.",
   "planProPrecio": "Prix : bientôt disponible",
   "planProTuPlanPro": "Votre offre : Pro",
@@ -544,5 +544,10 @@
   "proGratisAgregado": "Ajouté.",
   "proGratisQuitado": "Retiré.",
   "proGratisQuitarTitulo": "Retirer le Pro gratuit de cet e-mail ?",
-  "proGratisVacio": "Vous n’avez encore ajouté personne."
+  "proGratisVacio": "Vous n’avez encore ajouté personne.",
+  "planProEspacio": "Plus d’espace pour vos fichiers : 2 Go par compte.",
+  "limiteGratisPdfs": "La version gratuite permet de garder jusqu’à {n} PDF. Avec Pro, sans limite.",
+  "limiteGratisSecuencias": "La version gratuite permet de garder jusqu’à {n} séquences. Avec Pro, sans limite.",
+  "limiteGratisSubidos": "À cause de la limite de la version gratuite, seuls les {n} premiers sont envoyés.",
+  "fueraDelCupoGratis": "Hors du quota de la version gratuite. Il reste enregistré et revient avec Pro."
 }

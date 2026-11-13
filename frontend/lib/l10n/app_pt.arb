@@ -525,8 +525,8 @@
   "soloAppPaga": "Só app paga",
   "planPro": "Plano Pro",
   "planProSubtitulo": "Mais ferramentas para a sua banda",
-  "planProRepertorio": "Meu repertório: envie seus PDFs e monte sua biblioteca de músicas.",
-  "planProSecuencias": "Minhas sequências: envie suas faixas de áudio (são comprimidas sozinhas para economizar espaço).",
+  "planProRepertorio": "Meu repertório sem limite: a versão grátis permite até 4 PDFs.",
+  "planProSecuencias": "Minhas sequências sem limite: a versão grátis permite até 3 faixas de áudio.",
   "planProTono": "Subir e descer o tom em uma sala onde alguém tenha a versão Pro.",
   "planProPrecio": "Preço: em breve",
   "planProTuPlanPro": "Seu plano: Pro",
@@ -544,5 +544,10 @@
   "proGratisAgregado": "Adicionado.",
   "proGratisQuitado": "Removido.",
   "proGratisQuitarTitulo": "Remover o Pro grátis deste e-mail?",
-  "proGratisVacio": "Você ainda não adicionou ninguém."
+  "proGratisVacio": "Você ainda não adicionou ninguém.",
+  "planProEspacio": "Mais espaço para seus arquivos: 2 GB por conta.",
+  "limiteGratisPdfs": "Na versão grátis você pode guardar até {n} PDFs. Com Pro, sem esse limite.",
+  "limiteGratisSecuencias": "Na versão grátis você pode guardar até {n} sequências. Com Pro, sem esse limite.",
+  "limiteGratisSubidos": "Pelo limite da versão grátis, só os primeiros {n} são enviados.",
+  "fueraDelCupoGratis": "Fora da cota da versão grátis. Fica guardado e volta com Pro."
 }

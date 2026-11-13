@@ -1441,11 +1441,11 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get planProRepertorio =>
-      'Mon répertoire : importez vos PDF et créez votre bibliothèque de chansons.';
+      'Mon répertoire sans limite : la version gratuite permet jusqu’à 4 PDF.';
 
   @override
   String get planProSecuencias =>
-      'Mes séquences : importez vos pistes audio (elles sont compressées automatiquement pour économiser de l’espace).';
+      'Mes séquences sans limite : la version gratuite permet jusqu’à 3 pistes audio.';
 
   @override
   String get planProTono =>
@@ -1505,4 +1505,27 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get proGratisVacio => 'Vous n’avez encore ajouté personne.';
+
+  @override
+  String get planProEspacio =>
+      'Plus d’espace pour vos fichiers : 2 Go par compte.';
+
+  @override
+  String limiteGratisPdfs(int n) {
+    return 'La version gratuite permet de garder jusqu’à $n PDF. Avec Pro, sans limite.';
+  }
+
+  @override
+  String limiteGratisSecuencias(int n) {
+    return 'La version gratuite permet de garder jusqu’à $n séquences. Avec Pro, sans limite.';
+  }
+
+  @override
+  String limiteGratisSubidos(int n) {
+    return 'À cause de la limite de la version gratuite, seuls les $n premiers sont envoyés.';
+  }
+
+  @override
+  String get fueraDelCupoGratis =>
+      'Hors du quota de la version gratuite. Il reste enregistré et revient avec Pro.';
 }

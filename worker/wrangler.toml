@@ -8,6 +8,14 @@ compatibility_date = "2026-11-01"
 [vars]
 FIREBASE_PROJECT_ID = "appbandasonido"
 # Sitios que pueden subir y borrar desde un navegador (separados por coma).
+# Espacio por cuenta en MB: normal y con la versión Pro (se baja el normal a
+# 100 cuando Pro empiece a cobrarse; los archivos que ya estén no se borran).
+CUOTA_GRATIS_MB = "500"
+CUOTA_PRO_MB = "2048"
+# Cuántos PDFs y secuencias puede tener una cuenta sin Pro (kMaxPdfsGratis y
+# kMaxSecuenciasGratis en la app). Con Pro no hay límite.
+LIMITE_PDFS_GRATIS = "4"
+LIMITE_SECUENCIAS_GRATIS = "3"
 ORIGENES_PERMITIDOS = "https://estebancastelani.github.io,http://localhost:5000"
 
 # Bucket de R2 donde viven los archivos (se crea en el panel de Cloudflare).

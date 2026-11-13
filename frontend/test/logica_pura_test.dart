@@ -1408,4 +1408,40 @@ Tu gloria llena la tierra///
       await b.close();
     });
   });
+
+  group('Cupo de la versión gratis', () {
+    Map<String, dynamic> item(String id, DateTime? fecha) =>
+        {'id': id, 'createdAt': fecha};
+
+    test('se usan los más viejos y el resto queda guardado', () {
+      final items = [
+        item('nuevo', DateTime(2026, 5, 1)),
+        item('viejo', DateTime(2026, 1, 1)),
+        item('medio', DateTime(2026, 3, 1)),
+        item('mediano', DateTime(2026, 2, 1)),
+      ];
+      expect(idsUsablesGratis(items, 2), {'viejo', 'mediano'});
+      expect(idsUsablesGratis(items, 4).length, 4);
+      expect(idsUsablesGratis(items, 0), isEmpty);
+    });
+
+    test('los recién creados (sin fecha) van al final', () {
+      final items = [item('sinFecha', null), item('a', DateTime(2026, 1, 1))];
+      expect(idsUsablesGratis(items, 1), {'a'});
+    });
+
+    test('si recupera Pro no hay límite: la lista completa sigue ahí', () {
+      final items = [
+        for (var i = 0; i < 30; i++) item('x$i', DateTime(2026, 1, i + 1))
+      ];
+      expect(idsUsablesGratis(items, kMaxPdfsGratis).length, kMaxPdfsGratis);
+      expect(items.length, 30); // nada se borró
+    });
+
+    test('lugaresLibresGratis nunca da negativo', () {
+      expect(lugaresLibresGratis(1, 4), 3);
+      expect(lugaresLibresGratis(4, 4), 0);
+      expect(lugaresLibresGratis(30, 4), 0);
+    });
+  });
 }
