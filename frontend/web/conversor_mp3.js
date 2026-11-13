@@ -1,7 +1,7 @@
 // Conversión a MP3 en el navegador para "Mis secuencias" (ver
-// CONTEXTO_PARA_IA.md, Secuencias). Supabase gratis rechaza archivos de más
-// de 50 MB, así que los audios que no entran se convierten acá, antes de
-// subirlos. El navegador decodifica el audio (WAV, MP3, M4A, OGG...) y el
+// CONTEXTO_PARA_IA.md, Secuencias y PLAN_COSTOS.md). Todo audio que no sea ya
+// un MP3 liviano se convierte acá, antes de subirlo, a un máximo de 192 kbps:
+// pesa menos para guardar y para descargar. El navegador decodifica el audio (WAV, MP3, M4A, OGG...) y el
 // MP3 lo codifica lamejs (lame.min.js) en conversor_mp3_worker.js, en un
 // hilo aparte para no congelar la app. Lo llama lib/puente_web.dart.
 
@@ -15,7 +15,7 @@ const KBPS_PERMITIDOS = [320, 256, 224, 192, 160, 128, 112, 96];
  * @param {(progreso: number) => void} alAvanzar recibe 0..1
  * @returns {Promise<{bytes: Uint8Array, kbps: number}>}
  */
-window.convertirAMp3 = async function (bytes, limiteBytes, alAvanzar) {
+window.convertirAMp3 = async function (bytes, limiteBytes, alAvanzar, kbpsMaximo = 320) {
   // 44,1 kHz: frecuencia estándar de MP3; decodeAudioData remuestrea a esto.
   const contexto = new OfflineAudioContext(2, 1, 44100);
   // decodeAudioData se queda con el buffer: se le pasa una copia.
@@ -23,7 +23,11 @@ window.convertirAMp3 = async function (bytes, limiteBytes, alAvanzar) {
 
   // Margen del 2% + 16 KB por la cabecera y el redondeo de los frames.
   const estimarBytes = (kbps) => (kbps * 1000 / 8) * audio.duration * 1.02 + 16384;
-  const kbps = KBPS_PERMITIDOS.find((k) => estimarBytes(k) <= limiteBytes);
+  // Nunca más que el máximo pedido ni más que lo que ya traía el original
+  // (un AAC de 128 kbps convertido a 192 kbps solo pesaría más).
+  const bitrateOriginal = (bytes.length * 8) / audio.duration / 1000;
+  const tope = Math.min(kbpsMaximo, Math.max(96, bitrateOriginal));
+  const kbps = KBPS_PERMITIDOS.find((k) => k <= tope && estimarBytes(k) <= limiteBytes);
   if (kbps === undefined) {
     const minutos = Math.round(audio.duration / 60);
     throw new Error(`El audio dura ${minutos} min: ni en MP3 de baja calidad entra en el límite.`);

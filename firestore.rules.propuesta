@@ -1,0 +1,163 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Pedidos de una sala: hay que estar autenticado (Firebase Auth anónimo
+    // sirve, se activa solo al entrar a una sala) y conocer el código de
+    // 8 caracteres alfanuméricos. No es un modelo "por membresía real" —
+    // sigue siendo "el código es la llave" — pero ya no es accesible sin
+    // pasar por el SDK de Firebase Auth, lo que corta el scripting trivial
+    // y habilita Firebase App Check a futuro si hace falta más.
+    //
+    // PROPUESTA (no publicada): además de exigir sesión, valida la forma y el
+    // tamaño de cada pedido. Los campos que la app escribe al crear son:
+    // sala_id, nombre, rol, pedido, atendido, urgente, respuesta y createdAt;
+    // "visto" lo agrega después el panel del sonidista, y "Deshacer" vuelve a
+    // crear el pedido completo (con visto), por eso entra en la lista.
+    // Probada con rules-tests/ (ver su README).
+    match /salas/{salaId}/pedidos/{pedidoId} {
+      allow read: if request.auth != null && salaId != null && salaId.size() > 0;
+
+      allow create: if request.auth != null && salaId != null && salaId.size() > 0
+        && request.resource.data.keys().hasOnly(
+             ['sala_id', 'nombre', 'rol', 'pedido', 'atendido', 'urgente',
+              'respuesta', 'visto', 'createdAt'])
+        && request.resource.data.keys().hasAll(['nombre', 'rol', 'pedido'])
+        && request.resource.data.pedido is string
+        && request.resource.data.pedido.size() > 0
+        && request.resource.data.pedido.size() <= 300
+        && request.resource.data.nombre is string
+        && request.resource.data.nombre.size() <= 100
+        && request.resource.data.rol is string
+        && request.resource.data.rol.size() <= 100
+        && (!('respuesta' in request.resource.data)
+            || (request.resource.data.respuesta is string
+                && request.resource.data.respuesta.size() <= 1000))
+        && (!('urgente' in request.resource.data)
+            || request.resource.data.urgente is bool)
+        && (!('atendido' in request.resource.data)
+            || request.resource.data.atendido is bool);
+
+      // Atender, responder y marcar como visto: no se puede cambiar el texto
+      // del pedido ni quién lo pidió.
+      allow update: if request.auth != null && salaId != null && salaId.size() > 0
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['atendido', 'respuesta', 'visto'])
+        && (!('respuesta' in request.resource.data)
+            || (request.resource.data.respuesta is string
+                && request.resource.data.respuesta.size() <= 1000))
+        && (!('atendido' in request.resource.data)
+            || request.resource.data.atendido is bool)
+        && (!('visto' in request.resource.data)
+            || request.resource.data.visto is bool);
+
+      allow delete: if request.auth != null && salaId != null && salaId.size() > 0;
+    }
+
+    // Setlist de una sala: mismo modelo de acceso que los pedidos.
+    match /salas/{salaId}/setlist/{itemId} {
+      allow read, write: if request.auth != null && salaId != null && salaId.size() > 0;
+    }
+
+    // Secuencias (pistas de audio) cargadas para el show de hoy: mismo
+    // modelo de acceso que pedidos/setlist. Solo guardan título + URL
+    // pública del audio, el archivo vive en la biblioteca de quien lo subió.
+    match /salas/{salaId}/secuencias/{itemId} {
+      allow read, write: if request.auth != null && salaId != null && salaId.size() > 0;
+    }
+
+    // Presencia de compañeros con cuenta real en la sala (para que el
+    // buscador de "bibliotecas de la sala" sepa en qué usuarios/{uid}
+    // mirar — ver MiembrosSalaService en main.dart). Lectura: cualquiera
+    // que conozca el código, igual que pedidos/setlist. Escritura: solo el
+    // propio usuario, con cuenta real, registrando su propia presencia —
+    // nunca en nombre de otro.
+    match /salas/{salaId}/miembros/{uid} {
+      allow read: if request.auth != null && salaId != null && salaId.size() > 0;
+      allow write: if request.auth != null
+                   && request.auth.uid == uid
+                   && request.auth.token.firebase.sign_in_provider != 'anonymous'
+                   && salaId != null && salaId.size() > 0;
+    }
+
+    match /usuarios/{uid} {
+      // Cada usuario solo puede leer su propio perfil.
+      allow read: if request.auth != null && request.auth.uid == uid;
+
+      // Solo cuentas reales (no anónimas) pueden tener un perfil de
+      // usuario. Al crear la cuenta, esPro tiene que nacer en false: nadie
+      // se puede auto-otorgar la versión paga.
+      allow create: if request.auth != null
+                    && request.auth.uid == uid
+                    && request.auth.token.firebase.sign_in_provider != 'anonymous'
+                    && request.resource.data.esPro == false;
+
+      // Al actualizar su perfil (nombre, rol), esPro no puede cambiar
+      // desde el cliente. Solo se activa a mano desde la consola (o,
+      // cuando exista, desde un backend con Admin SDK tras un pago real).
+      allow update: if request.auth != null
+                    && request.auth.uid == uid
+                    && request.auth.token.firebase.sign_in_provider != 'anonymous'
+                    && request.resource.data.esPro == resource.data.esPro;
+
+      // Eliminar la cuenta (exigido por Google Play): el dueño, con cuenta real,
+      // puede borrar su propio perfil. Antes se borran sus subcolecciones y,
+      // al final, la cuenta de Auth (ver CuentaService en main.dart).
+      allow delete: if request.auth != null
+                    && request.auth.uid == uid
+                    && request.auth.token.firebase.sign_in_provider != 'anonymous';
+
+      // Frases predefinidas propias: solo el dueño, con cuenta real, lee y
+      // escribe. Los invitados anónimos de una sala usan la lista por
+      // defecto embebida en la app (AppConstants.pedidosRapidos), nunca
+      // llegan a esta colección.
+      match /frases/{fraseId} {
+        allow read, write: if request.auth != null
+                           && request.auth.uid == uid
+                           && request.auth.token.firebase.sign_in_provider != 'anonymous';
+      }
+
+      // Biblioteca personal de PDFs. Lectura abierta a cualquier cuenta
+      // autenticada (incluye anónimos: hace falta para que un invitado
+      // pueda usar "buscar en todas las bibliotecas" al armar el setlist
+      // de la sala). Escritura solo para el dueño con cuenta real — esto
+      // evita que se puedan crear cuentas anónimas en cadena para subir
+      // PDFs gratis sin límite.
+      //
+      // Hoy sin exigir esPro (kFuncionesProGratisPorAhora = true en el
+      // cliente, feature liberada para pruebas). Para volver a cobrar,
+      // agregar "&& get(/databases/$(database)/documents/usuarios/$(uid)).data.esPro == true"
+      // a la condición de abajo.
+      match /mi_repertorio/{cancionId} {
+        allow read: if request.auth != null;
+        allow write: if request.auth != null
+                     && request.auth.uid == uid
+                     && request.auth.token.firebase.sign_in_provider != 'anonymous';
+      }
+
+      // Biblioteca personal de secuencias (audios). Sin límite de cantidad.
+      // Solo el dueño, con cuenta real, lee y escribe: a la sala no se
+      // comparte la biblioteca entera, sino una copia de las elegidas (ver
+      // /salas/{salaId}/secuencias). Mismo criterio Pro que mi_repertorio.
+      match /mis_secuencias/{secuenciaId} {
+        allow read, write: if request.auth != null
+                           && request.auth.uid == uid
+                           && request.auth.token.firebase.sign_in_provider != 'anonymous';
+      }
+
+      // Historial de salas (multi-banda/multi-sala, función Pro): solo el
+      // dueño, con cuenta real, lee y escribe su propio historial. No hay
+      // datos de la sala en sí acá, solo una referencia liviana al código.
+      match /mis_salas/{codigoSala} {
+        allow read, write: if request.auth != null
+                           && request.auth.uid == uid
+                           && request.auth.token.firebase.sign_in_provider != 'anonymous';
+      }
+    }
+
+    // Bloqueo total de cualquier otra colección no listada explícitamente.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

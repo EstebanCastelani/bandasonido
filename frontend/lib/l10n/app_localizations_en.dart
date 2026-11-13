@@ -382,7 +382,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get exportarSetlist => 'Export setlist';
 
   @override
-  String get copiadoAlPortapapeles => 'Copied to clipboard';
+  String get copiadoAlPortapapeles => 'Copied to the clipboard';
 
   @override
   String get copiar => 'Copy';
@@ -694,7 +694,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String elMaximoPorArchivoEs(Object lista, Object limite) {
-    return '$lista\n\nThe maximum per file is $limite. Convert it to MP3 (at 320 kbps a whole song takes about 10-15 MB) and upload it again, or upload it from the web version, which converts it automatically.';
+    return '$lista\n\nThe maximum per file is $limite. Convert it to MP3 (at 192 kbps a whole song takes about 6-9 MB) and upload it again, or upload it from the web version, which converts it automatically.';
   }
 
   @override
@@ -720,7 +720,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String seConvirtieronAMp3Porque(Object limite, Object lista) {
-    return 'These were converted to MP3 because they exceeded the maximum of $limite:\n$lista';
+    return 'These were converted to MP3 so they stay under $limite and 192 kbps:\n$lista';
   }
 
   @override
@@ -1273,4 +1273,149 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get volverAlVisor => 'Back to the song';
+
+  @override
+  String archivoPesaMasDelMaximo(Object tamano, Object maximo) {
+    return 'The file is $tamano and the maximum is $maximo. Try a lighter version.';
+  }
+
+  @override
+  String espacioInsuficiente(Object usado, Object cuota) {
+    return 'Not enough space: you are using $usado of $cuota. Delete songs or sequences to free up room.';
+  }
+
+  @override
+  String get compartirSalaTitulo => 'Share room';
+
+  @override
+  String get compartirSalaAyuda =>
+      'Scan the code with your phone camera to join, or share the link.';
+
+  @override
+  String corregirAcordes(int cantidad, String ejemplos) {
+    String _temp0 = intl.Intl.pluralLogic(
+      cantidad,
+      locale: localeName,
+      other: 'Fix $cantidad misspelled chords',
+      one: 'Fix 1 misspelled chord',
+    );
+    return '$_temp0 ($ejemplos)';
+  }
+
+  @override
+  String get exportarChordPro => 'Export repertoire (ChordPro)';
+
+  @override
+  String get exportarCopia => 'Save backup copy';
+
+  @override
+  String get importarTexto => 'Import songs from text';
+
+  @override
+  String get nadaParaExportar => 'There are no songs with chords to export';
+
+  @override
+  String get importarSinCanciones => 'No songs were found in the files';
+
+  @override
+  String importarArchivoMal(String archivo) {
+    return 'Could not read $archivo';
+  }
+
+  @override
+  String get guiaTitulo => 'How Sound Check Pro works';
+
+  @override
+  String get guiaPaso1 =>
+      'Create a room or join with the 8-character code (or by scanning the QR). Musicians and the sound engineer stay connected live.';
+
+  @override
+  String get guiaPaso2 =>
+      'Send one-tap requests to the sound engineer (\"more guitar\", \"monitor volume\") and see when they are seen and handled.';
+
+  @override
+  String get guiaPaso3 =>
+      'Upload your lyric and chord PDFs to your repertoire, build the room setlist and transpose the key with one tap.';
+
+  @override
+  String get comoFunciona => 'How it works';
+
+  @override
+  String get vacioRepertorioTitulo => 'Your repertoire is empty';
+
+  @override
+  String get vacioRepertorioAyuda =>
+      'Upload your lyric and chord PDFs, or import songs from a text file using the menu above.';
+
+  @override
+  String get subirUnPdf => 'Upload a PDF';
+
+  @override
+  String get vacioSetlistTitulo => 'There are no songs in the list yet';
+
+  @override
+  String get vacioSetlistAyuda =>
+      'Tap + to add songs from your repertoire or the room libraries.';
+
+  @override
+  String get vacioSalasTitulo => 'You have not joined any room yet';
+
+  @override
+  String get vacioSalasAyuda =>
+      'When you join a room it will show up here so you can get back quickly.';
+
+  @override
+  String get instalarApp => 'Install on your phone';
+
+  @override
+  String get instalarAppTitulo => 'Install the app';
+
+  @override
+  String get instalarIphone =>
+      'iPhone: open this page in Safari, tap Share and choose \"Add to Home Screen\".';
+
+  @override
+  String get instalarAndroid =>
+      'Android: in Chrome tap the ⋮ menu and choose \"Install app\" or \"Add to Home screen\".';
+
+  @override
+  String get autoDesplazamiento => 'Auto-scroll';
+
+  @override
+  String get velocidadLenta => 'Slow';
+
+  @override
+  String get velocidadNormal => 'Normal';
+
+  @override
+  String get velocidadRapida => 'Fast';
+
+  @override
+  String comprimiendoAudio(Object contador) {
+    return 'Compressing audio$contador';
+  }
+
+  @override
+  String comprimiendoAudio2(Object porcentaje, Object contador) {
+    return 'Compressing audio $porcentaje%$contador';
+  }
+
+  @override
+  String seComprimieronAudios(Object lista) {
+    return 'Compressed to save space (AAC, up to 128 kbps):\n$lista';
+  }
+
+  @override
+  String get audioNoSoportado =>
+      'This audio could not be read. Try an MP3 or a 16-bit WAV.';
+
+  @override
+  String audioMuyLargo(Object limite) {
+    return 'This audio is too long to fit in $limite. Try a shorter one or split it into parts.';
+  }
+
+  @override
+  String archivoCompartidoIlegible(Object nombre) {
+    return '\"$nombre\" could not be read or is larger than 12 MB.';
+  }
 }

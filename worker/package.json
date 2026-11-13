@@ -1,0 +1,9 @@
+{
+  "name": "sound-check-pro-archivos",
+  "private": true,
+  "type": "module",
+  "description": "Servidor de archivos (Cloudflare Worker + R2) de Sound Check Pro",
+  "scripts": {
+    "test": "node --test"
+  }
+}

@@ -16,6 +16,7 @@ external JSPromise<_ResultadoMp3> _convertirAMp3(
   JSUint8Array bytes,
   JSNumber limiteBytes,
   JSFunction alAvanzar,
+  JSNumber kbpsMaximo,
 );
 
 extension type _ResultadoMp3._(JSObject _) implements JSObject {
@@ -26,17 +27,20 @@ extension type _ResultadoMp3._(JSObject _) implements JSObject {
 const bool conversorMp3Disponible = true;
 
 /// Convierte [bytes] (cualquier audio que el navegador sepa decodificar) a
-/// MP3 con la mayor calidad que entre en [limiteBytes]. [alAvanzar] recibe
+/// MP3 con la mayor calidad que entre en [limiteBytes] sin pasar de
+/// [kbpsMaximo] (ni del bitrate que ya tenía el original). [alAvanzar] recibe
 /// el progreso de 0 a 1.
 Future<({Uint8List bytes, int kbps})> convertirAMp3(
   Uint8List bytes,
   int limiteBytes,
-  void Function(double progreso) alAvanzar,
-) async {
+  void Function(double progreso) alAvanzar, {
+  int kbpsMaximo = 320,
+}) async {
   final resultado = await _convertirAMp3(
     bytes.toJS,
     limiteBytes.toJS,
     ((JSNumber progreso) => alAvanzar(progreso.toDartDouble)).toJS,
+    kbpsMaximo.toJS,
   ).toDart;
   return (bytes: resultado.bytes.toDart, kbps: resultado.kbps.toDartInt);
 }

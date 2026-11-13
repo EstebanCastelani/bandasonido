@@ -198,13 +198,13 @@
   "subirTusPropiasSecuenciasEs": "Caricare le tue sequenze fa parte di Sound Check Pro. Attiva il tuo account Pro per usare questa funzione.",
   "archivoDemasiadoGrande": "File troppo grande",
   "archivosDemasiadoGrandes": "File troppo grandi",
-  "elMaximoPorArchivoEs": "{lista}\n\nIl massimo per file è {limite}. Converti in MP3 (a 320 kbps un brano intero occupa circa 10-15 MB) e caricalo di nuovo, oppure caricalo dalla versione web, che converte automaticamente.",
+  "elMaximoPorArchivoEs": "{lista}\n\nIl massimo per file è {limite}. Converti in MP3 (a 192 kbps un brano intero occupa circa 6-9 MB) e caricalo di nuovo, oppure caricalo dalla versione web, che converte automaticamente.",
   "convirtiendoAMp3": "Conversione in MP3{contador}",
   "convirtiendoAMp32": "Conversione in MP3 {porcentaje}%{contador}",
   "subiendo": "Caricamento{contador}",
   "secuenciasSubidas": "Sequenze caricate",
   "algunasSecuenciasNoSeSubieron": "Alcune sequenze non sono state caricate",
-  "seConvirtieronAMp3Porque": "Sono state convertite in MP3 perché superavano il massimo di {limite}:\n{lista}",
+  "seConvirtieronAMp3Porque": "Sono stati convertiti in MP3 per non superare {limite} né 192 kbps:\n{lista}",
   "noSePudieronSubir": "Impossibile caricare:\n{lista}",
   "renombrarSecuencia": "Rinomina sequenza",
   "eliminarSecuencia": "Elimina sequenza",
@@ -409,5 +409,117 @@
       }
     }
   },
-  "volverAlVisor": "Torna al brano"
+  "volverAlVisor": "Torna al brano",
+  "archivoPesaMasDelMaximo": "Il file pesa {tamano} e il massimo è {maximo}. Prova con una versione più leggera.",
+  "@archivoPesaMasDelMaximo": {
+    "placeholders": {
+      "tamano": {
+        "type": "Object"
+      },
+      "maximo": {
+        "type": "Object"
+      }
+    }
+  },
+  "espacioInsuficiente": "Spazio insufficiente: usi {usado} su {cuota}. Elimina brani o sequenze per liberare spazio.",
+  "@espacioInsuficiente": {
+    "placeholders": {
+      "usado": {
+        "type": "Object"
+      },
+      "cuota": {
+        "type": "Object"
+      }
+    }
+  },
+  "compartirSalaTitulo": "Condividi sala",
+  "compartirSalaAyuda": "Inquadra il codice con la fotocamera del telefono per entrare, oppure condividi il link.",
+  "corregirAcordes": "{cantidad, plural, =1{Correggi 1 accordo scritto male} other{Correggi {cantidad} accordi scritti male}} ({ejemplos})",
+  "@corregirAcordes": {
+    "placeholders": {
+      "cantidad": {
+        "type": "int"
+      },
+      "ejemplos": {
+        "type": "String"
+      }
+    }
+  },
+  "exportarChordPro": "Esporta repertorio (ChordPro)",
+  "exportarCopia": "Salva copia di backup",
+  "importarTexto": "Importa brani da testo",
+  "nadaParaExportar": "Nessun brano con accordi da esportare",
+  "importarSinCanciones": "Nessun brano trovato nei file",
+  "importarArchivoMal": "Impossibile leggere {archivo}",
+  "@importarArchivoMal": {
+    "placeholders": {
+      "archivo": {
+        "type": "String"
+      }
+    }
+  },
+  "guiaTitulo": "Come funziona Sound Check Pro",
+  "guiaPaso1": "Crea una sala o entra con il codice di 8 caratteri (o inquadrando il QR). Musicisti e fonico restano collegati dal vivo.",
+  "guiaPaso2": "Invia richieste con un tocco al fonico (« più chitarra », « volume monitor ») e vedi quando le vede e le gestisce.",
+  "guiaPaso3": "Carica i tuoi PDF con testo e accordi nel repertorio, prepara la scaletta della sala e trasponi la tonalità con un tocco.",
+  "comoFunciona": "Come funziona",
+  "vacioRepertorioTitulo": "Il tuo repertorio è vuoto",
+  "vacioRepertorioAyuda": "Carica i tuoi PDF con testo e accordi, oppure importa brani da un file di testo dal menu in alto.",
+  "subirUnPdf": "Carica un PDF",
+  "vacioSetlistTitulo": "Non ci sono ancora brani nell’elenco",
+  "vacioSetlistAyuda": "Tocca + per aggiungere brani dal tuo repertorio o dalle librerie della sala.",
+  "vacioSalasTitulo": "Non sei ancora entrato in nessuna sala",
+  "vacioSalasAyuda": "Quando entrerai in una sala comparirà qui per tornarci subito.",
+  "instalarApp": "Installa sul telefono",
+  "instalarAppTitulo": "Installa l’app",
+  "instalarIphone": "iPhone: apri questa pagina in Safari, tocca Condividi e scegli « Aggiungi a Home ».",
+  "instalarAndroid": "Android: in Chrome tocca il menu ⋮ e scegli « Installa app » o « Aggiungi a schermata Home ».",
+  "autoDesplazamiento": "Scorrimento automatico",
+  "velocidadLenta": "Lento",
+  "velocidadNormal": "Normale",
+  "velocidadRapida": "Veloce",
+  "comprimiendoAudio": "Compressione audio{contador}",
+  "@comprimiendoAudio": {
+    "placeholders": {
+      "contador": {
+        "type": "Object"
+      }
+    }
+  },
+  "comprimiendoAudio2": "Compressione audio {porcentaje}%{contador}",
+  "@comprimiendoAudio2": {
+    "placeholders": {
+      "porcentaje": {
+        "type": "Object"
+      },
+      "contador": {
+        "type": "Object"
+      }
+    }
+  },
+  "seComprimieronAudios": "Compressi per risparmiare spazio (AAC, fino a 128 kbps):\n{lista}",
+  "@seComprimieronAudios": {
+    "placeholders": {
+      "lista": {
+        "type": "Object"
+      }
+    }
+  },
+  "audioNoSoportado": "Impossibile leggere questo audio. Prova con un MP3 o un WAV a 16 bit.",
+  "audioMuyLargo": "Questo audio è troppo lungo per stare in {limite}. Prova con uno più corto o dividilo in parti.",
+  "@audioMuyLargo": {
+    "placeholders": {
+      "limite": {
+        "type": "Object"
+      }
+    }
+  },
+  "archivoCompartidoIlegible": "Impossibile leggere \"{nombre}\" o supera i 12 MB.",
+  "@archivoCompartidoIlegible": {
+    "placeholders": {
+      "nombre": {
+        "type": "Object"
+      }
+    }
+  }
 }

@@ -1,0 +1,13 @@
+{
+  "name": "sound-check-pro-reglas",
+  "private": true,
+  "type": "module",
+  "description": "Pruebas de las reglas de Firestore de Sound Check Pro con el emulador",
+  "scripts": {
+    "test": "firebase emulators:exec --only firestore --project demo-soundcheck \"node --test\""
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "^6.0.0",
+    "firebase": "^13.0.0"
+  }
+}

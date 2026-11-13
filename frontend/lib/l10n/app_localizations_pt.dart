@@ -694,7 +694,7 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String elMaximoPorArchivoEs(Object lista, Object limite) {
-    return '$lista\n\nO máximo por arquivo é $limite. Converta para MP3 (a 320 kbps uma música inteira ocupa cerca de 10-15 MB) e envie de novo, ou envie pela versão web, que converte automaticamente.';
+    return '$lista\n\nO máximo por arquivo é $limite. Converta para MP3 (a 192 kbps uma música inteira ocupa cerca de 6-9 MB) e envie de novo, ou envie pela versão web, que converte automaticamente.';
   }
 
   @override
@@ -721,7 +721,7 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String seConvirtieronAMp3Porque(Object limite, Object lista) {
-    return 'Foram convertidas para MP3 porque passavam do máximo de $limite:\n$lista';
+    return 'Foram convertidos para MP3 para não passar de $limite nem de 192 kbps:\n$lista';
   }
 
   @override
@@ -1277,4 +1277,149 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String get volverAlVisor => 'Voltar à música';
+
+  @override
+  String archivoPesaMasDelMaximo(Object tamano, Object maximo) {
+    return 'O arquivo tem $tamano e o máximo é $maximo. Tente uma versão mais leve.';
+  }
+
+  @override
+  String espacioInsuficiente(Object usado, Object cuota) {
+    return 'Espaço insuficiente: você usa $usado de $cuota. Exclua músicas ou sequências para liberar espaço.';
+  }
+
+  @override
+  String get compartirSalaTitulo => 'Compartilhar sala';
+
+  @override
+  String get compartirSalaAyuda =>
+      'Escaneie o código com a câmera do celular para entrar, ou compartilhe o link.';
+
+  @override
+  String corregirAcordes(int cantidad, String ejemplos) {
+    String _temp0 = intl.Intl.pluralLogic(
+      cantidad,
+      locale: localeName,
+      other: 'Corrigir $cantidad acordes mal escritos',
+      one: 'Corrigir 1 acorde mal escrito',
+    );
+    return '$_temp0 ($ejemplos)';
+  }
+
+  @override
+  String get exportarChordPro => 'Exportar repertório (ChordPro)';
+
+  @override
+  String get exportarCopia => 'Salvar cópia de segurança';
+
+  @override
+  String get importarTexto => 'Importar músicas de texto';
+
+  @override
+  String get nadaParaExportar => 'Não há músicas com cifra para exportar';
+
+  @override
+  String get importarSinCanciones => 'Nenhuma música encontrada nos arquivos';
+
+  @override
+  String importarArchivoMal(String archivo) {
+    return 'Não foi possível ler $archivo';
+  }
+
+  @override
+  String get guiaTitulo => 'Como o Sound Check Pro funciona';
+
+  @override
+  String get guiaPaso1 =>
+      'Crie uma sala ou entre com o código de 8 caracteres (ou escaneando o QR). Músicos e técnico de som ficam conectados ao vivo.';
+
+  @override
+  String get guiaPaso2 =>
+      'Envie pedidos de um toque ao técnico de som (\"mais guitarra\", \"volume do retorno\") e veja quando ele os vê e atende.';
+
+  @override
+  String get guiaPaso3 =>
+      'Envie seus PDFs de letra e cifra para o repertório, monte o setlist da sala e transponha o tom com um toque.';
+
+  @override
+  String get comoFunciona => 'Como funciona';
+
+  @override
+  String get vacioRepertorioTitulo => 'Seu repertório está vazio';
+
+  @override
+  String get vacioRepertorioAyuda =>
+      'Envie seus PDFs de letra e cifra, ou importe músicas de um arquivo de texto pelo menu acima.';
+
+  @override
+  String get subirUnPdf => 'Enviar um PDF';
+
+  @override
+  String get vacioSetlistTitulo => 'Ainda não há músicas na lista';
+
+  @override
+  String get vacioSetlistAyuda =>
+      'Toque em + para adicionar músicas do seu repertório ou das bibliotecas da sala.';
+
+  @override
+  String get vacioSalasTitulo => 'Você ainda não entrou em nenhuma sala';
+
+  @override
+  String get vacioSalasAyuda =>
+      'Quando você entrar em uma sala, ela aparecerá aqui para voltar rápido.';
+
+  @override
+  String get instalarApp => 'Instalar no celular';
+
+  @override
+  String get instalarAppTitulo => 'Instalar o app';
+
+  @override
+  String get instalarIphone =>
+      'iPhone: abra esta página no Safari, toque em Compartilhar e escolha \"Adicionar à Tela de Início\".';
+
+  @override
+  String get instalarAndroid =>
+      'Android: no Chrome toque no menu ⋮ e escolha \"Instalar app\" ou \"Adicionar à tela inicial\".';
+
+  @override
+  String get autoDesplazamiento => 'Rolagem automática';
+
+  @override
+  String get velocidadLenta => 'Lento';
+
+  @override
+  String get velocidadNormal => 'Normal';
+
+  @override
+  String get velocidadRapida => 'Rápido';
+
+  @override
+  String comprimiendoAudio(Object contador) {
+    return 'Comprimindo áudio$contador';
+  }
+
+  @override
+  String comprimiendoAudio2(Object porcentaje, Object contador) {
+    return 'Comprimindo áudio $porcentaje%$contador';
+  }
+
+  @override
+  String seComprimieronAudios(Object lista) {
+    return 'Comprimidos para economizar espaço (AAC, até 128 kbps):\n$lista';
+  }
+
+  @override
+  String get audioNoSoportado =>
+      'Não foi possível ler este áudio. Tente um MP3 ou um WAV de 16 bits.';
+
+  @override
+  String audioMuyLargo(Object limite) {
+    return 'Este áudio é longo demais para caber em $limite. Tente um mais curto ou divida em partes.';
+  }
+
+  @override
+  String archivoCompartidoIlegible(Object nombre) {
+    return 'Não foi possível ler \"$nombre\" ou ele pesa mais de 12 MB.';
+  }
 }
