@@ -1418,4 +1418,80 @@ class AppLocalizationsEn extends AppLocalizations {
   String archivoCompartidoIlegible(Object nombre) {
     return '\"$nombre\" could not be read or is larger than 12 MB.';
   }
+
+  @override
+  String get soloAppPaga => 'Paid app only';
+
+  @override
+  String get planPro => 'Pro plan';
+
+  @override
+  String get planProSubtitulo => 'More tools for your band';
+
+  @override
+  String get planProRepertorio =>
+      'My repertoire: upload your PDFs and build your song library.';
+
+  @override
+  String get planProSecuencias =>
+      'My tracks: upload your audio tracks (they are compressed automatically to save space).';
+
+  @override
+  String get planProTono =>
+      'Raise and lower the key in a room where someone has the Pro version.';
+
+  @override
+  String get planProPrecio => 'Price: coming soon';
+
+  @override
+  String get planProTuPlanPro => 'Your plan: Pro';
+
+  @override
+  String get planProTuPlanGratis => 'Your plan: free';
+
+  @override
+  String get planProSiempreGratis =>
+      'Always free: create and join rooms, send and receive requests, the setlist and your phrases.';
+
+  @override
+  String get accesosInicioTitulo => 'Home screen';
+
+  @override
+  String get accesosInicioMostrar =>
+      'Show My phrases, My repertoire and My tracks on the home screen';
+
+  @override
+  String get accesosInicioAyuda =>
+      'If you turn it off, you will still find them in the menu at the top right.';
+
+  @override
+  String get accesosInicioSoloPro => 'Available with the Pro version.';
+
+  @override
+  String get proGratisTitulo => 'Free Pro';
+
+  @override
+  String get proGratisAyuda =>
+      'People with these emails get Pro for free. They must sign in to the app with that same (verified) email.';
+
+  @override
+  String get proGratisMail => 'Email';
+
+  @override
+  String get proGratisNota => 'Note (optional)';
+
+  @override
+  String get proGratisMailInvalido => 'That email does not look valid.';
+
+  @override
+  String get proGratisAgregado => 'Added.';
+
+  @override
+  String get proGratisQuitado => 'Removed.';
+
+  @override
+  String get proGratisQuitarTitulo => 'Remove free Pro from this email?';
+
+  @override
+  String get proGratisVacio => 'You have not added anyone yet.';
 }

@@ -11,7 +11,7 @@ Guía paso a paso. 🔑 = lo tenés que hacer vos (cuentas, claves, decisiones).
 | Nombre visible | ✔ **Corregido hoy**: era `appsonido_frontend`, ahora "Sound Check Pro" |
 | Firma de release | ◐ El build ya lee `android/key.properties` (ejemplo en `android/key.properties.example`). **Sin ese archivo se firma con la clave de depuración y ese archivo NO sirve para Play Store** (verificado: el APK actual figura firmado por "Android Debug") |
 | Probado en un celular real | ◐ **Probado el 25-oct-2026** en un Redmi 25078RA3EY (Android 15, 720 × 1600): menú, secuencias (carga y reproducción), crear sala, pedidos, **corte de red con aviso y reenvío**, panel del sonidista, "Borrar todo", cierre y **login con Google** (confirmado por vos). Además, **tamaños y orientación** (RQ-29): simulados en tu celular desde 320 dp de ancho hasta tablet de 800 × 1280 dp, vertical y horizontal, con letra al 130–150 %. **El 27-oct-2026 también se probó en el celular**: subir un PDF (con extracción automática del cifrado) y un audio, abrirlos, reproducir la secuencia, transponer un cifrado y borrar lo subido. Falta: probar en otros modelos reales |
-| Identificador de la app | ◐ **Decidido el 11-nov-2026: `com.soundcheckpro.app`.** Ya cambiado en `build.gradle.kts` y `MainActivity.kt`. **Falta 🔑:** agregar la app Android en Firebase y poner el nuevo `google-services.json` (ver §2); hasta entonces el build de Android falla |
+| Identificador de la app | ✔ **`com.soundcheckpro.app`** (13-nov-2026): app Android registrada en Firebase y `google-services.json` nuevo en `frontend/android/app/` (ignorado por Git; contiene también la app vieja). `flutter build apk --release` compila con ese identificador. **Falta 🔑:** la huella SHA-1 de la clave de firma en esa app de Firebase (para Google Sign-In) |
 | Política de privacidad | ✘ Hay un borrador en `docs/politica-de-privacidad-borrador.html` (ver §6) |
 | Eliminar cuenta dentro de la app | ◐ **Implementada** (menú → Configuración → "Eliminar mi cuenta"). Reglas publicadas, borrado probado y enlace web publicado (ver §7) |
 | Ícono propio, capturas, descripción | ◐ **Ícono de la app hecho** (barras de sonido). Para la ficha de Play falta el ícono de 512 × 512 (`frontend/assets/icon/icon.png` está en 1024 × 1024: se reduce), la imagen destacada, las capturas y las descripciones 🔑 |
@@ -66,7 +66,8 @@ Nota original: el *applicationId* **no se puede cambiar una vez publicada** y ti
 |---|---|---|---|
 | Nombre | Sí (el que escribe la persona) | Funcionalidad de la app | Procesado por Firebase (Google) |
 | Correo electrónico | Solo con cuenta | Autenticación | Firebase / Google Sign-In |
-| Contenido del usuario (pedidos, frases, setlist, PDFs, audios) | Sí | Funcionalidad de la app | Firebase y **Supabase** (los archivos en un bucket público por enlace) |
+| Contenido del usuario (pedidos, frases, setlist, PDFs, audios) | Sí | Funcionalidad de la app | Firebase y **Cloudflare** (los archivos, en un almacenamiento accesible por enlace; Supabase ya no se usa) |
+| Registros de fallas y diagnóstico (modelo del celular, versión de Android, detalle técnico del error; sin contenido) | Sí, solo en la app instalada | Análisis de fallas | Firebase Crashlytics (Google) |
 | ID de usuario (también el anónimo de invitados) | Sí | Autenticación | Firebase |
 | Ubicación, contactos, fotos, publicidad, analítica | **No** | — | — |
 Cifrado en tránsito: sí (HTTPS). Eliminación: ver §7.

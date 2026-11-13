@@ -113,6 +113,32 @@ service cloud.firestore {
       }
     }
 
+    // Administradores: un documento admins/{uid}, creado a mano desde la
+    // consola de Firebase. Cada cuenta solo puede ver si EL SUYO existe; nadie
+    // puede escribir desde la app.
+    match /admins/{uid} {
+      allow get: if request.auth != null && request.auth.uid == uid;
+      allow list, write: if false;
+    }
+
+    // Mails con la versión Pro gratis (pro_gratis/{mail en minúsculas}). Cada
+    // persona solo puede leer el documento de SU propio mail (con el mail
+    // verificado), así nadie ve la lista completa; los administradores leen
+    // todo y son los únicos que agregan o quitan.
+    function esAdmin() {
+      return request.auth != null
+          && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+
+    match /pro_gratis/{email} {
+      allow get: if esAdmin()
+                 || (request.auth != null
+                     && request.auth.token.email_verified == true
+                     && request.auth.token.email.lower() == email);
+      allow list: if esAdmin();
+      allow write: if esAdmin();
+    }
+
     // Bloqueo total de cualquier otra colección no listada explícitamente.
     match /{document=**} {
       allow read, write: if false;

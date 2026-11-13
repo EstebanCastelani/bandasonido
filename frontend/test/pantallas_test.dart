@@ -9,6 +9,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:qr_flutter/qr_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// Una app mínima con los textos en español, para probar un widget suelto.
 Widget conApp(Widget Function(BuildContext) contenido) => MaterialApp(
@@ -108,6 +109,29 @@ void main() {
     await tester.tap(find.text('Rápido'));
     await tester.pumpAndSettle();
     expect(velocidad, BotonAutoDesplazar.rapida);
+  });
+
+  testWidgets('el candado de "Solo app paga" avisa en el idioma elegido',
+      (tester) async {
+    await tester.pumpWidget(conApp((context) => const IconoSoloPago()));
+    expect(find.byIcon(Icons.lock_outline), findsOneWidget);
+    expect(find.byTooltip('Solo app paga'), findsOneWidget);
+  });
+
+  test('los accesos del inicio se ven por defecto y la elección se recuerda',
+      () async {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    SharedPreferences.setMockInitialValues({});
+    await AccesosInicio.cargar();
+    expect(AccesosInicio.enInicio.value, isTrue);
+
+    await AccesosInicio.guardar(false);
+    expect(AccesosInicio.enInicio.value, isFalse);
+
+    // Otra "sesión": se vuelve a leer lo guardado.
+    AccesosInicio.enInicio.value = true;
+    await AccesosInicio.cargar();
+    expect(AccesosInicio.enInicio.value, isFalse);
   });
 
   testWidgets('cómo instalar la app explica iPhone y Android', (tester) async {

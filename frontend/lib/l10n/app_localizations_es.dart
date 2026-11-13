@@ -1425,4 +1425,80 @@ class AppLocalizationsEs extends AppLocalizations {
   String archivoCompartidoIlegible(Object nombre) {
     return 'No se pudo leer \"$nombre\" o pesa más de 12 MB.';
   }
+
+  @override
+  String get soloAppPaga => 'Solo app paga';
+
+  @override
+  String get planPro => 'Plan Pro';
+
+  @override
+  String get planProSubtitulo => 'Más herramientas para tu banda';
+
+  @override
+  String get planProRepertorio =>
+      'Mi repertorio: subí tus PDF y armá tu biblioteca de canciones.';
+
+  @override
+  String get planProSecuencias =>
+      'Mis secuencias: subí tus pistas de audio (se comprimen solas para ahorrar espacio).';
+
+  @override
+  String get planProTono =>
+      'Subir y bajar el tono en una sala donde haya alguien con la versión Pro.';
+
+  @override
+  String get planProPrecio => 'Precio: próximamente';
+
+  @override
+  String get planProTuPlanPro => 'Tu plan: Pro';
+
+  @override
+  String get planProTuPlanGratis => 'Tu plan: gratis';
+
+  @override
+  String get planProSiempreGratis =>
+      'Siempre gratis: crear y unirte a salas, enviar y recibir pedidos, el setlist y tus frases.';
+
+  @override
+  String get accesosInicioTitulo => 'Pantalla de inicio';
+
+  @override
+  String get accesosInicioMostrar =>
+      'Mostrar Mis frases, Mi repertorio y Mis secuencias en la pantalla de inicio';
+
+  @override
+  String get accesosInicioAyuda =>
+      'Si lo apagás, los encontrás igual en el menú de arriba a la derecha.';
+
+  @override
+  String get accesosInicioSoloPro => 'Disponible con la versión Pro.';
+
+  @override
+  String get proGratisTitulo => 'Pro gratis';
+
+  @override
+  String get proGratisAyuda =>
+      'Las personas con estos mails tienen Pro sin pagar. Tienen que entrar a la app con ese mismo mail (verificado).';
+
+  @override
+  String get proGratisMail => 'Mail';
+
+  @override
+  String get proGratisNota => 'Nota (opcional)';
+
+  @override
+  String get proGratisMailInvalido => 'Ese mail no parece válido.';
+
+  @override
+  String get proGratisAgregado => 'Agregado.';
+
+  @override
+  String get proGratisQuitado => 'Quitado.';
+
+  @override
+  String get proGratisQuitarTitulo => '¿Quitar el Pro gratis a este mail?';
+
+  @override
+  String get proGratisVacio => 'Todavía no agregaste a nadie.';
 }

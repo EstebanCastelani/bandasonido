@@ -1,0 +1,12 @@
+{
+  "name": "sound-check-pro-simulador",
+  "private": true,
+  "type": "module",
+  "description": "Simulador de carga: varios celulares en una misma sala, contra Firebase",
+  "scripts": {
+    "start": "node simulador.mjs"
+  },
+  "dependencies": {
+    "firebase": "^13.0.0"
+  }
+}

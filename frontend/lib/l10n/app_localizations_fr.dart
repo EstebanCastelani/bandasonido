@@ -1429,4 +1429,80 @@ class AppLocalizationsFr extends AppLocalizations {
   String archivoCompartidoIlegible(Object nombre) {
     return 'Impossible de lire « $nombre » ou il dépasse 12 Mo.';
   }
+
+  @override
+  String get soloAppPaga => 'App payante uniquement';
+
+  @override
+  String get planPro => 'Offre Pro';
+
+  @override
+  String get planProSubtitulo => 'Plus d’outils pour votre groupe';
+
+  @override
+  String get planProRepertorio =>
+      'Mon répertoire : importez vos PDF et créez votre bibliothèque de chansons.';
+
+  @override
+  String get planProSecuencias =>
+      'Mes séquences : importez vos pistes audio (elles sont compressées automatiquement pour économiser de l’espace).';
+
+  @override
+  String get planProTono =>
+      'Monter et baisser le ton dans une salle où quelqu’un a la version Pro.';
+
+  @override
+  String get planProPrecio => 'Prix : bientôt disponible';
+
+  @override
+  String get planProTuPlanPro => 'Votre offre : Pro';
+
+  @override
+  String get planProTuPlanGratis => 'Votre offre : gratuite';
+
+  @override
+  String get planProSiempreGratis =>
+      'Toujours gratuit : créer et rejoindre des salles, envoyer et recevoir des demandes, le setlist et vos phrases.';
+
+  @override
+  String get accesosInicioTitulo => 'Écran d’accueil';
+
+  @override
+  String get accesosInicioMostrar =>
+      'Afficher Mes phrases, Mon répertoire et Mes séquences sur l’écran d’accueil';
+
+  @override
+  String get accesosInicioAyuda =>
+      'Si vous le désactivez, vous les retrouvez dans le menu en haut à droite.';
+
+  @override
+  String get accesosInicioSoloPro => 'Disponible avec la version Pro.';
+
+  @override
+  String get proGratisTitulo => 'Pro gratuit';
+
+  @override
+  String get proGratisAyuda =>
+      'Les personnes avec ces e-mails ont Pro sans payer. Elles doivent se connecter à l’app avec ce même e-mail (vérifié).';
+
+  @override
+  String get proGratisMail => 'E-mail';
+
+  @override
+  String get proGratisNota => 'Note (facultatif)';
+
+  @override
+  String get proGratisMailInvalido => 'Cet e-mail ne semble pas valide.';
+
+  @override
+  String get proGratisAgregado => 'Ajouté.';
+
+  @override
+  String get proGratisQuitado => 'Retiré.';
+
+  @override
+  String get proGratisQuitarTitulo => 'Retirer le Pro gratuit de cet e-mail ?';
+
+  @override
+  String get proGratisVacio => 'Vous n’avez encore ajouté personne.';
 }

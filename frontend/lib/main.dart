@@ -24,8 +24,6 @@ import 'package:firebase_core/firebase_core.dart';
 
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 
-import 'package:firebase_storage/firebase_storage.dart';
-
 import 'package:flutter/foundation.dart'
     show kDebugMode, kIsWeb, listEquals, defaultTargetPlatform, TargetPlatform;
 
@@ -52,8 +50,6 @@ import 'package:share_plus/share_plus.dart';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:supabase_flutter/supabase_flutter.dart' hide User;
-
 import 'package:syncfusion_flutter_pdf/pdf.dart' as sf_pdf;
 
 import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
@@ -76,55 +72,6 @@ const FirebaseOptions firebaseOptions = FirebaseOptions(
   messagingSenderId: '784903375488',
   appId: '1:784903375488:web:6db920dbfb9ebbc6eef465',
 );
-
-// --- CONFIGURACIÓN DE SUPABASE (SOLO STORAGE, MIENTRAS FIREBASE STORAGE ---
-
-// --- NO ESTÁ APROVISIONADO — VER RepertorioService) ---
-
-/// Igual que la config de Firebase de arriba: no es un secreto crítico,
-
-/// la key "anon" está pensada para ir en el cliente. La seguridad real la
-
-/// dan las políticas RLS del bucket en Supabase, no ocultar esta key.
-
-const String kSupabaseUrl = 'https://aecmjdwfttcomcumcbwh.supabase.co';
-
-const String kSupabaseAnonKey =
-    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFlY21qZHdmdHRjb21jdW1jYndoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU3OTk5NDcsImV4cCI6MjEwMTM3NTk0N30.ahjRL6QX8pa0Ca8BJ9hrLKC6M2LBBQV8pSPE5_3_guY';
-
-/// Nombre del bucket de Storage en Supabase donde viven los PDFs del
-
-/// repertorio personal, mientras Firebase Storage no está aprovisionado
-
-/// (requiere plan Blaze). Ver RepertorioService para el detalle.
-
-const String kSupabaseRepertorioBucket = 'repertorio-pdfs';
-
-/// Acceso corto al cliente de Supabase, mismo patrón que se usa en la
-
-/// mayoría de las apps Flutter+Supabase.
-
-SupabaseClient get supabase => Supabase.instance.client;
-
-/// Inicializa Supabase pasando el ID token de Firebase Auth como
-
-/// accessToken en cada request (Third-Party Auth: Firebase, configurado en
-
-/// el dashboard de Supabase). Así las políticas RLS del bucket pueden
-
-/// identificar al dueño real del archivo sin necesitar una sesión de
-
-/// Supabase Auth separada — Auth sigue siendo 100% Firebase.
-
-Future<void> _inicializarSupabase() async {
-  await Supabase.initialize(
-    url: kSupabaseUrl,
-    publishableKey: kSupabaseAnonKey,
-    accessToken: () async {
-      return FirebaseAuth.instance.currentUser?.getIdToken();
-    },
-  );
-}
 
 /// Site key de reCAPTCHA v3 para Firebase App Check en Web. Se genera en
 
@@ -202,11 +149,7 @@ void main() async {
     debugPrint("Error inicializando Firebase: $e");
   }
 
-  try {
-    await _inicializarSupabase();
-  } catch (e) {
-    debugPrint("Error inicializando Supabase: $e");
-  }
+  await AccesosInicio.cargar();
 
   runApp(const SoundCheckProApp());
 }
@@ -429,7 +372,7 @@ Future<bool> confirmarSalidaSala(BuildContext context) async {
 
 /// Versión de la app que se muestra en Configuración. Tiene que coincidir
 /// con `version:` de pubspec.yaml (lo verifica una prueba).
-const String kVersionApp = '1.1.0';
+const String kVersionApp = '1.2.0';
 
 /// Dirección pública de la versión web (para armar el enlace de una sala).
 const String kUrlWeb = 'https://estebancastelani.github.io/bandasonido/';
@@ -2251,7 +2194,252 @@ class UsuarioService {
   /// usuario: lo protegen las reglas de Firestore, y hoy se activa a mano
   /// desde la consola hasta que haya cobro real integrado.
   static Stream<bool> streamEsPro(String uid) {
-    return _ref(uid).snapshots().map((snap) => snap.data()?['esPro'] == true);
+    final perfil =
+        _ref(uid).snapshots().map((snap) => snap.data()?['esPro'] == true);
+    final email = AuthService.currentUser?.email;
+    if (email == null || email.trim().isEmpty) return perfil;
+    return combinarOr(perfil, ProGratisService.streamInvitado(email));
+  }
+}
+
+/// Une dos flujos de sí/no en uno solo que vale "sí" si alguno lo es. Emite
+/// recién cuando ambos ya contestaron (para que `.first` no devuelva un "no"
+/// provisorio). Si [b] falla (por ejemplo sin permiso), cuenta como "no".
+Stream<bool> combinarOr(Stream<bool> a, Stream<bool> b) {
+  late final StreamController<bool> control;
+  StreamSubscription<bool>? sa;
+  StreamSubscription<bool>? sb;
+  bool? va;
+  bool? vb;
+  bool? ultimo;
+  void emitir() {
+    if (va == null || vb == null) return;
+    final v = va! || vb!;
+    if (v != ultimo) {
+      ultimo = v;
+      control.add(v);
+    }
+  }
+
+  control = StreamController<bool>(
+    onListen: () {
+      sa = a.listen((x) {
+        va = x;
+        emitir();
+      }, onError: control.addError);
+      sb = b.listen((x) {
+        vb = x;
+        emitir();
+      }, onError: (_) {
+        vb = false;
+        emitir();
+      });
+    },
+    onCancel: () async {
+      await sa?.cancel();
+      await sb?.cancel();
+    },
+  );
+  return control.stream;
+}
+
+/// Lista de mails que tienen Pro gratis (colección `pro_gratis`, un documento
+/// por mail en minúsculas). La administra la persona dueña desde la pantalla
+/// [ProGratisScreen]; cada usuario solo puede leer el documento de SU mail
+/// (lo exigen las reglas de Firestore), así que nadie ve la lista completa.
+class ProGratisService {
+  static CollectionReference<Map<String, dynamic>> get _col =>
+      FirebaseFirestore.instance.collection('pro_gratis');
+
+  static String normalizar(String email) => email.trim().toLowerCase();
+
+  static bool emailValido(String email) =>
+      RegExp(r'^[a-z0-9._%+\-]+@[a-z0-9\-]+(\.[a-z0-9\-]+)*\.[a-z]{2,}$')
+          .hasMatch(normalizar(email));
+
+  /// ¿Este mail está en la lista? Se actualiza solo.
+  static Stream<bool> streamInvitado(String email) =>
+      _col.doc(normalizar(email)).snapshots().map((s) => s.exists);
+
+  static String? _uidAdmin;
+  static Future<bool>? _esAdmin;
+
+  /// ¿Esta cuenta administra la lista? Lo decide un documento `admins/{uid}`
+  /// que solo se puede crear desde la consola de Firebase.
+  static Future<bool> soyAdmin() {
+    final uid = AuthService.currentUser?.uid;
+    if (uid == null || !AuthService.esUsuarioRegistrado) {
+      return Future.value(false);
+    }
+    if (_uidAdmin != uid) {
+      _uidAdmin = uid;
+      _esAdmin = () async {
+        try {
+          final s = await FirebaseFirestore.instance
+              .collection('admins')
+              .doc(uid)
+              .get();
+          return s.exists;
+        } catch (_) {
+          return false;
+        }
+      }();
+    }
+    return _esAdmin!;
+  }
+
+  static Stream<QuerySnapshot<Map<String, dynamic>>> lista() =>
+      _col.orderBy('createdAt', descending: true).limit(500).snapshots();
+
+  static Future<void> agregar(String email, String nota) =>
+      _col.doc(normalizar(email)).set({
+        'email': normalizar(email),
+        'nota': nota.trim(),
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+
+  static Future<void> quitar(String email) =>
+      _col.doc(normalizar(email)).delete();
+}
+
+/// Menú ⋮ → "Pro gratis": agregar y quitar los mails con Pro sin pagar. Solo
+/// aparece para quien está en `admins`.
+class ProGratisScreen extends StatefulWidget {
+  const ProGratisScreen({super.key});
+
+  @override
+  State<ProGratisScreen> createState() => _ProGratisScreenState();
+}
+
+class _ProGratisScreenState extends State<ProGratisScreen> {
+  final _mail = TextEditingController();
+  final _nota = TextEditingController();
+  bool _guardando = false;
+
+  @override
+  void dispose() {
+    _mail.dispose();
+    _nota.dispose();
+    super.dispose();
+  }
+
+  Future<void> _agregar() async {
+    final l = context.l10n;
+    final messenger = ScaffoldMessenger.of(context);
+    if (!ProGratisService.emailValido(_mail.text)) {
+      messenger.showSnackBar(SnackBar(content: Text(l.proGratisMailInvalido)));
+      return;
+    }
+    setState(() => _guardando = true);
+    try {
+      await ProGratisService.agregar(_mail.text, _nota.text);
+      _mail.clear();
+      _nota.clear();
+      messenger.showSnackBar(SnackBar(content: Text(l.proGratisAgregado)));
+    } catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text(mensajeError(l, e))));
+    } finally {
+      if (mounted) setState(() => _guardando = false);
+    }
+  }
+
+  Future<void> _quitar(String mail) async {
+    final l = context.l10n;
+    final messenger = ScaffoldMessenger.of(context);
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(l.proGratisQuitarTitulo),
+        content: Text(mail),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text(l.cancelar)),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, true), child: Text(l.quitar)),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    try {
+      await ProGratisService.quitar(mail);
+      messenger.showSnackBar(SnackBar(content: Text(l.proGratisQuitado)));
+    } catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text(mensajeError(l, e))));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l = context.l10n;
+    return Scaffold(
+      appBar: AppBar(title: Text(l.proGratisTitulo)),
+      body: SafeArea(
+        child: ListView(
+          padding: rellenoFormulario(context),
+          children: [
+            Text(l.proGratisAyuda),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _mail,
+              keyboardType: TextInputType.emailAddress,
+              autocorrect: false,
+              decoration: InputDecoration(
+                  labelText: l.proGratisMail,
+                  border: const OutlineInputBorder()),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _nota,
+              maxLength: 80,
+              decoration: InputDecoration(
+                  labelText: l.proGratisNota,
+                  border: const OutlineInputBorder()),
+            ),
+            FilledButton.icon(
+              onPressed: _guardando ? null : _agregar,
+              icon: const Icon(Icons.person_add_alt_1),
+              label: Text(l.agregar),
+            ),
+            const SizedBox(height: 16),
+            StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+              stream: ProGratisService.lista(),
+              builder: (context, snap) {
+                if (snap.hasError) {
+                  return Text(l.errorDeConexion('${snap.error}'));
+                }
+                if (!snap.hasData) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                final docs = snap.data!.docs;
+                if (docs.isEmpty) {
+                  return Text(l.proGratisVacio,
+                      style: const TextStyle(color: Colors.grey));
+                }
+                return Column(
+                  children: [
+                    for (final d in docs)
+                      ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: const Icon(Icons.workspace_premium),
+                        title: Text('${d.data()['email'] ?? d.id}'),
+                        subtitle: ('${d.data()['nota'] ?? ''}').isEmpty
+                            ? null
+                            : Text('${d.data()['nota']}'),
+                        trailing: IconButton(
+                          icon: const Icon(Icons.delete_outline),
+                          tooltip: l.quitar,
+                          onPressed: () => _quitar(d.id),
+                        ),
+                      ),
+                  ],
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
@@ -2655,9 +2843,10 @@ const int kKbpsMaximoAudio = 192;
 const int kCuotaBytesPorUsuario = 500 * 1024 * 1024;
 
 /// Dirección del servidor de archivos de Cloudflare R2 (carpeta worker/). Se
-/// pasa al compilar: --dart-define=R2_WORKER_URL=https://... Vacía = los
-/// archivos nuevos siguen yendo a Supabase.
-const String kR2WorkerUrl = String.fromEnvironment('R2_WORKER_URL');
+/// puede cambiar al compilar: --dart-define=R2_WORKER_URL=https://...
+const String kR2WorkerUrl = String.fromEnvironment('R2_WORKER_URL',
+    defaultValue:
+        'https://sound-check-pro-archivos.sound-check-pro-archivos.workers.dev');
 
 /// El archivo pesa más de lo permitido.
 class ArchivoDemasiadoGrande implements Exception {
@@ -2873,9 +3062,9 @@ class CuotaArchivos {
   }
 }
 
-/// Dónde está cada archivo: 'cloudflare_r2' (el actual si hay [kR2WorkerUrl]),
-/// 'supabase' (el que se usa si no) o 'firebase' (los más viejos). Cada
-/// documento guarda su 'storageProvider', así que los tres conviven.
+/// Dónde está cada archivo: 'cloudflare_r2' (el único actual). Los documentos
+/// más viejos dicen 'supabase' o 'firebase': esos archivos ya no existen (se
+/// borraron al dejar esos servicios), así que solo se conserva su fila.
 const String kProveedorR2 = 'cloudflare_r2';
 
 /// Cliente del servidor de archivos (carpeta worker/): subir, borrar y bajar
@@ -2969,66 +3158,36 @@ class ArchivosR2 {
   }
 }
 
-/// Sube un archivo al almacenamiento activo (R2 si está configurado, si no
-/// Supabase) y devuelve con qué proveedor quedó y su dirección pública.
+/// Sube un archivo a Cloudflare R2 y devuelve con qué proveedor quedó y su
+/// dirección pública.
 Future<({String proveedor, String url})> subirArchivo(
     String ruta, Uint8List bytes, String tipo) async {
-  if (ArchivosR2.disponible) {
-    // Si el servidor ya tiene una copia idéntica no se sube nada: se enlaza.
-    final copia =
-        await ArchivosR2.vincular(ruta, bytes, huellaDeArchivo(bytes));
-    return (
-      proveedor: kProveedorR2,
-      url: copia ?? await ArchivosR2.subir(ruta, bytes, tipo)
-    );
-  }
-  await supabase.storage.from(kSupabaseRepertorioBucket).uploadBinary(
-        ruta,
-        bytes,
-        fileOptions: FileOptions(contentType: tipo),
-      );
+  // Si el servidor ya tiene una copia idéntica no se sube nada: se enlaza.
+  final copia = await ArchivosR2.vincular(ruta, bytes, huellaDeArchivo(bytes));
   return (
-    proveedor: 'supabase',
-    url: supabase.storage.from(kSupabaseRepertorioBucket).getPublicUrl(ruta)
+    proveedor: kProveedorR2,
+    url: copia ?? await ArchivosR2.subir(ruta, bytes, tipo)
   );
 }
 
 /// Borra un archivo del proveedor con el que se subió (lanza si falla: cada
 /// llamador decide si sigue igual).
 Future<void> borrarArchivoDe(String proveedor, String ruta) async {
-  switch (proveedor) {
-    case kProveedorR2:
-      await ArchivosR2.borrar(ruta);
-    case 'supabase':
-      await supabase.storage.from(kSupabaseRepertorioBucket).remove([ruta]);
-    default:
-      await FirebaseStorage.instance.ref(ruta).delete();
-  }
+  // Los archivos de Supabase y Firebase ya no existen: no hay nada que borrar.
+  if (proveedor == kProveedorR2) await ArchivosR2.borrar(ruta);
 }
 
 /// Baja los bytes de un archivo del proveedor con el que se subió.
 Future<Uint8List?> bajarArchivoDe(String proveedor, String ruta) async {
-  switch (proveedor) {
-    case kProveedorR2:
-      return ArchivosR2.bajar(ruta);
-    case 'supabase':
-      return supabase.storage.from(kSupabaseRepertorioBucket).download(ruta);
-    default:
-      return FirebaseStorage.instance.ref(ruta).getData();
-  }
+  // Null si el archivo era de Supabase o Firebase (ya no existe).
+  return proveedor == kProveedorR2 ? ArchivosR2.bajar(ruta) : null;
 }
 
 // --- SERVICIO DE REPERTORIO PERSONAL (BIBLIOTECA DE PARTITURAS) ---
 
 /// Biblioteca de canciones/partituras propia de cada usuario.
-/// PDFs en Storage: usuarios/{uid}/canciones/{archivo}.pdf — hoy en el
-/// bucket de Supabase (kSupabaseRepertorioBucket), TEMPORALMENTE, mientras
-/// Firebase Storage no está aprovisionado (falta activar el plan Blaze; ver
-/// CONTEXTO_PARA_IA.md). El documento de metadatos guarda 'storageProvider'
-/// ('supabase' o 'firebase') para saber con qué backend borrar el archivo.
-/// Cuando se active Blaze, volver a Firebase acá adentro es cambiar
-/// subirCancion (y el branch de eliminarCancion) — no hace falta migrar
-/// los documentos viejos, conviven los dos providers por su campo.
+/// PDFs en Cloudflare R2: usuarios/{uid}/canciones/{archivo}.pdf (ver
+/// ArchivosR2). El documento de metadatos guarda 'storageProvider'.
 /// Metadatos en Firestore: usuarios/{uid}/mi_repertorio/{cancionId}
 class RepertorioService {
   static CollectionReference<Map<String, dynamic>> _ref(String uid) =>
@@ -3059,7 +3218,7 @@ class RepertorioService {
     return ordenados;
   }
 
-  /// Supabase Storage rechaza keys con espacios, tildes, paréntesis, etc.
+  /// Los nombres de archivo no deben llevar espacios, tildes, paréntesis, etc.
   /// (statusCode 400, error InvalidKey). Se sanitiza el nombre de archivo
   /// original antes de armar el storagePath — no afecta el 'titulo' que
   /// se muestra en la UI, solo el nombre interno del objeto en el bucket.
@@ -3151,8 +3310,7 @@ class RepertorioService {
     return (actualizadas: actualizadas, sinTexto: sinTexto, fallidas: fallidas);
   }
 
-  /// Sube el PDF a Supabase Storage (bucket público, ver kSupabaseRepertorioBucket
-  /// y CONTEXTO_PARA_IA.md para el porqué) y crea el documento de metadatos
+  /// Sube el PDF a Cloudflare R2 y crea el documento de metadatos
   /// en Firestore. Devuelve el mapa con los datos guardados (incluye pdfUrl).
   static Future<Map<String, dynamic>> subirCancion({
     required String uid,
@@ -3381,9 +3539,8 @@ class SetlistService {
 /// Secuencias = pistas de audio (backing tracks, clicks, loops) que cada
 /// usuario guarda en su cuenta, sin límite de cantidad, y que después carga
 /// en la sala para el show del día. Mismo esquema que el repertorio de PDFs:
-/// archivo en el bucket de Supabase (kSupabaseRepertorioBucket, carpeta
-/// usuarios/{uid}/secuencias/ — las políticas RLS por carpeta de usuario ya
-/// la cubren) y metadatos en Firestore:
+/// archivo en Cloudflare R2 (carpeta usuarios/{uid}/secuencias/) y metadatos
+/// en Firestore:
 ///   usuarios/{uid}/mis_secuencias/{id} — biblioteca personal
 ///   salas/{codigoSala}/secuencias/{id} — las elegidas para el show (copia
 ///     liviana: título + URL pública, igual que el setlist con los PDFs)
@@ -3509,7 +3666,7 @@ class SecuenciasService {
       try {
         final doc = await _refUsuario(uid).doc(id).get();
         final proveedor =
-            doc.data()?['storageProvider'] as String? ?? 'supabase';
+            doc.data()?['storageProvider'] as String? ?? 'firebase';
         await borrarArchivoDe(proveedor, storagePath);
         CuotaArchivos.sumar(
             uid, -((doc.data()?['bytes'] as num?)?.toInt() ?? 0));
@@ -3965,6 +4122,18 @@ class ReproductorSecuencias extends ChangeNotifier {
     await _prepararListos();
   }
 
+  /// Si la pista que suena viene de la red, la guarda en el celular en segundo
+  /// plano: la próxima vez suena de ahí y no vuelve a gastar datos ni cuota del
+  /// servidor. Respeta el tope de pistas guardadas (se borran las más viejas).
+  static void guardarSiFalta(String url) {
+    if (kIsWeb || puente.reproductorWebDisponible || url.isEmpty) return;
+    unawaited(() async {
+      if (await _rutaEnCache(url) != null) return;
+      await (_descargas[url] ??= _descargar(url));
+      if (_enCache.contains(url)) await _limpiarCache({..._urlsSala, url});
+    }());
+  }
+
   /// Guarda en el celular una pista que ya está en memoria (la que se acaba
   /// de subir), como si se hubiera bajado.
   static Future<void> guardarLocal(String url, Uint8List bytes) async {
@@ -4195,6 +4364,7 @@ class ReproductorSecuencias extends ChangeNotifier {
           repetir: repetir,
         );
         duracion = d ?? duracion;
+        guardarSiFalta(url);
       } else {
         await _pasarAMotorNativo();
         final listo = _listos.remove(url);
@@ -4227,6 +4397,7 @@ class ReproductorSecuencias extends ChangeNotifier {
           await nativo.reproductor
               .play(local != null ? DeviceFileSource(local) : UrlSource(url));
           await nativo.tempo(this.tempo);
+          if (local == null) guardarSiFalta(url);
         }
       }
     } finally {
@@ -6847,6 +7018,7 @@ class IngressMenuScreen extends StatelessWidget {
                         style: OutlinedButton.styleFrom(
                             padding: const EdgeInsets.all(16)),
                       ),
+                      _BotonesDeCuenta(uid: user!.uid),
                     ],
                     const SizedBox(height: 12),
                     OutlinedButton.icon(
@@ -6866,6 +7038,225 @@ class IngressMenuScreen extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Dónde se ven "Mis frases", "Mi repertorio" y "Mis secuencias": en la
+/// pantalla de inicio (lo normal) o solo en el menú ⋮. Lo elige cada persona
+/// con la versión Pro (Configuración → Pantalla de inicio); quien no la tiene
+/// los ve siempre en el inicio, a propósito: ver las funciones Pro invita a
+/// pagar. Se guarda en este dispositivo.
+class AccesosInicio {
+  static const _clave = 'accesos_en_inicio';
+  static final ValueNotifier<bool> enInicio = ValueNotifier<bool>(true);
+
+  static Future<void> cargar() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      enInicio.value = prefs.getBool(_clave) ?? true;
+    } catch (_) {}
+  }
+
+  static Future<void> guardar(bool valor) async {
+    enInicio.value = valor;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_clave, valor);
+    } catch (_) {}
+  }
+}
+
+/// Configuración → Pantalla de inicio: un interruptor para sacar los tres
+/// accesos de la pantalla de inicio y dejarlos solo en el menú ⋮.
+class AccesosInicioScreen extends StatelessWidget {
+  const AccesosInicioScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final l = context.l10n;
+    final uid = AuthService.currentUser?.uid;
+    return Scaffold(
+      appBar: AppBar(title: Text(l.accesosInicioTitulo)),
+      body: SafeArea(
+        child: StreamBuilder<bool>(
+          stream: uid == null
+              ? const Stream<bool>.empty()
+              : UsuarioService.streamEsPro(uid),
+          builder: (context, snapshot) {
+            // Solo quien pagó (esPro) puede elegir; no depende de la bandera de pruebas.
+            final puede = snapshot.data == true;
+            return ValueListenableBuilder<bool>(
+              valueListenable: AccesosInicio.enInicio,
+              builder: (context, enInicio, _) => ListView(
+                padding: rellenoFormulario(context),
+                children: [
+                  SwitchListTile(
+                    title: Text(l.accesosInicioMostrar),
+                    subtitle: Text(
+                        puede ? l.accesosInicioAyuda : l.accesosInicioSoloPro),
+                    value: enInicio || !puede,
+                    onChanged: puede ? AccesosInicio.guardar : null,
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+/// Un candado para los botones que son de la versión paga. Al mantenerlo
+/// apretado dice "Solo app paga".
+class IconoSoloPago extends StatelessWidget {
+  const IconoSoloPago({super.key});
+
+  @override
+  Widget build(BuildContext context) => Tooltip(
+        message: context.l10n.soloAppPaga,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () => Navigator.push(context,
+              MaterialPageRoute(builder: (_) => const PlanProScreen())),
+          child: const Padding(
+            padding: EdgeInsets.all(4),
+            child: Icon(Icons.lock_outline, size: 18),
+          ),
+        ),
+      );
+}
+
+/// Qué incluye el plan Pro y en qué estado está tu cuenta. Todavía no cobra:
+/// el precio se define más adelante (ver BACKLOG.md). En Android no lleva
+/// ningún enlace a otro medio de pago (política de Google Play).
+class PlanProScreen extends StatelessWidget {
+  const PlanProScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final l = context.l10n;
+    final uid = AuthService.currentUser?.uid;
+    Widget beneficio(IconData icono, String texto) => Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Icon(icono, color: context.acento),
+            const SizedBox(width: 12),
+            Expanded(child: Text(texto, style: const TextStyle(fontSize: 15))),
+          ]),
+        );
+    return Scaffold(
+      appBar: AppBar(title: Text(l.planPro)),
+      body: SafeArea(
+        child: ListView(
+          padding: rellenoFormulario(context),
+          children: [
+            Icon(Icons.workspace_premium, size: 56, color: context.acento),
+            const SizedBox(height: 12),
+            Text(l.planProSubtitulo,
+                textAlign: TextAlign.center,
+                style:
+                    const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 20),
+            beneficio(Icons.library_music, l.planProRepertorio),
+            beneficio(Icons.graphic_eq, l.planProSecuencias),
+            beneficio(Icons.swap_vert, l.planProTono),
+            const SizedBox(height: 16),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Text(l.planProPrecio,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                        fontSize: 16, fontWeight: FontWeight.bold)),
+              ),
+            ),
+            if (uid != null)
+              StreamBuilder<bool>(
+                stream: UsuarioService.streamEsPro(uid),
+                builder: (context, snapshot) => Padding(
+                  padding: const EdgeInsets.only(top: 12),
+                  child: Text(
+                      snapshot.data == true
+                          ? l.planProTuPlanPro
+                          : l.planProTuPlanGratis,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(color: Colors.grey)),
+                ),
+              ),
+            const SizedBox(height: 24),
+            Text(l.planProSiempreGratis,
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 13, color: Colors.grey)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Los botones de la cuenta en la pantalla de inicio, debajo de "Mis salas":
+/// Mis frases (gratis), Mi repertorio y Mis secuencias (con un candado y
+/// aspecto apagado para quien no tiene la app paga). Siguen siendo usables mientras
+/// [kFuncionesProGratisPorAhora] sea true.
+class _BotonesDeCuenta extends StatelessWidget {
+  final String uid;
+  const _BotonesDeCuenta({required this.uid});
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<bool>(
+      stream: UsuarioService.streamEsPro(uid),
+      builder: (context, snapshot) {
+        // Mientras carga no se apaga el botón (evita un parpadeo).
+        final noEsPro = snapshot.hasData && snapshot.data != true;
+        Widget boton(IconData icono, String texto, Widget Function() pantalla,
+                {bool soloPago = false}) =>
+            Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: Opacity(
+                opacity: soloPago && noEsPro ? 0.5 : 1,
+                child: OutlinedButton.icon(
+                  icon: Icon(icono),
+                  label: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Flexible(child: Text(texto)),
+                      if (soloPago && noEsPro) ...[
+                        const SizedBox(width: 8),
+                        const IconoSoloPago(),
+                      ],
+                    ],
+                  ),
+                  onPressed: () => Navigator.push(
+                      context, MaterialPageRoute(builder: (_) => pantalla())),
+                  style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.all(16)),
+                ),
+              ),
+            );
+        // Solo quien pagó (esPro) puede sacarlos del inicio; el resto los ve siempre.
+        final puedeElegir = snapshot.data == true;
+        return ValueListenableBuilder<bool>(
+          valueListenable: AccesosInicio.enInicio,
+          builder: (context, enInicio, _) => (puedeElegir && !enInicio)
+              ? const SizedBox.shrink()
+              : Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    boton(Icons.chat_bubble_outline, context.l10n.misFrases,
+                        () => const FrasesAdminScreen()),
+                    boton(Icons.library_music, context.l10n.miRepertorio,
+                        () => const MiRepertorioScreen(),
+                        soloPago: true),
+                    boton(Icons.graphic_eq, context.l10n.misSecuencias,
+                        () => const MisSecuenciasScreen(),
+                        soloPago: true),
+                  ],
+                ),
+        );
+      },
     );
   }
 }
@@ -7117,13 +7508,23 @@ class MenuHamburguesa extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    return FutureBuilder<bool>(
+      future: conCuenta ? ProGratisService.soyAdmin() : Future.value(false),
+      builder: (context, admin) => _menu(context, admin.data == true),
+    );
+  }
+
+  Widget _menu(BuildContext context, bool esAdmin) {
     return PopupMenuButton<String>(
       icon: Icon(Icons.menu, color: colorIcono),
       onSelected: (valor) {
         Widget? pantalla = switch (valor) {
+          'progratis' => const ProGratisScreen(),
           'frases' => const FrasesAdminScreen(),
           'repertorio' => const MiRepertorioScreen(),
           'secuencias' => const MisSecuenciasScreen(),
+          'plan' => const PlanProScreen(),
+          'inicio' => const AccesosInicioScreen(),
           'colores' => const PaletaPickerScreen(),
           'idioma' => const IdiomaPickerScreen(),
           'alertas' => const AlertasScreen(),
@@ -7147,6 +7548,10 @@ class MenuHamburguesa extends StatelessWidget {
               value: 'repertorio', child: Text(context.l10n.miRepertorio2)),
           PopupMenuItem(
               value: 'secuencias', child: Text(context.l10n.misSecuencias2)),
+          PopupMenuItem(value: 'plan', child: Text(context.l10n.planPro)),
+          if (esAdmin)
+            PopupMenuItem(
+                value: 'progratis', child: Text(context.l10n.proGratisTitulo)),
         ],
         _ItemConfiguracion(conCuenta: conCuenta),
         PopupMenuItem(value: 'guia', child: Text(context.l10n.comoFunciona)),
@@ -7234,6 +7639,8 @@ class _ItemConfiguracionState extends State<_ItemConfiguracion> {
                     opcion('colores', l.colores),
                     opcion('idioma', l.idioma),
                     opcion('alertas', l.alertas),
+                    if (widget.conCuenta)
+                      opcion('inicio', l.accesosInicioTitulo),
                     if (widget.conCuenta)
                       opcion('eliminar', l.eliminarCuenta,
                           colorTexto: Colors.red),
@@ -8191,7 +8598,7 @@ class _RequestScreenState extends State<RequestScreen>
   bool _pantallaEncendida = true;
 
   bool _esUrgente = false;
-  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _conexionSub;
+  StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _conexionSub;
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _respuestasSub;
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _precargaSub;
   final _estadoRespuestas = <String, ({bool atendido, String respuesta})>{};
@@ -8315,11 +8722,15 @@ class _RequestScreenState extends State<RequestScreen>
   /// Escucha si hay conexión con Firestore y muestra un aviso fijo cuando se
   /// pierde: así nadie cree que un pedido llegó cuando no hay red.
   void _vigilarConexion() {
+    // Escucha el documento de presencia PROPIO, que casi nunca cambia (antes
+    // escuchaba el último pedido de la sala, y cada pedido nuevo o cada cambio
+    // en él costaba una lectura a todos los músicos). Si todavía no existe
+    // (invitados) alcanza igual: solo importa si la respuesta vino del servidor.
     _conexionSub = FirebaseFirestore.instance
         .collection('salas')
         .doc(widget.codigoSala)
-        .collection('pedidos')
-        .limit(1)
+        .collection('miembros')
+        .doc(AuthService.currentUser?.uid ?? 'sin-sesion')
         .snapshots(includeMetadataChanges: true)
         .listen((s) {
       final desdeCache = s.metadata.isFromCache;
@@ -11314,8 +11725,7 @@ class _MisSecuenciasScreenState extends State<MisSecuenciasScreen> {
     );
     if (result == null || result.files.isEmpty) return;
 
-    // Supabase gratis rechaza los archivos de más de 50 MB con un error poco
-    // claro. En web se convierten a MP3 antes de subirlos y en Android se
+    // En web se convierten a MP3 antes de subirlos y en Android se
     // comprimen a AAC; fuera de eso (sin conversor) se avisa acá y se sigue con
     // los demás.
     const limite = SecuenciasService.tamanoMaximoBytes;
@@ -12185,8 +12595,16 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
   void initState() {
     super.initState();
     Future(() async {
-      final ruta = await CachePdfs.ruta(widget.pdfUrl);
-      final bytes = ruta == null ? await CachePdfs.bytes(widget.pdfUrl) : null;
+      var ruta = await CachePdfs.ruta(widget.pdfUrl);
+      var bytes = ruta == null ? await CachePdfs.bytes(widget.pdfUrl) : null;
+      if (ruta == null && bytes == null && widget.pdfUrl.isNotEmpty) {
+        // No estaba guardado (p. ej. viene de Mi repertorio): se baja una sola
+        // vez al celular y las próximas veces se abre de ahí, sin gastar cuota
+        // del servidor. Si falla, se abre por la red como antes.
+        await CachePdfs.precargar([widget.pdfUrl]);
+        ruta = await CachePdfs.ruta(widget.pdfUrl);
+        bytes = ruta == null ? await CachePdfs.bytes(widget.pdfUrl) : null;
+      }
       if (mounted) {
         setState(() {
           _rutaLocal = ruta;
@@ -13273,6 +13691,11 @@ class _SonidistaPageState extends State<SonidistaPage>
                 .doc(widget.codigoSala)
                 .collection('pedidos')
                 .where('atendido', isEqualTo: true)
+                // Solo los últimos: sin tope, cada pedido atendido nuevo
+                // releía todo el historial. Usa el índice (atendido,
+                // createdAt desc) de firestore.indexes.json.
+                .orderBy('createdAt', descending: true)
+                .limit(kMaximoPedidosVisibles)
                 .snapshots(),
             builder: (context, snapshot) {
               if (snapshot.hasError) {
@@ -13284,12 +13707,6 @@ class _SonidistaPageState extends State<SonidistaPage>
               if (!snapshot.hasData) {
                 return const Center(child: CircularProgressIndicator());
               }
-
-              // Se ordena en el cliente (en vez de .orderBy en la query) para
-
-              // no depender de un índice compuesto de Firestore que no está
-
-              // provisionado (where + orderBy en campos distintos lo exigiría).
 
               final docs = snapshot.data!.docs.toList()
                 ..sort((a, b) {

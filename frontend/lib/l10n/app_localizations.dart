@@ -2455,6 +2455,144 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'No se pudo leer \"{nombre}\" o pesa más de 12 MB.'**
   String archivoCompartidoIlegible(Object nombre);
+
+  /// No description provided for @soloAppPaga.
+  ///
+  /// In es, this message translates to:
+  /// **'Solo app paga'**
+  String get soloAppPaga;
+
+  /// No description provided for @planPro.
+  ///
+  /// In es, this message translates to:
+  /// **'Plan Pro'**
+  String get planPro;
+
+  /// No description provided for @planProSubtitulo.
+  ///
+  /// In es, this message translates to:
+  /// **'Más herramientas para tu banda'**
+  String get planProSubtitulo;
+
+  /// No description provided for @planProRepertorio.
+  ///
+  /// In es, this message translates to:
+  /// **'Mi repertorio: subí tus PDF y armá tu biblioteca de canciones.'**
+  String get planProRepertorio;
+
+  /// No description provided for @planProSecuencias.
+  ///
+  /// In es, this message translates to:
+  /// **'Mis secuencias: subí tus pistas de audio (se comprimen solas para ahorrar espacio).'**
+  String get planProSecuencias;
+
+  /// No description provided for @planProTono.
+  ///
+  /// In es, this message translates to:
+  /// **'Subir y bajar el tono en una sala donde haya alguien con la versión Pro.'**
+  String get planProTono;
+
+  /// No description provided for @planProPrecio.
+  ///
+  /// In es, this message translates to:
+  /// **'Precio: próximamente'**
+  String get planProPrecio;
+
+  /// No description provided for @planProTuPlanPro.
+  ///
+  /// In es, this message translates to:
+  /// **'Tu plan: Pro'**
+  String get planProTuPlanPro;
+
+  /// No description provided for @planProTuPlanGratis.
+  ///
+  /// In es, this message translates to:
+  /// **'Tu plan: gratis'**
+  String get planProTuPlanGratis;
+
+  /// No description provided for @planProSiempreGratis.
+  ///
+  /// In es, this message translates to:
+  /// **'Siempre gratis: crear y unirte a salas, enviar y recibir pedidos, el setlist y tus frases.'**
+  String get planProSiempreGratis;
+
+  /// No description provided for @accesosInicioTitulo.
+  ///
+  /// In es, this message translates to:
+  /// **'Pantalla de inicio'**
+  String get accesosInicioTitulo;
+
+  /// No description provided for @accesosInicioMostrar.
+  ///
+  /// In es, this message translates to:
+  /// **'Mostrar Mis frases, Mi repertorio y Mis secuencias en la pantalla de inicio'**
+  String get accesosInicioMostrar;
+
+  /// No description provided for @accesosInicioAyuda.
+  ///
+  /// In es, this message translates to:
+  /// **'Si lo apagás, los encontrás igual en el menú de arriba a la derecha.'**
+  String get accesosInicioAyuda;
+
+  /// No description provided for @accesosInicioSoloPro.
+  ///
+  /// In es, this message translates to:
+  /// **'Disponible con la versión Pro.'**
+  String get accesosInicioSoloPro;
+
+  /// No description provided for @proGratisTitulo.
+  ///
+  /// In es, this message translates to:
+  /// **'Pro gratis'**
+  String get proGratisTitulo;
+
+  /// No description provided for @proGratisAyuda.
+  ///
+  /// In es, this message translates to:
+  /// **'Las personas con estos mails tienen Pro sin pagar. Tienen que entrar a la app con ese mismo mail (verificado).'**
+  String get proGratisAyuda;
+
+  /// No description provided for @proGratisMail.
+  ///
+  /// In es, this message translates to:
+  /// **'Mail'**
+  String get proGratisMail;
+
+  /// No description provided for @proGratisNota.
+  ///
+  /// In es, this message translates to:
+  /// **'Nota (opcional)'**
+  String get proGratisNota;
+
+  /// No description provided for @proGratisMailInvalido.
+  ///
+  /// In es, this message translates to:
+  /// **'Ese mail no parece válido.'**
+  String get proGratisMailInvalido;
+
+  /// No description provided for @proGratisAgregado.
+  ///
+  /// In es, this message translates to:
+  /// **'Agregado.'**
+  String get proGratisAgregado;
+
+  /// No description provided for @proGratisQuitado.
+  ///
+  /// In es, this message translates to:
+  /// **'Quitado.'**
+  String get proGratisQuitado;
+
+  /// No description provided for @proGratisQuitarTitulo.
+  ///
+  /// In es, this message translates to:
+  /// **'¿Quitar el Pro gratis a este mail?'**
+  String get proGratisQuitarTitulo;
+
+  /// No description provided for @proGratisVacio.
+  ///
+  /// In es, this message translates to:
+  /// **'Todavía no agregaste a nadie.'**
+  String get proGratisVacio;
 }
 
 class _AppLocalizationsDelegate
