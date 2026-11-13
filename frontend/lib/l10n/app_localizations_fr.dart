@@ -1429,4 +1429,7 @@ class AppLocalizationsFr extends AppLocalizations {
   String archivoCompartidoIlegible(Object nombre) {
     return 'Impossible de lire « $nombre » ou il dépasse 12 Mo.';
   }
+
+  @override
+  String get soloAppPaga => 'App payante uniquement';
 }

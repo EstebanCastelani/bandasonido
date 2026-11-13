@@ -1422,4 +1422,7 @@ class AppLocalizationsPt extends AppLocalizations {
   String archivoCompartidoIlegible(Object nombre) {
     return 'Não foi possível ler \"$nombre\" ou ele pesa mais de 12 MB.';
   }
+
+  @override
+  String get soloAppPaga => 'Só app paga';
 }

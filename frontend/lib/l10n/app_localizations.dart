@@ -2455,6 +2455,12 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'No se pudo leer \"{nombre}\" o pesa más de 12 MB.'**
   String archivoCompartidoIlegible(Object nombre);
+
+  /// No description provided for @soloAppPaga.
+  ///
+  /// In es, this message translates to:
+  /// **'Solo app paga'**
+  String get soloAppPaga;
 }
 
 class _AppLocalizationsDelegate

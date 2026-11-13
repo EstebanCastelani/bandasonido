@@ -521,5 +521,6 @@
         "type": "Object"
       }
     }
-  }
+  },
+  "soloAppPaga": "App payante uniquement"
 }

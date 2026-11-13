@@ -6757,6 +6757,7 @@ class IngressMenuScreen extends StatelessWidget {
                         style: OutlinedButton.styleFrom(
                             padding: const EdgeInsets.all(16)),
                       ),
+                      _BotonesDeCuenta(uid: user!.uid),
                     ],
                     const SizedBox(height: 12),
                     OutlinedButton.icon(
@@ -6776,6 +6777,80 @@ class IngressMenuScreen extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Un cartelito "Solo app paga" para los botones que son de la versión paga.
+class EtiquetaSoloPago extends StatelessWidget {
+  const EtiquetaSoloPago({super.key});
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+        decoration: BoxDecoration(
+          border: Border.all(color: context.acento),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Text(context.l10n.soloAppPaga,
+            style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                color: context.acento)),
+      );
+}
+
+/// Los botones de la cuenta en la pantalla de inicio, debajo de "Mis salas":
+/// Mis frases y Mi repertorio (con el cartel "Solo app paga" para quien no
+/// tiene la app paga) y Mis secuencias. Siguen siendo usables mientras
+/// [kFuncionesProGratisPorAhora] sea true.
+class _BotonesDeCuenta extends StatelessWidget {
+  final String uid;
+  const _BotonesDeCuenta({required this.uid});
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<bool>(
+      stream: UsuarioService.streamEsPro(uid),
+      builder: (context, snapshot) {
+        // Mientras carga no se muestra el cartel (evita un parpadeo).
+        final noEsPro = snapshot.hasData && snapshot.data != true;
+        Widget boton(IconData icono, String texto, Widget Function() pantalla,
+                {bool soloPago = false}) =>
+            Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: OutlinedButton.icon(
+                icon: Icon(icono),
+                label: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Flexible(child: Text(texto)),
+                    if (soloPago && noEsPro) ...[
+                      const SizedBox(width: 8),
+                      const EtiquetaSoloPago(),
+                    ],
+                  ],
+                ),
+                onPressed: () => Navigator.push(
+                    context, MaterialPageRoute(builder: (_) => pantalla())),
+                style:
+                    OutlinedButton.styleFrom(padding: const EdgeInsets.all(16)),
+              ),
+            );
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            boton(Icons.chat_bubble_outline, context.l10n.misFrases2,
+                () => const FrasesAdminScreen(),
+                soloPago: true),
+            boton(Icons.library_music, context.l10n.miRepertorio2,
+                () => const MiRepertorioScreen(),
+                soloPago: true),
+            boton(Icons.graphic_eq, context.l10n.misSecuencias2,
+                () => const MisSecuenciasScreen()),
+          ],
+        );
+      },
     );
   }
 }

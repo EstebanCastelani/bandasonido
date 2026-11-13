@@ -903,5 +903,6 @@
         "type": "Object"
       }
     }
-  }
+  },
+  "soloAppPaga": "Solo app paga"
 }
