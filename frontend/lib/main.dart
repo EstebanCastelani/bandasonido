@@ -13413,6 +13413,11 @@ class _SonidistaPageState extends State<SonidistaPage>
                 .doc(widget.codigoSala)
                 .collection('pedidos')
                 .where('atendido', isEqualTo: true)
+                // Solo los últimos: sin tope, cada pedido atendido nuevo
+                // releía todo el historial. Usa el índice (atendido,
+                // createdAt desc) de firestore.indexes.json.
+                .orderBy('createdAt', descending: true)
+                .limit(kMaximoPedidosVisibles)
                 .snapshots(),
             builder: (context, snapshot) {
               if (snapshot.hasError) {
@@ -13424,12 +13429,6 @@ class _SonidistaPageState extends State<SonidistaPage>
               if (!snapshot.hasData) {
                 return const Center(child: CircularProgressIndicator());
               }
-
-              // Se ordena en el cliente (en vez de .orderBy en la query) para
-
-              // no depender de un índice compuesto de Firestore que no está
-
-              // provisionado (where + orderBy en campos distintos lo exigiría).
 
               final docs = snapshot.data!.docs.toList()
                 ..sort((a, b) {
