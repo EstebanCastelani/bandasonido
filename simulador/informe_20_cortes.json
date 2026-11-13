@@ -1,0 +1,58 @@
+{
+  "fecha": "2026-11-13T18:29:24.354Z",
+  "dispositivos": 20,
+  "segundos": 60,
+  "intervaloMs": 4000,
+  "rafaga": 5,
+  "corteDeRedS": 15,
+  "vigilante": "presencia",
+  "duracionTotalS": 90,
+  "pedidosEnviados": 378,
+  "pedidosFallidos": 0,
+  "pedidosLlegadosAlSonidista": 378,
+  "porcentajeEntregado": 100,
+  "conexionMs": {
+    "p50": 787,
+    "max": 1268
+  },
+  "escrituraMs": {
+    "p50": 108,
+    "p95": 318,
+    "max": 13680
+  },
+  "llegadaAlSonidistaMs": {
+    "p50": 115,
+    "p95": 227,
+    "p99": 335,
+    "max": 388
+  },
+  "vueltaAlAutorMs": {
+    "n": 378,
+    "p50": 875,
+    "p95": 2236,
+    "max": 16972
+  },
+  "cambioDeTonoMs": {
+    "n": 704,
+    "p50": 112,
+    "p95": 233,
+    "max": 1504
+  },
+  "conCorteDeRed": {
+    "pedidos": 12,
+    "reconexionMaxMs": 1,
+    "llegadaMs": {
+      "p50": 9239,
+      "max": 13698
+    }
+  },
+  "lecturas": {
+    "sonidista": 1596,
+    "propios": 2073,
+    "vigilante": 0,
+    "setlist": 765,
+    "total": 4434,
+    "porPedido": 11.7
+  },
+  "errores": {}
+}

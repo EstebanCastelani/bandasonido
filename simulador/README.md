@@ -33,9 +33,24 @@ Variables: `DISPOSITIVOS`, `SEGUNDOS`, `INTERVALO_MS`, `RAFAGA`.
 
 Lectura: con 10 dispositivos y ~10 pedidos por segundo, ninguno se perdió y el p95 de llegada quedó bajo 0,75 s. (Los máximos de llegada del setlist de esa corrida, 13 s y 87 s, eran un error de medición del script —contaba el aviso de borrado de la limpieza—, ya corregido.)
 
+## Segunda tanda: como la app real, con lecturas y cortes de red
+Desde esta versión cada dispositivo escucha lo mismo que la app (el músico solo sus pedidos, el sonidista todos) y el script cuenta las lecturas. Variables nuevas: `VIGILANTE` (`pedido` = el vigilante de conexión viejo, `presencia` = el nuevo) y `CORTE_S` (3 dispositivos pierden internet esa cantidad de segundos).
+
+| | 10 disp., vigilante viejo | 10 disp., vigilante nuevo | 20 disp., cortes de 15 s |
+|---|---|---|---|
+| Pedidos / entregados | 139 / 100 % | 133 / 100 % | 378 / 100 % |
+| Llegada al sonidista (p50 / p95 / máx) | 124 / 338 / 420 ms | 120 / 297 / 371 ms | 115 / 227 / 388 ms |
+| Respuesta vuelve al autor (p50 / p95) | 811 / 1.398 ms | 869 / 1.208 ms | 875 / 2.236 ms |
+| Lecturas del vigilante | 128 | 0 | 0 |
+| Lecturas totales (por pedido) | 1.622 (11,7) | 1.424 (10,7) | 4.434 (11,7) |
+| Errores | 0 | 0 | 0 |
+
+- Con 20 dispositivos y pedidos cada 4 s no se perdió ningún pedido. Los 12 mandados sin internet llegaron todos al reconectar (p50 9 s, máx 13,7 s: lo que duró el corte).
+- El vigilante nuevo elimina esas lecturas; el ahorro crece con la cantidad de músicos (cada pedido nuevo le costaba 1 lectura a cada músico).
+
 ## Lo que NO cubre
 - La carga de **dibujar** pantallas en celulares reales (memoria, batería, GPU).
 - Archivos (PDF y audio) ni el servidor de Cloudflare.
 - Reglas de seguridad y App Check (no hay límite por minuto ni validación de pedidos todavía: B-02).
-- Redes malas (4G inestable, cortes): los dispositivos usan la misma red de la PC.
+- Redes malas reales (4G inestable): los cortes simulados son limpios (internet apagado y vuelto a prender).
 - Más de unas decenas de dispositivos: la cuota gratuita lo impide.

@@ -1,13 +1,16 @@
 // Simulador de carga: N "celulares" en la misma sala, contra el Firebase REAL.
-// Cada uno entra como invitado, escucha pedidos y setlist en vivo (como la app)
-// y manda pedidos. Un "sonidista" (el dispositivo 0) los marca como vistos y los
-// atiende. Mide cuánto tarda cada pedido en llegar a los demás.
-// Ver README.md. Variables: DISPOSITIVOS, SEGUNDOS, INTERVALO_MS, RAFAGA.
+// Cada dispositivo escucha lo MISMO que la app real:
+//   - el músico (dispositivos 1..N-1): solo sus pedidos (where nombre, últimos 10), el setlist
+//     y un "vigilante de conexión";
+//   - el sonidista (dispositivo 0): todos los pedidos (últimos 200) y el setlist.
+// Cuenta las lecturas (cada documento que Firestore entrega a un escucha cuenta como 1) y mide
+// tiempos. Ver README.md.
+// Variables: DISPOSITIVOS, SEGUNDOS, INTERVALO_MS, RAFAGA, CORTE_S, VIGILANTE (pedido|presencia).
 import { initializeApp, deleteApp } from 'firebase/app';
 import { getAuth, signInAnonymously, deleteUser } from 'firebase/auth';
 import {
-  addDoc, collection, deleteDoc, doc, getDocs, getFirestore, limit, onSnapshot,
-  orderBy, query, serverTimestamp, setDoc, terminate, updateDoc,
+  addDoc, collection, deleteDoc, disableNetwork, doc, enableNetwork, getDocs, getFirestore,
+  limit, onSnapshot, orderBy, query, serverTimestamp, setDoc, terminate, updateDoc, where,
 } from 'firebase/firestore';
 import { writeFileSync } from 'node:fs';
 
@@ -25,26 +28,34 @@ const N = Number(process.env.DISPOSITIVOS ?? 10);
 const SEGUNDOS = Number(process.env.SEGUNDOS ?? 60);
 const INTERVALO = Number(process.env.INTERVALO_MS ?? 4000);
 const RAFAGA = Number(process.env.RAFAGA ?? 5);
+// Segundos que 3 dispositivos (el 4, 5 y 6) pasan sin internet a un tercio de la prueba (0 = sin cortes).
+const CORTE_S = Number(process.env.CORTE_S ?? 0);
+// 'pedido' = el vigilante de conexión de antes (escucha el último pedido de la sala);
+// 'presencia' = el de ahora (escucha el documento de presencia propio).
+const VIGILANTE = process.env.VIGILANTE ?? 'presencia';
 
 // Tope de seguridad: la cuota gratuita de Firebase es de 50.000 lecturas por día.
-const escrituras = N * Math.ceil((SEGUNDOS * 1000) / INTERVALO) + N * RAFAGA + Math.ceil(SEGUNDOS / 5) * 3;
-const lecturas = escrituras * N;
+const pedidos = N * Math.ceil((SEGUNDOS * 1000) / INTERVALO) + N * RAFAGA;
+const porPedido = 2 + 2 + (VIGILANTE === 'pedido' ? (N - 1) * 2 : 0);
+const lecturas = pedidos * porPedido + Math.ceil(SEGUNDOS / 5) * 3 * N;
 if (lecturas > 20000) {
-  console.error(`Abortado: se estiman ${lecturas} lecturas (tope 20.000). Bajá DISPOSITIVOS, SEGUNDOS o subí INTERVALO_MS.`);
+  console.error(`Abortado: se estiman ${lecturas} lecturas (tope 20.000). Bajá DISPOSITIVOS o SEGUNDOS, o subí INTERVALO_MS.`);
   process.exit(1);
 }
 
 const codigo = 'SIM' + Math.random().toString(36).slice(2, 7).toUpperCase().padEnd(5, 'X');
 const dormir = (ms) => new Promise((r) => setTimeout(r, ms));
 const pct = (a, p) => (a.length ? [...a].sort((x, y) => x - y)[Math.min(a.length - 1, Math.floor((a.length * p) / 100))] : null);
+const maximo = (a) => (a.length ? Math.max(...a) : 0);
 
-const metricas = {
-  conexion: [], escrituraPedido: [], llegadaPedido: [], llegadaSetlist: [],
-  enviados: 0, fallidos: 0, errores: {}, recibidos: 0, esperados: 0,
+const m = {
+  conexion: [], escritura: [], alSonidista: [], vueltaAlAutor: [], setlist: [], trasCorte: [], reconexion: [],
+  enviados: 0, fallidos: 0, errores: {},
+  lecturas: { sonidista: 0, propios: 0, vigilante: 0, setlist: 0 },
 };
 const anotarError = (e) => {
   const c = e?.code ?? e?.message ?? String(e);
-  metricas.errores[c] = (metricas.errores[c] ?? 0) + 1;
+  m.errores[c] = (m.errores[c] ?? 0) + 1;
 };
 
 const dispositivos = [];
@@ -53,49 +64,61 @@ async function crear(i) {
   const app = initializeApp(config, 'sim' + i);
   const auth = getAuth(app);
   await signInAnonymously(auth);
-  const db = getFirestore(app);
-  const d = { i, app, auth, db, vistos: new Set(), cierres: [] };
-  metricas.conexion.push(Date.now() - t0);
+  const d = { i, app, auth, db: getFirestore(app), cierres: [], recibidos: new Set(), vueltas: new Set() };
+  m.conexion.push(Date.now() - t0);
   dispositivos.push(d);
-  return d;
 }
 
+const RE = /^SIM (\d+) (\d+) (\d+)( OFF)?$/;
+
 function escuchar(d) {
-  const pedidos = query(collection(d.db, 'salas', codigo, 'pedidos'), orderBy('createdAt', 'desc'), limit(200));
-  d.cierres.push(onSnapshot(pedidos, (snap) => {
-    for (const c of snap.docChanges()) {
-      if (c.type !== 'added') continue;
-      const dato = c.doc.data();
-      const m = /^SIM (\d+) (\d+) (\d+)$/.exec(dato.pedido ?? '');
-      // Solo lo que llegó del servidor y lo mandó otro dispositivo.
-      if (!m || c.doc.metadata.hasPendingWrites || Number(m[1]) === d.i) continue;
-      if (d.vistos.has(c.doc.id)) continue;
-      d.vistos.add(c.doc.id);
-      metricas.recibidos++;
-      metricas.llegadaPedido.push(Date.now() - Number(m[3]));
-      // El sonidista los marca como vistos y los atiende.
-      if (d.i === 0) {
+  const salaCol = (sub) => collection(d.db, 'salas', codigo, sub);
+  if (d.i === 0) {
+    d.cierres.push(onSnapshot(query(salaCol('pedidos'), orderBy('createdAt', 'desc'), limit(200)), (snap) => {
+      for (const c of snap.docChanges()) {
+        m.lecturas.sonidista++;
+        if (c.type !== 'added' || c.doc.metadata.hasPendingWrites) continue;
+        const x = RE.exec(c.doc.data().pedido ?? '');
+        if (!x || d.recibidos.has(c.doc.id)) continue;
+        d.recibidos.add(c.doc.id);
+        (x[4] ? m.trasCorte : m.alSonidista).push(Date.now() - Number(x[3]));
         const ref = c.doc.ref;
         dormir(300 + Math.random() * 500)
           .then(() => updateDoc(ref, { visto: true }))
           .then(() => (Math.random() < 0.5 ? updateDoc(ref, { respuesta: 'ok', atendido: true }) : null))
           .catch(anotarError);
       }
-    }
-  }, anotarError));
-  const setlist = collection(d.db, 'salas', codigo, 'setlist');
+    }, anotarError));
+  } else {
+    d.cierres.push(onSnapshot(query(salaCol('pedidos'), where('nombre', '==', 'Sim ' + d.i), orderBy('createdAt', 'desc'), limit(10)), (snap) => {
+      for (const c of snap.docChanges()) {
+        m.lecturas.propios++;
+        const data = c.doc.data();
+        const x = RE.exec(data.pedido ?? '');
+        if (c.type === 'modified' && x && data.visto && !d.vueltas.has(c.doc.id) && !c.doc.metadata.hasPendingWrites) {
+          d.vueltas.add(c.doc.id);
+          m.vueltaAlAutor.push(Date.now() - Number(x[3]));
+        }
+      }
+    }, anotarError));
+    const objetivo = VIGILANTE === 'pedido'
+      ? query(salaCol('pedidos'), limit(1))
+      : doc(d.db, 'salas', codigo, 'miembros', d.auth.currentUser.uid);
+    d.cierres.push(onSnapshot(objetivo, { includeMetadataChanges: true }, (s) => {
+      if (s.metadata.fromCache) return;
+      m.lecturas.vigilante += VIGILANTE === 'pedido' ? s.docChanges().length : (s.exists() ? 1 : 0);
+    }, anotarError));
+  }
   let primera = true;
-  d.cierres.push(onSnapshot(setlist, (snap) => {
+  d.cierres.push(onSnapshot(salaCol('setlist'), (snap) => {
     const inicial = primera;
     primera = false;
-    // El primer aviso trae lo que ya existía: no es un cambio en vivo.
+    m.lecturas.setlist += snap.docChanges().length;
     if (inicial) return;
     for (const c of snap.docChanges()) {
-      if (c.type === 'removed') continue; // el borrado de la limpieza no es una llegada
+      if (c.type === 'removed') continue;
       const t = c.doc.data().sim_t0;
-      if (typeof t === 'number' && !c.doc.metadata.hasPendingWrites && c.doc.data().sim_de !== d.i) {
-        metricas.llegadaSetlist.push(Date.now() - t);
-      }
+      if (typeof t === 'number' && !c.doc.metadata.hasPendingWrites && c.doc.data().sim_de !== d.i) m.setlist.push(Date.now() - t);
     }
   }, anotarError));
 }
@@ -105,14 +128,13 @@ async function mandar(d, secuencia) {
   try {
     await addDoc(collection(d.db, 'salas', codigo, 'pedidos'), {
       sala_id: codigo, nombre: 'Sim ' + d.i, rol: 'Prueba',
-      pedido: `SIM ${d.i} ${secuencia} ${t0}`,
+      pedido: `SIM ${d.i} ${secuencia} ${t0}${d.sinRed ? ' OFF' : ''}`,
       atendido: false, urgente: secuencia % 7 === 0, respuesta: '', createdAt: serverTimestamp(),
     });
-    metricas.escrituraPedido.push(Date.now() - t0);
-    metricas.enviados++;
-    metricas.esperados += N - 1;
+    m.escritura.push(Date.now() - t0);
+    m.enviados++;
   } catch (e) {
-    metricas.fallidos++;
+    m.fallidos++;
     anotarError(e);
   }
 }
@@ -132,21 +154,19 @@ async function limpiar() {
 }
 
 const inicio = Date.now();
-console.log(`Sala de prueba ${codigo}: ${N} dispositivos, ${SEGUNDOS} s, un pedido cada ${INTERVALO} ms por dispositivo, ráfaga de ${RAFAGA}.`);
+console.log(`Sala ${codigo}: ${N} dispositivos, ${SEGUNDOS} s, un pedido cada ${INTERVALO} ms, ráfaga ${RAFAGA}, cortes ${CORTE_S} s, vigilante "${VIGILANTE}".`);
 try {
-  // 1. Entran todos a la vez.
   await Promise.all(Array.from({ length: N }, (_, i) => crear(i)));
   dispositivos.sort((a, b) => a.i - b.i);
   dispositivos.forEach(escuchar);
   await setDoc(doc(dispositivos[0].db, 'salas', codigo, 'setlist', 'tema1'), {
     titulo: 'Tema de prueba', orden: 0, transposicion: 0, sim_t0: Date.now(), sim_de: 0,
   });
-  console.log(`Conectados en ${Math.round(Math.max(...metricas.conexion))} ms (el más lento).`);
   await dormir(1500);
 
-  // 2. Ritmo normal: cada dispositivo manda pedidos; 3 cambian el tono del setlist.
   const fin = Date.now() + SEGUNDOS * 1000;
-  const tareas = dispositivos.map(async (d) => {
+  const musicos = dispositivos.slice(1);
+  const envios = musicos.map(async (d) => {
     let s = 0;
     await dormir(Math.random() * INTERVALO);
     while (Date.now() < fin) {
@@ -154,7 +174,7 @@ try {
       await dormir(INTERVALO * (0.7 + Math.random() * 0.6));
     }
   });
-  const cambiosTono = dispositivos.slice(1, 4).map(async (d) => {
+  const cambiosTono = musicos.slice(0, 3).map(async (d) => {
     while (Date.now() < fin) {
       await dormir(5000 * (0.8 + Math.random() * 0.4));
       updateDoc(doc(d.db, 'salas', codigo, 'setlist', 'tema1'), {
@@ -162,11 +182,20 @@ try {
       }).catch(anotarError);
     }
   });
-  await Promise.all([...tareas, ...cambiosTono]);
+  const cortes = CORTE_S > 0 && N > 6 ? dispositivos.slice(4, 7).map(async (d) => {
+    await dormir((SEGUNDOS * 1000) / 3);
+    d.sinRed = true;
+    await disableNetwork(d.db);
+    await dormir(CORTE_S * 1000);
+    const t = Date.now();
+    await enableNetwork(d.db);
+    m.reconexion.push(Date.now() - t);
+    d.sinRed = false;
+  }) : [];
+  await Promise.all([...envios, ...cambiosTono, ...cortes]);
 
-  // 3. Ráfaga: todos mandan varios pedidos a la vez (un corte de sonido, por ejemplo).
-  console.log('Ráfaga: todos mandan pedidos a la vez...');
-  await Promise.all(dispositivos.map(async (d) => {
+  console.log('Ráfaga: todos los músicos mandan pedidos a la vez...');
+  await Promise.all(musicos.map(async (d) => {
     await Promise.all(Array.from({ length: RAFAGA }, (_, k) => mandar(d, 1000 + k)));
   }));
   await dormir(8000);
@@ -174,17 +203,22 @@ try {
   await limpiar();
 }
 
+const total = Object.values(m.lecturas).reduce((a, b) => a + b, 0);
+const llegados = m.alSonidista.length + m.trasCorte.length;
 const informe = {
-  fecha: new Date().toISOString(), dispositivos: N, segundos: SEGUNDOS, intervaloMs: INTERVALO, rafaga: RAFAGA,
+  fecha: new Date().toISOString(), dispositivos: N, segundos: SEGUNDOS, intervaloMs: INTERVALO,
+  rafaga: RAFAGA, corteDeRedS: CORTE_S, vigilante: VIGILANTE,
   duracionTotalS: Math.round((Date.now() - inicio) / 1000),
-  conexionMs: { p50: pct(metricas.conexion, 50), max: Math.max(...metricas.conexion) },
-  escrituraPedidoMs: { p50: pct(metricas.escrituraPedido, 50), p95: pct(metricas.escrituraPedido, 95), max: Math.max(0, ...metricas.escrituraPedido) },
-  llegadaPedidoMs: { p50: pct(metricas.llegadaPedido, 50), p95: pct(metricas.llegadaPedido, 95), p99: pct(metricas.llegadaPedido, 99), max: Math.max(0, ...metricas.llegadaPedido) },
-  llegadaSetlistMs: { p50: pct(metricas.llegadaSetlist, 50), p95: pct(metricas.llegadaSetlist, 95), max: Math.max(0, ...metricas.llegadaSetlist) },
-  pedidosEnviados: metricas.enviados, pedidosFallidos: metricas.fallidos,
-  entregasEsperadas: metricas.esperados, entregasRecibidas: metricas.recibidos,
-  porcentajeEntregado: metricas.esperados ? Math.round((metricas.recibidos / metricas.esperados) * 1000) / 10 : null,
-  errores: metricas.errores,
+  pedidosEnviados: m.enviados, pedidosFallidos: m.fallidos, pedidosLlegadosAlSonidista: llegados,
+  porcentajeEntregado: m.enviados ? Math.round((llegados / m.enviados) * 1000) / 10 : null,
+  conexionMs: { p50: pct(m.conexion, 50), max: maximo(m.conexion) },
+  escrituraMs: { p50: pct(m.escritura, 50), p95: pct(m.escritura, 95), max: maximo(m.escritura) },
+  llegadaAlSonidistaMs: { p50: pct(m.alSonidista, 50), p95: pct(m.alSonidista, 95), p99: pct(m.alSonidista, 99), max: maximo(m.alSonidista) },
+  vueltaAlAutorMs: { n: m.vueltaAlAutor.length, p50: pct(m.vueltaAlAutor, 50), p95: pct(m.vueltaAlAutor, 95), max: maximo(m.vueltaAlAutor) },
+  cambioDeTonoMs: { n: m.setlist.length, p50: pct(m.setlist, 50), p95: pct(m.setlist, 95), max: maximo(m.setlist) },
+  conCorteDeRed: { pedidos: m.trasCorte.length, reconexionMaxMs: maximo(m.reconexion), llegadaMs: { p50: pct(m.trasCorte, 50), max: maximo(m.trasCorte) } },
+  lecturas: { ...m.lecturas, total, porPedido: m.enviados ? Math.round((total / m.enviados) * 10) / 10 : null },
+  errores: m.errores,
 };
 writeFileSync(new URL('./informe.json', import.meta.url), JSON.stringify(informe, null, 2));
 console.log(JSON.stringify(informe, null, 2));
