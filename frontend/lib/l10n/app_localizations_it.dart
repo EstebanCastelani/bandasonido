@@ -1457,4 +1457,18 @@ class AppLocalizationsIt extends AppLocalizations {
   @override
   String get planProSiempreGratis =>
       'Sempre gratis: creare e unirsi alle sale, inviare e ricevere richieste, la setlist e le tue frasi.';
+
+  @override
+  String get accesosInicioTitulo => 'Schermata iniziale';
+
+  @override
+  String get accesosInicioMostrar =>
+      'Mostra Le mie frasi, Il mio repertorio e Le mie sequenze nella schermata iniziale';
+
+  @override
+  String get accesosInicioAyuda =>
+      'Se lo disattivi, li trovi comunque nel menu in alto a destra.';
+
+  @override
+  String get accesosInicioSoloPro => 'Disponibile con la versione Pro.';
 }

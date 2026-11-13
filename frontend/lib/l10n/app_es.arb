@@ -913,5 +913,9 @@
   "planProPrecio": "Precio: próximamente",
   "planProTuPlanPro": "Tu plan: Pro",
   "planProTuPlanGratis": "Tu plan: gratis",
-  "planProSiempreGratis": "Siempre gratis: crear y unirte a salas, enviar y recibir pedidos, el setlist y tus frases."
+  "planProSiempreGratis": "Siempre gratis: crear y unirte a salas, enviar y recibir pedidos, el setlist y tus frases.",
+  "accesosInicioTitulo": "Pantalla de inicio",
+  "accesosInicioMostrar": "Mostrar Mis frases, Mi repertorio y Mis secuencias en la pantalla de inicio",
+  "accesosInicioAyuda": "Si lo apagás, los encontrás igual en el menú de arriba a la derecha.",
+  "accesosInicioSoloPro": "Disponible con la versión Pro."
 }

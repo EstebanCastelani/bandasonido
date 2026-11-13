@@ -531,5 +531,9 @@
   "planProPrecio": "Price: coming soon",
   "planProTuPlanPro": "Your plan: Pro",
   "planProTuPlanGratis": "Your plan: free",
-  "planProSiempreGratis": "Always free: create and join rooms, send and receive requests, the setlist and your phrases."
+  "planProSiempreGratis": "Always free: create and join rooms, send and receive requests, the setlist and your phrases.",
+  "accesosInicioTitulo": "Home screen",
+  "accesosInicioMostrar": "Show My phrases, My repertoire and My tracks on the home screen",
+  "accesosInicioAyuda": "If you turn it off, you will still find them in the menu at the top right.",
+  "accesosInicioSoloPro": "Available with the Pro version."
 }

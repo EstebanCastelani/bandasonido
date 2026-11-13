@@ -2515,6 +2515,30 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'Siempre gratis: crear y unirte a salas, enviar y recibir pedidos, el setlist y tus frases.'**
   String get planProSiempreGratis;
+
+  /// No description provided for @accesosInicioTitulo.
+  ///
+  /// In es, this message translates to:
+  /// **'Pantalla de inicio'**
+  String get accesosInicioTitulo;
+
+  /// No description provided for @accesosInicioMostrar.
+  ///
+  /// In es, this message translates to:
+  /// **'Mostrar Mis frases, Mi repertorio y Mis secuencias en la pantalla de inicio'**
+  String get accesosInicioMostrar;
+
+  /// No description provided for @accesosInicioAyuda.
+  ///
+  /// In es, this message translates to:
+  /// **'Si lo apagás, los encontrás igual en el menú de arriba a la derecha.'**
+  String get accesosInicioAyuda;
+
+  /// No description provided for @accesosInicioSoloPro.
+  ///
+  /// In es, this message translates to:
+  /// **'Disponible con la versión Pro.'**
+  String get accesosInicioSoloPro;
 }
 
 class _AppLocalizationsDelegate

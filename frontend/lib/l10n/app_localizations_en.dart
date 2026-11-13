@@ -1452,4 +1452,18 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get planProSiempreGratis =>
       'Always free: create and join rooms, send and receive requests, the setlist and your phrases.';
+
+  @override
+  String get accesosInicioTitulo => 'Home screen';
+
+  @override
+  String get accesosInicioMostrar =>
+      'Show My phrases, My repertoire and My tracks on the home screen';
+
+  @override
+  String get accesosInicioAyuda =>
+      'If you turn it off, you will still find them in the menu at the top right.';
+
+  @override
+  String get accesosInicioSoloPro => 'Available with the Pro version.';
 }

@@ -149,6 +149,8 @@ void main() async {
     debugPrint("Error inicializando Firebase: $e");
   }
 
+  await AccesosInicio.cargar();
+
   runApp(const SoundCheckProApp());
 }
 
@@ -6781,6 +6783,70 @@ class IngressMenuScreen extends StatelessWidget {
   }
 }
 
+/// Dónde se ven "Mis frases", "Mi repertorio" y "Mis secuencias": en la
+/// pantalla de inicio (lo normal) o solo en el menú ⋮. Lo elige cada persona
+/// con la versión Pro (Configuración → Pantalla de inicio); quien no la tiene
+/// los ve siempre en el inicio. Se guarda en este dispositivo.
+class AccesosInicio {
+  static const _clave = 'accesos_en_inicio';
+  static final ValueNotifier<bool> enInicio = ValueNotifier<bool>(true);
+
+  static Future<void> cargar() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      enInicio.value = prefs.getBool(_clave) ?? true;
+    } catch (_) {}
+  }
+
+  static Future<void> guardar(bool valor) async {
+    enInicio.value = valor;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_clave, valor);
+    } catch (_) {}
+  }
+}
+
+/// Configuración → Pantalla de inicio: un interruptor para sacar los tres
+/// accesos de la pantalla de inicio y dejarlos solo en el menú ⋮.
+class AccesosInicioScreen extends StatelessWidget {
+  const AccesosInicioScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final l = context.l10n;
+    final uid = AuthService.currentUser?.uid;
+    return Scaffold(
+      appBar: AppBar(title: Text(l.accesosInicioTitulo)),
+      body: SafeArea(
+        child: StreamBuilder<bool>(
+          stream: uid == null
+              ? const Stream<bool>.empty()
+              : UsuarioService.streamEsPro(uid),
+          builder: (context, snapshot) {
+            final puede = kFuncionesProGratisPorAhora || snapshot.data == true;
+            return ValueListenableBuilder<bool>(
+              valueListenable: AccesosInicio.enInicio,
+              builder: (context, enInicio, _) => ListView(
+                padding: rellenoFormulario(context),
+                children: [
+                  SwitchListTile(
+                    title: Text(l.accesosInicioMostrar),
+                    subtitle: Text(
+                        puede ? l.accesosInicioAyuda : l.accesosInicioSoloPro),
+                    value: enInicio || !puede,
+                    onChanged: puede ? AccesosInicio.guardar : null,
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
 /// Un candado para los botones que son de la versión paga. Al mantenerlo
 /// apretado dice "Solo app paga".
 class IconoSoloPago extends StatelessWidget {
@@ -6909,18 +6975,24 @@ class _BotonesDeCuenta extends StatelessWidget {
                 ),
               ),
             );
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            boton(Icons.chat_bubble_outline, context.l10n.misFrases,
-                () => const FrasesAdminScreen()),
-            boton(Icons.library_music, context.l10n.miRepertorio,
-                () => const MiRepertorioScreen(),
-                soloPago: true),
-            boton(Icons.graphic_eq, context.l10n.misSecuencias,
-                () => const MisSecuenciasScreen(),
-                soloPago: true),
-          ],
+        final puedeElegir = kFuncionesProGratisPorAhora || !noEsPro;
+        return ValueListenableBuilder<bool>(
+          valueListenable: AccesosInicio.enInicio,
+          builder: (context, enInicio, _) => (puedeElegir && !enInicio)
+              ? const SizedBox.shrink()
+              : Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    boton(Icons.chat_bubble_outline, context.l10n.misFrases,
+                        () => const FrasesAdminScreen()),
+                    boton(Icons.library_music, context.l10n.miRepertorio,
+                        () => const MiRepertorioScreen(),
+                        soloPago: true),
+                    boton(Icons.graphic_eq, context.l10n.misSecuencias,
+                        () => const MisSecuenciasScreen(),
+                        soloPago: true),
+                  ],
+                ),
         );
       },
     );
@@ -7182,6 +7254,7 @@ class MenuHamburguesa extends StatelessWidget {
           'repertorio' => const MiRepertorioScreen(),
           'secuencias' => const MisSecuenciasScreen(),
           'plan' => const PlanProScreen(),
+          'inicio' => const AccesosInicioScreen(),
           'colores' => const PaletaPickerScreen(),
           'idioma' => const IdiomaPickerScreen(),
           'alertas' => const AlertasScreen(),
@@ -7293,6 +7366,8 @@ class _ItemConfiguracionState extends State<_ItemConfiguracion> {
                     opcion('colores', l.colores),
                     opcion('idioma', l.idioma),
                     opcion('alertas', l.alertas),
+                    if (widget.conCuenta)
+                      opcion('inicio', l.accesosInicioTitulo),
                     if (widget.conCuenta)
                       opcion('eliminar', l.eliminarCuenta,
                           colorTexto: Colors.red),

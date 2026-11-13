@@ -531,5 +531,9 @@
   "planProPrecio": "Prix : bientôt disponible",
   "planProTuPlanPro": "Votre offre : Pro",
   "planProTuPlanGratis": "Votre offre : gratuite",
-  "planProSiempreGratis": "Toujours gratuit : créer et rejoindre des salles, envoyer et recevoir des demandes, le setlist et vos phrases."
+  "planProSiempreGratis": "Toujours gratuit : créer et rejoindre des salles, envoyer et recevoir des demandes, le setlist et vos phrases.",
+  "accesosInicioTitulo": "Écran d’accueil",
+  "accesosInicioMostrar": "Afficher Mes phrases, Mon répertoire et Mes séquences sur l’écran d’accueil",
+  "accesosInicioAyuda": "Si vous le désactivez, vous les retrouvez dans le menu en haut à droite.",
+  "accesosInicioSoloPro": "Disponible avec la version Pro."
 }
