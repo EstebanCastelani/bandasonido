@@ -11,7 +11,7 @@ _(vacío — elegir 3–5 ítems al comenzar cada sprint, ver `PROCESO.md`)_
 |---|---|---|---|---|---|
 | B-01 | P1 | Activar **App Check** (clave reCAPTCHA) y exigirlo tras un período en modo monitor | M | Calidad E3 · Q3 | 🔑 clave y cuenta de Firebase |
 | B-02 | P1 | Publicar la validación de pedidos en las reglas de Firestore: la propuesta ya está en `firestore.rules.propuesta` y probada con el emulador (`rules-tests/`). Falta ponerle tope en la app a la respuesta, el nombre y el rol (hoy sin límite) y publicar | S | Calidad E3 · Q3 | 🔑 publicar reglas |
-| B-03 | P1 | Medir la **latencia pedido→panel** y la carga con red 4G simulada; fijar el presupuesto | M | Calidad E4 · Q7 | — |
+| B-03 | P1 | **Latencia pedido→panel**: medida con `simulador/` (10 dispositivos, p95 < 0,75 s, 100 % entregado, 13-nov-2026). Falta probar con red 4G simulada y fijar el presupuesto | S | Calidad E4 · Q7 | — |
 | B-04 | P1 | Aviso de "sin conexión" también en el **panel del sonidista** | S | Calidad E1 · Q1 | — |
 | B-05 | P1 | Probar con **dos sonidistas** a la vez (atender/borrar/deshacer el mismo pedido) | M | Testing E5 · DF-05 | — |
 | B-06 | P1 | Decidir **D-03**: validar que la sala exista al unirse (reglas + migrar salas existentes) | M | Testing · DF-04 | 🔑 decisión |
