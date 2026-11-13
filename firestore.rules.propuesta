@@ -61,7 +61,7 @@ service cloud.firestore {
       allow create: if request.auth != null && salaId != null && salaId.size() > 0
                     && (request.resource.data.get('transposicion', 0) == 0 || esProUsuario());
       allow update: if request.auth != null && salaId != null && salaId.size() > 0
-                    && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['transposicion'])
+                    && (request.resource.data.get('transposicion', 0) == resource.data.get('transposicion', 0)
                         || esProUsuario());
     }
 
@@ -75,7 +75,7 @@ service cloud.firestore {
       allow create: if request.auth != null && salaId != null && salaId.size() > 0
                     && (request.resource.data.get('semitonos', 0) == 0 || esProUsuario());
       allow update: if request.auth != null && salaId != null && salaId.size() > 0
-                    && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['semitonos'])
+                    && (request.resource.data.get('semitonos', 0) == resource.data.get('semitonos', 0)
                         || esProUsuario());
     }
 

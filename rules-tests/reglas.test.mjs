@@ -312,6 +312,19 @@ for (const juego of juegos) {
         await assertSucceeds(updateDoc(doc(gratis(), secuencia), { semitonos: 0, tempoPorcentaje: 120, volumenPorcentaje: 80 }));
         await assertSucceeds(updateDoc(doc(proPerfil(), secuencia), { semitonos: 2, tempoPorcentaje: 100, volumenPorcentaje: 100 }));
       });
+      it('secuencias sin el campo semitonos: la app lo escribe en 0 y no cuenta como cambio de tono', async () => {
+        await preparar();
+        await sembrar(entorno, `salas/${SALA}/secuencias/s2`, { titulo: 'Pista vieja' });
+        await assertSucceeds(updateDoc(doc(gratis(), `salas/${SALA}/secuencias/s2`), { semitonos: 0, tempoPorcentaje: 105, volumenPorcentaje: 100 }));
+        await assertFails(updateDoc(doc(gratis(), `salas/${SALA}/secuencias/s2`), { semitonos: 1, tempoPorcentaje: 105, volumenPorcentaje: 100 }));
+      });
+      it('setlist sin el campo transposicion: escribir 0 no cuenta, escribir otro valor sí', async () => {
+        await preparar();
+        await sembrar(entorno, `salas/${SALA}/setlist/t9`, { titulo: 'Sin tono', orden: 9 });
+        await assertSucceeds(updateDoc(doc(gratis(), `salas/${SALA}/setlist/t9`), { transposicion: 0 }));
+        await assertFails(updateDoc(doc(gratis(), `salas/${SALA}/setlist/t9`), { transposicion: 2 }));
+        await assertSucceeds(updateDoc(doc(proPerfil(), `salas/${SALA}/setlist/t9`), { transposicion: 2 }));
+      });
       it('quien no tiene Pro puede borrar temas y leer como siempre', async () => {
         await preparar();
         await assertSucceeds(getDoc(doc(gratis(), setlist)));
