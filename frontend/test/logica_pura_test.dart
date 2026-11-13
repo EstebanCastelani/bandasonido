@@ -1444,4 +1444,14 @@ Tu gloria llena la tierra///
       expect(lugaresLibresGratis(30, 4), 0);
     });
   });
+
+  group('División de la pantalla de pedidos', () {
+    test('limitar deja siempre lugar para las frases y para los pedidos', () {
+      expect(DivisionPedidos.limitar(0.0), DivisionPedidos.minimo);
+      expect(DivisionPedidos.limitar(1.0), DivisionPedidos.maximo);
+      expect(DivisionPedidos.limitar(0.5), 0.5);
+      expect(DivisionPedidos.inicial,
+          inInclusiveRange(DivisionPedidos.minimo, DivisionPedidos.maximo));
+    });
+  });
 }

@@ -150,6 +150,7 @@ void main() async {
   }
 
   await AccesosInicio.cargar();
+  await DivisionPedidos.cargar();
 
   runApp(const SoundCheckProApp());
 }
@@ -368,6 +369,19 @@ Future<bool> confirmarSalidaSala(BuildContext context) async {
     ),
   );
   return salir ?? false;
+}
+
+/// Después de salir de una sala: va al inicio o, si se entró desde "Mis
+/// salas", vuelve a esa lista (con el inicio debajo) para elegir otra sala.
+void irAlSalirDeSala(BuildContext context, {bool volverAMisSalas = false}) {
+  final nav = Navigator.of(context);
+  nav.pushAndRemoveUntil(
+    MaterialPageRoute(builder: (_) => const IngressMenuScreen()),
+    (route) => false,
+  );
+  if (volverAMisSalas) {
+    nav.push(MaterialPageRoute(builder: (_) => const MisSalasScreen()));
+  }
 }
 
 /// Versión de la app que se muestra en Configuración. Tiene que coincidir
@@ -7178,6 +7192,33 @@ class AccesosInicioScreen extends StatelessWidget {
   }
 }
 
+/// Cuánto de la pantalla de pedidos ocupan las frases; el resto es "Mis
+/// últimos pedidos". La persona lo ajusta arrastrando la barrita que las
+/// separa y queda guardado en este dispositivo.
+class DivisionPedidos {
+  static const _clave = 'division_pedidos';
+  static const double minimo = 0.2;
+  static const double maximo = 0.85;
+  static const double inicial = 0.6;
+  static final ValueNotifier<double> frases = ValueNotifier<double>(inicial);
+
+  static double limitar(double v) => v.clamp(minimo, maximo).toDouble();
+
+  static Future<void> cargar() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      frases.value = limitar(prefs.getDouble(_clave) ?? inicial);
+    } catch (_) {}
+  }
+
+  static Future<void> guardar(double valor) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setDouble(_clave, limitar(valor));
+    } catch (_) {}
+  }
+}
+
 /// Un candado para los botones que son de la versión paga. Al mantenerlo
 /// apretado dice "Solo app paga".
 class IconoSoloPago extends StatelessWidget {
@@ -8356,7 +8397,8 @@ class MisSalasScreen extends StatelessWidget {
       Navigator.pushAndRemoveUntil(
         context,
         MaterialPageRoute(
-            builder: (_) => SonidistaPage(codigoSala: codigoSala)),
+            builder: (_) =>
+                SonidistaPage(codigoSala: codigoSala, volverAMisSalas: true)),
         (route) => false,
       );
     } else {
@@ -8367,6 +8409,7 @@ class MisSalasScreen extends StatelessWidget {
             userName: nombre,
             rol: rol,
             codigoSala: codigoSala,
+            volverAMisSalas: true,
           ),
         ),
         (route) => false,
@@ -8650,11 +8693,15 @@ class RequestScreen extends StatefulWidget {
 
   final String codigoSala;
 
+  /// true si se entró desde "Mis salas": al salir se vuelve a esa lista.
+  final bool volverAMisSalas;
+
   const RequestScreen(
       {super.key,
       required this.userName,
       required this.rol,
-      required this.codigoSala});
+      required this.codigoSala,
+      this.volverAMisSalas = false});
 
   @override
   State<RequestScreen> createState() => _RequestScreenState();
@@ -8894,11 +8941,7 @@ class _RequestScreenState extends State<RequestScreen>
 
     if (!context.mounted) return;
 
-    Navigator.pushAndRemoveUntil(
-      context,
-      MaterialPageRoute(builder: (_) => const IngressMenuScreen()),
-      (route) => false,
-    );
+    irAlSalirDeSala(context, volverAMisSalas: widget.volverAMisSalas);
   }
 
   Future<void> _enviarMensaje(String texto, {bool? urgenteForzado}) async {
@@ -9064,7 +9107,7 @@ class _RequestScreenState extends State<RequestScreen>
             child: Listener(
               onPointerDown: (e) => _inicioArrastrePedidos = e.position,
               onPointerUp: _manejarSwipeAbajoEnPedidos,
-              child: LayoutBuilder(builder: (context, _) {
+              child: LayoutBuilder(builder: (context, caja) {
                 final grilla = Builder(builder: (context) {
                   final user = AuthService.currentUser;
 
@@ -9289,14 +9332,51 @@ class _RequestScreenState extends State<RequestScreen>
                     ],
                   );
                 }
-                return Column(
-                  children: [
-                    Expanded(flex: 3, child: grilla),
-                    entrada,
-                    const Divider(thickness: 1, height: 1),
-                    etiqueta,
-                    Expanded(flex: 2, child: historial),
-                  ],
+                // La barrita se arrastra hacia abajo o arriba para dar más lugar
+                // a las frases o a "Mis últimos pedidos".
+                return ValueListenableBuilder<double>(
+                  valueListenable: DivisionPedidos.frases,
+                  builder: (context, fraccion, _) => Column(
+                    children: [
+                      Expanded(flex: (fraccion * 1000).round(), child: grilla),
+                      entrada,
+                      GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onVerticalDragStart: (_) =>
+                            _inicioArrastrePedidos = null,
+                        onVerticalDragUpdate: (d) {
+                          final util = caja.maxHeight - 130;
+                          if (util <= 0) return;
+                          DivisionPedidos.frases.value =
+                              DivisionPedidos.limitar(
+                                  DivisionPedidos.frases.value +
+                                      d.delta.dy / util);
+                        },
+                        onVerticalDragEnd: (_) => DivisionPedidos.guardar(
+                            DivisionPedidos.frases.value),
+                        child: Column(
+                          children: [
+                            const Divider(thickness: 1, height: 1),
+                            Padding(
+                              padding: const EdgeInsets.only(top: 6),
+                              child: Container(
+                                width: 40,
+                                height: 4,
+                                decoration: BoxDecoration(
+                                  color: Colors.grey.withValues(alpha: 0.6),
+                                  borderRadius: BorderRadius.circular(2),
+                                ),
+                              ),
+                            ),
+                            etiqueta,
+                          ],
+                        ),
+                      ),
+                      Expanded(
+                          flex: ((1 - fraccion) * 1000).round(),
+                          child: historial),
+                    ],
+                  ),
                 );
               }),
             ),
@@ -13217,7 +13297,11 @@ class _UrgentBlinkState extends State<_UrgentBlink>
 class SonidistaPage extends StatefulWidget {
   final String codigoSala;
 
-  const SonidistaPage({super.key, required this.codigoSala});
+  /// true si se entró desde "Mis salas": al salir se vuelve a esa lista.
+  final bool volverAMisSalas;
+
+  const SonidistaPage(
+      {super.key, required this.codigoSala, this.volverAMisSalas = false});
 
   @override
   State<SonidistaPage> createState() => _SonidistaPageState();
@@ -13464,11 +13548,7 @@ class _SonidistaPageState extends State<SonidistaPage>
 
     if (!context.mounted) return;
 
-    Navigator.pushAndRemoveUntil(
-      context,
-      MaterialPageRoute(builder: (_) => const IngressMenuScreen()),
-      (route) => false,
-    );
+    irAlSalirDeSala(context, volverAMisSalas: widget.volverAMisSalas);
   }
 
   static const List<Color> _paletaRemitentes = [
