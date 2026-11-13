@@ -6840,12 +6840,12 @@ class _BotonesDeCuenta extends StatelessWidget {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            boton(Icons.chat_bubble_outline, context.l10n.misFrases2,
+            boton(Icons.chat_bubble_outline, context.l10n.misFrases,
                 () => const FrasesAdminScreen()),
-            boton(Icons.library_music, context.l10n.miRepertorio2,
+            boton(Icons.library_music, context.l10n.miRepertorio,
                 () => const MiRepertorioScreen(),
                 soloPago: true),
-            boton(Icons.graphic_eq, context.l10n.misSecuencias2,
+            boton(Icons.graphic_eq, context.l10n.misSecuencias,
                 () => const MisSecuenciasScreen(),
                 soloPago: true),
           ],
