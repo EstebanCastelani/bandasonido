@@ -1449,7 +1449,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get planProTono =>
-      'Monter et baisser le ton dans une salle où quelqu’un a la version Pro.';
+      'Monter et baisser la tonalité des grilles et des pistes ; tout le monde dans la salle la voit et l’entend.';
 
   @override
   String get planProPrecio => 'Prix : bientôt disponible';
@@ -1528,4 +1528,7 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get fueraDelCupoGratis =>
       'Hors du quota de la version gratuite. Il reste enregistré et revient avec Pro.';
+
+  @override
+  String get tonoSoloPro => 'Changer la tonalité est une fonction Pro.';
 }

@@ -909,7 +909,7 @@
   "planProSubtitulo": "Más herramientas para tu banda",
   "planProRepertorio": "Mi repertorio sin límite: la versión gratis permite hasta 4 PDFs.",
   "planProSecuencias": "Mis secuencias sin límite: la versión gratis permite hasta 3 pistas de audio.",
-  "planProTono": "Subir y bajar el tono en una sala donde haya alguien con la versión Pro.",
+  "planProTono": "Subir y bajar el tono de cifrados y secuencias; lo ven y lo escuchan todos en la sala.",
   "planProPrecio": "Precio: próximamente",
   "planProTuPlanPro": "Tu plan: Pro",
   "planProTuPlanGratis": "Tu plan: gratis",
@@ -952,5 +952,6 @@
         "type": "int"
       }
     }
-  }
+  },
+  "tonoSoloPro": "El tono es una función Pro."
 }

@@ -527,7 +527,7 @@
   "planProSubtitulo": "More tools for your band",
   "planProRepertorio": "My repertoire with no limit: the free version allows up to 4 PDFs.",
   "planProSecuencias": "My tracks with no limit: the free version allows up to 3 audio tracks.",
-  "planProTono": "Raise and lower the key in a room where someone has the Pro version.",
+  "planProTono": "Raise and lower the key of chord sheets and tracks; everyone in the room sees and hears it.",
   "planProPrecio": "Price: coming soon",
   "planProTuPlanPro": "Your plan: Pro",
   "planProTuPlanGratis": "Your plan: free",
@@ -549,5 +549,6 @@
   "limiteGratisPdfs": "The free version lets you keep up to {n} PDFs. With Pro, no limit.",
   "limiteGratisSecuencias": "The free version lets you keep up to {n} tracks. With Pro, no limit.",
   "limiteGratisSubidos": "Because of the free version limit, only the first {n} are uploaded.",
-  "fueraDelCupoGratis": "Outside the free version allowance. It stays saved and comes back with Pro."
+  "fueraDelCupoGratis": "Outside the free version allowance. It stays saved and comes back with Pro.",
+  "tonoSoloPro": "Changing the key is a Pro feature."
 }
