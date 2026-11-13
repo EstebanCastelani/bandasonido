@@ -14,9 +14,11 @@ import {
   initializeTestEnvironment,
 } from '@firebase/rules-unit-testing';
 import {
+  collection,
   deleteDoc,
   doc,
   getDoc,
+  getDocs,
   setDoc,
   serverTimestamp,
   updateDoc,
@@ -204,6 +206,58 @@ for (const juego of juegos) {
         await assertSucceeds(setDoc(doc(p.usuario, 'usuarios/u1/mi_repertorio/c2'), { titulo: 'Otro' }));
         await assertFails(setDoc(doc(p.otro, 'usuarios/u1/mi_repertorio/c3'), { titulo: 'Ajeno' }));
         await assertFails(setDoc(doc(p.anonimo, 'usuarios/u1/mi_repertorio/c4'), { titulo: 'Anon' }));
+      });
+    });
+
+    describe('Pro gratis por mail y administradores', () => {
+      const conMail = (mail, verificado = true, uid = 'u1') =>
+        entorno
+          .authenticatedContext(uid, {
+            email: mail,
+            email_verified: verificado,
+            firebase: { sign_in_provider: 'google.com' },
+          })
+          .firestore();
+      const admin = () => conMail('dueno@mail.com', true, 'adm1');
+
+      async function conAdmin() {
+        await limpiar();
+        await sembrar(entorno, 'admins/adm1', { creado: true });
+        await sembrar(entorno, 'pro_gratis/ana@mail.com', { email: 'ana@mail.com' });
+      }
+
+      it('el administrador agrega, lista y quita mails', async () => {
+        await conAdmin();
+        await assertSucceeds(setDoc(doc(admin(), 'pro_gratis/beto@mail.com'), { email: 'beto@mail.com' }));
+        await assertSucceeds(getDocs(collection(admin(), 'pro_gratis')));
+        await assertSucceeds(deleteDoc(doc(admin(), 'pro_gratis/beto@mail.com')));
+      });
+      it('una persona lee solo el documento de su propio mail', async () => {
+        await conAdmin();
+        await assertSucceeds(getDoc(doc(conMail('Ana@Mail.com'), 'pro_gratis/ana@mail.com')));
+
+        await assertFails(getDoc(doc(conMail('otra@mail.com', true, 'u9'), 'pro_gratis/ana@mail.com')));
+      });
+      it('con el mail sin verificar no se lee ni el propio', async () => {
+        await conAdmin();
+        await assertFails(getDoc(doc(conMail('ana@mail.com', false), 'pro_gratis/ana@mail.com')));
+      });
+      it('nadie que no sea administrador lista ni escribe', async () => {
+        await conAdmin();
+        const ana = conMail('ana@mail.com');
+        await assertFails(getDocs(collection(ana, 'pro_gratis')));
+        await assertFails(setDoc(doc(ana, 'pro_gratis/ana2@mail.com'), { email: 'x' }));
+        await assertFails(deleteDoc(doc(ana, 'pro_gratis/ana@mail.com')));
+        await assertFails(getDoc(doc(p.anonimo, 'pro_gratis/ana@mail.com')));
+        await assertFails(getDoc(doc(p.sinSesion, 'pro_gratis/ana@mail.com')));
+      });
+      it('admins: cada cuenta ve solo su propio documento y nadie escribe', async () => {
+        await conAdmin();
+        await assertSucceeds(getDoc(doc(admin(), 'admins/adm1')));
+        await assertFails(getDoc(doc(conMail('ana@mail.com'), 'admins/adm1')));
+        await assertFails(setDoc(doc(conMail('ana@mail.com'), 'admins/u1'), { creado: true }));
+        await assertFails(setDoc(doc(admin(), 'admins/adm2'), { creado: true }));
+        await assertFails(getDocs(collection(admin(), 'admins')));
       });
     });
 
