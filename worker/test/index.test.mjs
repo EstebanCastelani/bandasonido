@@ -348,6 +348,39 @@ describe('PUT: subir', () => {
   });
 });
 
+describe('límite de archivos sin Pro', () => {
+  const llenar = (uid, n) => {
+    for (let i = 1; i <= n; i++) sembrar(uid, `usuarios/${uid}/canciones/${i}_c.pdf`, 10);
+  };
+  test('sin Pro, el PDF número 5 se rechaza (402) y no se guarda', async () => {
+    llenar('u1', 4);
+    const r = await subir('u1', pdf(100), '9_nuevo.pdf');
+    assert.equal(r.status, 402);
+    assert.equal(r.headers.get('x-limite'), '4');
+    assert.equal(r.headers.get('x-cantidad'), '4');
+    assert.equal(enlaces().filter((e) => e.uid === 'u1').length, 4);
+  });
+  test('con 3 todavía puede subir el cuarto', async () => {
+    llenar('u1', 3);
+    assert.equal((await subir('u1', pdf(100), '9_nuevo.pdf')).status, 201);
+  });
+  test('reemplazar un PDF que ya tiene no suma', async () => {
+    llenar('u1', 4);
+    assert.equal((await subir('u1', pdf(100), '1_c.pdf')).status, 201);
+  });
+  test('con Pro no hay límite, y otra cuenta no cuenta', async () => {
+    cuentasPro.add('p1');
+    llenar('p1', 6);
+    llenar('u2', 4);
+    assert.equal((await subir('p1', pdf(100), '9_nuevo.pdf')).status, 201);
+    assert.equal((await subir('u3', pdf(100), '1_a.pdf')).status, 201);
+  });
+  test('si no se puede comprobar Pro, valen los límites normales', async () => {
+    llenar('falla', 4);
+    assert.equal((await subir('falla', pdf(100), '9_nuevo.pdf')).status, 402);
+  });
+});
+
 describe('esProEnFirestore', () => {
   const sesion = { uid: 'u1', email: 'Ana@Mail.com', emailVerificado: true };
   const respuestas = (mapa) => async (url) => {

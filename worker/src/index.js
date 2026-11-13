@@ -40,6 +40,9 @@ export const CARPETAS = {
 /** Espacio total por cuenta (mismo valor que kCuotaBytesPorUsuario en la app). */
 export const CUOTA_BYTES = 500 * MB;
 
+/** Cuántos archivos por carpeta puede tener una cuenta sin Pro (kMaxPdfsGratis y kMaxSecuenciasGratis en la app). */
+export const LIMITES_GRATIS = { canciones: 4, secuencias: 3 };
+
 /** Espacio total por cuenta con la versión Pro (kCuotaProBytes en la app). */
 export const CUOTA_PRO_BYTES = 2048 * MB;
 
@@ -235,6 +238,7 @@ export function crearManejador({
   origenes = [],
   cuota = CUOTA_BYTES,
   cuotaPro = CUOTA_PRO_BYTES,
+  limitesGratis = LIMITES_GRATIS,
   esPro = (sesion, token) => esProEnFirestore(proyecto, sesion, token),
   ahora = () => Date.now(),
   azar = Math.random,
@@ -333,21 +337,42 @@ export function crearManejador({
     // Espacio de esta cuenta: el normal, o el de Pro si lo pide y lo es. Solo
     // se consulta cuando lo que se sube no entra en el normal.
     const tokenCrudo = auth.slice(7);
+    const esProCuenta = async () => {
+      const memo = cacheEsPro.get(sesion.uid);
+      if (memo && memo.hasta > ahora()) return memo.pro;
+      try {
+        const pro = (await esPro(sesion, tokenCrudo)) === true;
+        cacheEsPro.set(sesion.uid, { pro, hasta: ahora() + VIDA_CACHE_PRO_MS });
+        return pro;
+      } catch {
+        return false; // sin poder comprobarlo, valen los límites normales
+      }
+    };
     const cuotaPara = async (usado, nuevos) => {
       if (usado + nuevos <= cuota) return cuota;
-      const memo = cacheEsPro.get(sesion.uid);
-      let pro;
-      if (memo && memo.hasta > ahora()) {
-        pro = memo.pro;
-      } else {
-        try {
-          pro = (await esPro(sesion, tokenCrudo)) === true;
-          cacheEsPro.set(sesion.uid, { pro, hasta: ahora() + VIDA_CACHE_PRO_MS });
-        } catch {
-          pro = false; // sin poder comprobarlo, vale el espacio normal
-        }
-      }
-      return pro ? cuotaPro : cuota;
+      return (await esProCuenta()) ? cuotaPro : cuota;
+    };
+    // Sin Pro, cuántos archivos puede tener por carpeta. Reemplazar uno que ya
+    // existe no suma. Devuelve la respuesta de error, o null si puede seguir.
+    const superaLimiteGratis = async (clave, carpeta, cors) => {
+      const limite = limitesGratis[carpeta];
+      if (limite === undefined) return null;
+      const existe = await env.DB.prepare('SELECT 1 AS x FROM enlaces WHERE uid = ? AND clave = ?')
+        .bind(sesion.uid, clave)
+        .first();
+      if (existe) return null;
+      const r = await env.DB.prepare('SELECT COUNT(*) AS n FROM enlaces WHERE uid = ? AND clave LIKE ?')
+        .bind(sesion.uid, `usuarios/${sesion.uid}/${carpeta}/%`)
+        .first();
+      const cantidad = r?.n ?? 0;
+      if (cantidad < limite) return null;
+      if (await esProCuenta()) return null;
+      return respuestaJson(
+        402,
+        { error: 'límite de la versión gratis' },
+        { 'x-limite': String(limite), 'x-cantidad': String(cantidad) },
+        cors,
+      );
     };
 
     // --- Enlazar una copia que ya existe, sin volver a subirla ---
@@ -400,6 +425,8 @@ export function crearManejador({
       if (!CARPETAS[carpeta].tipos.includes(blob.tipo)) {
         return respuestaJson(415, { error: `tipo no permitido: ${blob.tipo}` }, {}, corsEscritura);
       }
+      const sinCupo = await superaLimiteGratis(d.clave, carpeta, corsEscritura);
+      if (sinCupo) return sinCupo;
       const usado = await usoDeUsuario(env.DB, sesion.uid, d.clave);
       const cuotaCuenta = await cuotaPara(usado, blob.bytes);
       if (usado + blob.bytes > cuotaCuenta) {
@@ -472,6 +499,8 @@ export function crearManejador({
       }
     }
 
+    const sinCupo = await superaLimiteGratis(ruta.clave, ruta.carpeta, corsEscritura);
+    if (sinCupo) return sinCupo;
     const usado = await usoDeUsuario(env.DB, ruta.uid, ruta.clave);
     const cuotaCuenta = await cuotaPara(usado, bytes.byteLength);
     if (usado + bytes.byteLength > cuotaCuenta) {
@@ -516,6 +545,10 @@ export default {
       origenes: (env.ORIGENES_PERMITIDOS ?? '').split(',').map((s) => s.trim()).filter(Boolean),
       cuota: (Number(env.CUOTA_GRATIS_MB) || 500) * MB,
       cuotaPro: (Number(env.CUOTA_PRO_MB) || 2048) * MB,
+      limitesGratis: {
+        canciones: Number(env.LIMITE_PDFS_GRATIS ?? LIMITES_GRATIS.canciones),
+        secuencias: Number(env.LIMITE_SECUENCIAS_GRATIS ?? LIMITES_GRATIS.secuencias),
+      },
     });
     return manejar(request, env);
   },

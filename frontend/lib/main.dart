@@ -3074,6 +3074,56 @@ class CuotaArchivos {
   }
 }
 
+/// Cuántos PDFs y secuencias puede tener en su biblioteca una cuenta sin Pro
+/// (mismos valores que LIMITE_PDFS_GRATIS y LIMITE_SECUENCIAS_GRATIS en
+/// worker/wrangler.toml; el que manda es el servidor).
+const int kMaxPdfsGratis = 4;
+const int kMaxSecuenciasGratis = 3;
+
+/// Con la versión gratis solo se usan los primeros [limite] elementos (los más
+/// viejos). Los demás NO se borran: quedan guardados y vuelven a usarse si la
+/// cuenta recupera Pro. [items] son mapas con 'id' y 'createdAt'; los que
+/// todavía no tienen fecha (recién creados) van al final.
+Set<String> idsUsablesGratis(List<Map<String, dynamic>> items, int limite) {
+  DateTime? fechaDe(Map<String, dynamic> m) {
+    final c = m['createdAt'];
+    if (c is Timestamp) return c.toDate();
+    if (c is DateTime) return c;
+    return null;
+  }
+
+  final orden = [...items]..sort((a, b) {
+      final fa = fechaDe(a);
+      final fb = fechaDe(b);
+      if (fa == null && fb == null) return 0;
+      if (fa == null) return 1;
+      if (fb == null) return -1;
+      return fa.compareTo(fb);
+    });
+  return {for (final m in orden.take(max(0, limite))) m['id'] as String};
+}
+
+/// Cuántos más puede subir una cuenta gratis que ya tiene [usados].
+int lugaresLibresGratis(int usados, int limite) => max(0, limite - usados);
+
+/// Entrega [esPro] (sí/no) a [builder]. Mientras todavía no se sabe cuenta
+/// como Pro, para no bloquear nada por un instante.
+class EsProBuilder extends StatelessWidget {
+  final String uid;
+  final Widget Function(BuildContext context, bool esPro) builder;
+  const EsProBuilder({super.key, required this.uid, required this.builder});
+
+  @override
+  Widget build(BuildContext context) => StreamBuilder<bool>(
+        stream: UsuarioService.streamEsPro(uid),
+        builder: (context, snapshot) => builder(
+            context,
+            kFuncionesProGratisPorAhora ||
+                !snapshot.hasData ||
+                snapshot.data == true),
+      );
+}
+
 /// Dónde está cada archivo: 'cloudflare_r2' (el único actual). Los documentos
 /// más viejos dicen 'supabase' o 'firebase': esos archivos ya no existen (se
 /// borraron al dejar esos servicios), así que solo se conserva su fila.
@@ -3207,6 +3257,10 @@ class RepertorioService {
           .collection('usuarios')
           .doc(uid)
           .collection('mi_repertorio');
+
+  /// Cuántos PDFs hay en la biblioteca (una sola lectura de conteo).
+  static Future<int> contar(String uid) async =>
+      (await _ref(uid).count().get()).count ?? 0;
 
   static Stream<QuerySnapshot<Map<String, dynamic>>> streamRepertorio(
       String uid) {
@@ -3583,6 +3637,10 @@ class SecuenciasService {
           .collection('salas')
           .doc(codigoSala)
           .collection('secuencias');
+
+  /// Cuántas secuencias hay en la biblioteca (una sola lectura de conteo).
+  static Future<int> contarMias(String uid) async =>
+      (await _refUsuario(uid).count().get()).count ?? 0;
 
   static Stream<QuerySnapshot<Map<String, dynamic>>> streamMisSecuencias(
       String uid) {
@@ -7261,11 +7319,9 @@ class _BotonesDeCuenta extends StatelessWidget {
                     boton(Icons.chat_bubble_outline, context.l10n.misFrases,
                         () => const FrasesAdminScreen()),
                     boton(Icons.library_music, context.l10n.miRepertorio,
-                        () => const MiRepertorioScreen(),
-                        soloPago: true),
+                        () => const MiRepertorioScreen()),
                     boton(Icons.graphic_eq, context.l10n.misSecuencias,
-                        () => const MisSecuenciasScreen(),
-                        soloPago: true),
+                        () => const MisSecuenciasScreen()),
                   ],
                 ),
         );
@@ -9347,6 +9403,10 @@ class SetlistTab extends StatelessWidget {
 
     final controllerTonalidad = TextEditingController();
 
+    final esPro = kFuncionesProGratisPorAhora ||
+        await UsuarioService.streamEsPro(user.uid).first;
+    if (!context.mounted) return;
+
     final seleccion = await showModalBottomSheet<Map<String, dynamic>>(
       context: context,
       isScrollControlled: true,
@@ -9378,6 +9438,9 @@ class SetlistTab extends StatelessWidget {
 
                   final canciones =
                       docs.map((d) => {...d.data(), 'id': d.id}).toList();
+                  final usables = esPro
+                      ? null
+                      : idsUsablesGratis(canciones, kMaxPdfsGratis);
 
                   final docsFiltrados =
                       RepertorioService.filtrarPorTituloYTonalidad(
@@ -9449,6 +9512,20 @@ class SetlistTab extends StatelessWidget {
                                 itemCount: docsFiltrados.length,
                                 itemBuilder: (context, i) {
                                   final data = docsFiltrados[i];
+
+                                  if (usables != null &&
+                                      !usables.contains(data['id'])) {
+                                    return ListTile(
+                                      leading: const Icon(Icons.lock_outline,
+                                          color: Colors.grey),
+                                      title: Text(
+                                          data['titulo'] as String? ?? '',
+                                          style: const TextStyle(
+                                              color: Colors.grey)),
+                                      subtitle:
+                                          Text(context.l10n.fueraDelCupoGratis),
+                                    );
+                                  }
 
                                   return ListTile(
                                     leading: Icon(Icons.picture_as_pdf,
@@ -10068,6 +10145,9 @@ class _SecuenciasTabState extends State<SecuenciasTab>
       );
       return;
     }
+    final esPro = kFuncionesProGratisPorAhora ||
+        await UsuarioService.streamEsPro(user.uid).first;
+    if (!mounted) return;
     final elegidas = <String, Map<String, dynamic>>{};
     final busqueda = TextEditingController();
 
@@ -10098,8 +10178,11 @@ class _SecuenciasTabState extends State<SecuenciasTab>
                   ),
                 );
               }
+              final todas = docs.map((d) => {...d.data(), 'id': d.id}).toList();
+              final usables =
+                  esPro ? null : idsUsablesGratis(todas, kMaxSecuenciasGratis);
               final secuencias = RepertorioService.filtrarPorTituloYTonalidad(
-                docs.map((d) => {...d.data(), 'id': d.id}).toList(),
+                todas,
                 titulo: busqueda.text,
                 tonalidad: '',
               );
@@ -10129,6 +10212,15 @@ class _SecuenciasTabState extends State<SecuenciasTab>
                         final data = secuencias[i];
                         final id = data['id'] as String;
                         final yaCargada = urlsEnSala.contains(data['audioUrl']);
+                        if (usables != null && !usables.contains(id)) {
+                          return ListTile(
+                            leading: const Icon(Icons.lock_outline,
+                                color: Colors.grey),
+                            title: Text(data['titulo'] as String? ?? '',
+                                style: const TextStyle(color: Colors.grey)),
+                            subtitle: Text(context.l10n.fueraDelCupoGratis),
+                          );
+                        }
                         return CheckboxListTile(
                           value: yaCargada || elegidas.containsKey(id),
                           onChanged: yaCargada
@@ -10846,7 +10938,7 @@ class _MiRepertorioScreenState extends State<MiRepertorioScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: Text(context.l10n.funcionPro),
-        content: Text(context.l10n.subirTusPropiasPartiturasCifrados),
+        content: Text(context.l10n.limiteGratisPdfs(kMaxPdfsGratis)),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(context),
@@ -10856,13 +10948,28 @@ class _MiRepertorioScreenState extends State<MiRepertorioScreen> {
     );
   }
 
-  Future<void> _subirNuevaCancion(String uid) async {
+  /// Cuántos PDFs más puede subir: null si es Pro (sin límite), o lo que le
+  /// queda del cupo gratuito.
+  Future<int?> _lugaresLibres(String uid) async {
     final esPro = kFuncionesProGratisPorAhora ||
         await UsuarioService.streamEsPro(uid).first;
+    if (esPro) return null;
+    return lugaresLibresGratis(
+        await RepertorioService.contar(uid), kMaxPdfsGratis);
+  }
 
-    if (!esPro) {
+  /// Recorta [cola] a lo que entra en el cupo gratuito y avisa si sobraron.
+  List<T> _dentroDelCupo<T>(List<T> cola, int? libres) {
+    if (libres == null || cola.length <= libres) return cola;
+    ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(context.l10n.limiteGratisSubidos(libres))));
+    return cola.take(libres).toList();
+  }
+
+  Future<void> _subirNuevaCancion(String uid) async {
+    final libres = await _lugaresLibres(uid);
+    if (libres == 0) {
       if (mounted) await _mostrarUpsellPro(context);
-
       return;
     }
 
@@ -10882,7 +10989,7 @@ class _MiRepertorioScreenState extends State<MiRepertorioScreen> {
 
     if (cola.isEmpty || !mounted) return;
 
-    await _procesarCola(uid, cola);
+    await _procesarCola(uid, _dentroDelCupo(cola, libres));
   }
 
   /// Sube de a una las canciones de [cola], preguntando por cada una (ver
@@ -11062,9 +11169,8 @@ class _MiRepertorioScreenState extends State<MiRepertorioScreen> {
   /// de la letra o de una copia de respaldo: cada una se convierte en un PDF y
   /// entra por la misma cola de subida (se confirma título y tonalidad).
   Future<void> _importar(String uid) async {
-    final esPro = kFuncionesProGratisPorAhora ||
-        await UsuarioService.streamEsPro(uid).first;
-    if (!esPro) {
+    final libres = await _lugaresLibres(uid);
+    if (libres == 0) {
       if (mounted) await _mostrarUpsellPro(context);
       return;
     }
@@ -11087,7 +11193,7 @@ class _MiRepertorioScreenState extends State<MiRepertorioScreen> {
           SnackBar(content: Text(context.l10n.importarSinCanciones)));
       return;
     }
-    await _procesarCola(uid, cola);
+    await _procesarCola(uid, _dentroDelCupo(cola, libres));
   }
 
   /// Pregunta qué hacer con un PDF de la cola: ajustar título y tonalidad
@@ -11459,7 +11565,7 @@ class _MiRepertorioScreenState extends State<MiRepertorioScreen> {
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
-                              context.l10n.subirTusPropiasPartiturasEs,
+                              context.l10n.limiteGratisPdfs(kMaxPdfsGratis),
                               style: const TextStyle(fontSize: 12),
                             ),
                           ),
@@ -11530,142 +11636,174 @@ class _MiRepertorioScreenState extends State<MiRepertorioScreen> {
                   ),
                 ),
                 Expanded(
-                  child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-                    stream: RepertorioService.streamRepertorio(user.uid),
-                    builder: (context, snapshot) {
-                      if (snapshot.hasError) {
-                        return Center(
-                            child: Text(context.l10n.error(
-                                mensajeError(context.l10n, snapshot.error))));
-                      }
+                  child: EsProBuilder(
+                    uid: user.uid,
+                    builder: (context, esPro) =>
+                        StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+                      stream: RepertorioService.streamRepertorio(user.uid),
+                      builder: (context, snapshot) {
+                        if (snapshot.hasError) {
+                          return Center(
+                              child: Text(context.l10n.error(
+                                  mensajeError(context.l10n, snapshot.error))));
+                        }
 
-                      if (!snapshot.hasData) {
-                        return const Center(child: CircularProgressIndicator());
-                      }
+                        if (!snapshot.hasData) {
+                          return const Center(
+                              child: CircularProgressIndicator());
+                        }
 
-                      final todasLasCanciones =
-                          RepertorioService.ordenarPorTitulo(
-                                  snapshot.data!.docs)
-                              .map((d) => {...d.data(), 'id': d.id})
-                              .toList();
+                        final todasLasCanciones =
+                            RepertorioService.ordenarPorTitulo(
+                                    snapshot.data!.docs)
+                                .map((d) => {...d.data(), 'id': d.id})
+                                .toList();
 
-                      final docs = RepertorioService.filtrarPorTituloYTonalidad(
-                        todasLasCanciones,
-                        titulo: _busquedaTituloController.text,
-                        tonalidad: _busquedaTonalidadController.text,
-                      );
+                        final docs =
+                            RepertorioService.filtrarPorTituloYTonalidad(
+                          todasLasCanciones,
+                          titulo: _busquedaTituloController.text,
+                          tonalidad: _busquedaTonalidadController.text,
+                        );
 
-                      if (docs.isEmpty) {
-                        if (todasLasCanciones.isEmpty) {
-                          return EstadoVacio(
-                            icono: Icons.library_music,
-                            titulo: context.l10n.vacioRepertorioTitulo,
-                            ayuda: context.l10n.vacioRepertorioAyuda,
-                            textoBoton: context.l10n.subirUnPdf,
-                            alTocarBoton: () => _subirNuevaCancion(user.uid),
+                        if (docs.isEmpty) {
+                          if (todasLasCanciones.isEmpty) {
+                            return EstadoVacio(
+                              icono: Icons.library_music,
+                              titulo: context.l10n.vacioRepertorioTitulo,
+                              ayuda: context.l10n.vacioRepertorioAyuda,
+                              textoBoton: context.l10n.subirUnPdf,
+                              alTocarBoton: () => _subirNuevaCancion(user.uid),
+                            );
+                          }
+                          return SinResultadosBusqueda(
+                            busqueda:
+                                _busquedaTituloController.text.trim().isNotEmpty
+                                    ? _busquedaTituloController.text
+                                    : _busquedaTonalidadController.text,
+                            alLimpiar: () => setState(() {
+                              _busquedaTituloController.clear();
+                              _busquedaTonalidadController.clear();
+                            }),
                           );
                         }
-                        return SinResultadosBusqueda(
-                          busqueda:
-                              _busquedaTituloController.text.trim().isNotEmpty
-                                  ? _busquedaTituloController.text
-                                  : _busquedaTonalidadController.text,
-                          alLimpiar: () => setState(() {
-                            _busquedaTituloController.clear();
-                            _busquedaTonalidadController.clear();
-                          }),
-                        );
-                      }
 
-                      final lista = ListView.separated(
-                        itemCount: docs.length,
-                        separatorBuilder: (_, __) => const Divider(height: 1),
-                        itemBuilder: (context, i) {
-                          final data = docs[i];
+                        final usables = esPro
+                            ? null
+                            : idsUsablesGratis(
+                                todasLasCanciones, kMaxPdfsGratis);
+                        final lista = ListView.separated(
+                          itemCount: docs.length,
+                          separatorBuilder: (_, __) => const Divider(height: 1),
+                          itemBuilder: (context, i) {
+                            final data = docs[i];
 
-                          final id = data['id'] as String;
+                            final id = data['id'] as String;
 
-                          final titulo = data['titulo'] as String? ?? '';
+                            final titulo = data['titulo'] as String? ?? '';
 
-                          final tonalidad = data['tonalidad'] as String? ?? '';
-
-                          final pdfUrl = data['pdfUrl'] as String? ?? '';
-
-                          final cifradoTexto =
-                              data['cifradoTexto'] as String? ?? '';
-
-                          return ListTile(
-                            leading: Icon(Icons.picture_as_pdf,
-                                color: context.acento),
-                            title: TituloResaltado(
-                                titulo: titulo,
-                                busqueda: _busquedaTituloController.text),
-                            subtitle: tonalidad.isNotEmpty
-                                ? Text(context.l10n.tonalidad2(tonalidad))
-                                : null,
-                            onTap: () => Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                  builder: (_) => PdfViewerScreen(
-                                      titulo: titulo, pdfUrl: pdfUrl)),
-                            ),
-                            trailing: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                if (cifradoTexto.isNotEmpty)
-                                  IconButton(
-                                    icon: Icon(Icons.music_note,
-                                        color: context.acento),
-                                    tooltip: context.l10n.verCifradoTransponer,
-                                    onPressed: () => Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (_) => CifradoViewerScreen(
-                                          titulo: titulo,
-                                          cifradoOriginal: cifradoTexto,
-                                          pdfUrl: pdfUrl,
-                                          versionCifrado:
-                                              data['cifradoVersion'] as int?,
-                                          alRegenerar: (texto) =>
-                                              RepertorioService
-                                                  .guardarCifradoRegenerado(
-                                                      user.uid, id, texto),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                IconButton(
-                                  icon: const Icon(Icons.edit,
-                                      color: Colors.blue),
-                                  onPressed: () => _editarCancion(user.uid, id,
-                                      titulo, tonalidad, cifradoTexto),
-                                ),
-                                IconButton(
+                            if (usables != null && !usables.contains(id)) {
+                              return ListTile(
+                                leading: const Icon(Icons.lock_outline,
+                                    color: Colors.grey),
+                                title: Text(titulo,
+                                    style: const TextStyle(color: Colors.grey)),
+                                subtitle: Text(context.l10n.fueraDelCupoGratis),
+                                onTap: () => _mostrarUpsellPro(context),
+                                trailing: IconButton(
                                   icon: const Icon(Icons.delete,
                                       color: Colors.red),
                                   tooltip: context.l10n.eliminar,
                                   onPressed: () => _confirmarEliminar(user.uid,
                                       id, data['storagePath'] as String?),
                                 ),
-                              ],
-                            ),
-                          );
-                        },
-                      );
+                              );
+                            }
 
-                      return Column(
-                        children: [
-                          if (_busquedaTituloController.text
-                                  .trim()
-                                  .isNotEmpty ||
-                              _busquedaTonalidadController.text
-                                  .trim()
-                                  .isNotEmpty)
-                            CantidadResultados(docs.length),
-                          Expanded(child: lista),
-                        ],
-                      );
-                    },
+                            final tonalidad =
+                                data['tonalidad'] as String? ?? '';
+
+                            final pdfUrl = data['pdfUrl'] as String? ?? '';
+
+                            final cifradoTexto =
+                                data['cifradoTexto'] as String? ?? '';
+
+                            return ListTile(
+                              leading: Icon(Icons.picture_as_pdf,
+                                  color: context.acento),
+                              title: TituloResaltado(
+                                  titulo: titulo,
+                                  busqueda: _busquedaTituloController.text),
+                              subtitle: tonalidad.isNotEmpty
+                                  ? Text(context.l10n.tonalidad2(tonalidad))
+                                  : null,
+                              onTap: () => Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                    builder: (_) => PdfViewerScreen(
+                                        titulo: titulo, pdfUrl: pdfUrl)),
+                              ),
+                              trailing: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  if (cifradoTexto.isNotEmpty)
+                                    IconButton(
+                                      icon: Icon(Icons.music_note,
+                                          color: context.acento),
+                                      tooltip:
+                                          context.l10n.verCifradoTransponer,
+                                      onPressed: () => Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (_) => CifradoViewerScreen(
+                                            titulo: titulo,
+                                            cifradoOriginal: cifradoTexto,
+                                            pdfUrl: pdfUrl,
+                                            versionCifrado:
+                                                data['cifradoVersion'] as int?,
+                                            alRegenerar: (texto) =>
+                                                RepertorioService
+                                                    .guardarCifradoRegenerado(
+                                                        user.uid, id, texto),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  IconButton(
+                                    icon: const Icon(Icons.edit,
+                                        color: Colors.blue),
+                                    onPressed: () => _editarCancion(user.uid,
+                                        id, titulo, tonalidad, cifradoTexto),
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(Icons.delete,
+                                        color: Colors.red),
+                                    tooltip: context.l10n.eliminar,
+                                    onPressed: () => _confirmarEliminar(
+                                        user.uid,
+                                        id,
+                                        data['storagePath'] as String?),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        );
+
+                        return Column(
+                          children: [
+                            if (_busquedaTituloController.text
+                                    .trim()
+                                    .isNotEmpty ||
+                                _busquedaTonalidadController.text
+                                    .trim()
+                                    .isNotEmpty)
+                              CantidadResultados(docs.length),
+                            Expanded(child: lista),
+                          ],
+                        );
+                      },
+                    ),
                   ),
                 ),
               ],
@@ -11711,13 +11849,18 @@ class _MisSecuenciasScreenState extends State<MisSecuenciasScreen> {
   Future<void> _subirSecuencias(String uid) async {
     final esPro = kFuncionesProGratisPorAhora ||
         await UsuarioService.streamEsPro(uid).first;
-    if (!esPro) {
+    final int? libres = esPro
+        ? null
+        : lugaresLibresGratis(
+            await SecuenciasService.contarMias(uid), kMaxSecuenciasGratis);
+    if (libres == 0) {
       if (!mounted) return;
       await showDialog<void>(
         context: context,
         builder: (context) => AlertDialog(
           title: Text(context.l10n.funcionPro),
-          content: Text(context.l10n.subirTusPropiasSecuenciasEs),
+          content:
+              Text(context.l10n.limiteGratisSecuencias(kMaxSecuenciasGratis)),
           actions: [
             TextButton(
                 onPressed: () => Navigator.pop(context),
@@ -11773,6 +11916,13 @@ class _MisSecuenciasScreenState extends State<MisSecuenciasScreen> {
       }
     }
     if (aSubir.isEmpty) return;
+    if (libres != null && aSubir.length > libres) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(context.l10n.limiteGratisSubidos(libres))));
+      }
+      aSubir = aSubir.take(libres).toList();
+    }
 
     setState(() => _subiendo = true);
     final errores = <String>[];
@@ -12013,64 +12163,81 @@ class _MisSecuenciasScreenState extends State<MisSecuenciasScreen> {
                   ),
                 ),
                 Expanded(
-                  child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-                    stream: SecuenciasService.streamMisSecuencias(user.uid),
-                    builder: (context, snapshot) {
-                      if (snapshot.hasError) {
-                        return Center(
-                            child: Text(context.l10n
-                                .errorAlCargar('${snapshot.error}')));
-                      }
-                      if (!snapshot.hasData) {
-                        return const Center(child: CircularProgressIndicator());
-                      }
-                      final docs = RepertorioService.ordenarPorTitulo(
-                          snapshot.data!.docs);
-                      if (docs.isEmpty) {
-                        return Center(
-                          child: Padding(
-                            padding: const EdgeInsets.all(32),
-                            child: Text(
-                              context.l10n.todaviaNoSubisteSecuenciasToca,
-                              textAlign: TextAlign.center,
+                  child: EsProBuilder(
+                    uid: user.uid,
+                    builder: (context, esPro) =>
+                        StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+                      stream: SecuenciasService.streamMisSecuencias(user.uid),
+                      builder: (context, snapshot) {
+                        if (snapshot.hasError) {
+                          return Center(
+                              child: Text(context.l10n
+                                  .errorAlCargar('${snapshot.error}')));
+                        }
+                        if (!snapshot.hasData) {
+                          return const Center(
+                              child: CircularProgressIndicator());
+                        }
+                        final docs = RepertorioService.ordenarPorTitulo(
+                            snapshot.data!.docs);
+                        if (docs.isEmpty) {
+                          return Center(
+                            child: Padding(
+                              padding: const EdgeInsets.all(32),
+                              child: Text(
+                                context.l10n.todaviaNoSubisteSecuenciasToca,
+                                textAlign: TextAlign.center,
+                              ),
                             ),
-                          ),
+                          );
+                        }
+                        final secuencias =
+                            docs.map((d) => {...d.data(), 'id': d.id}).toList();
+                        final filtradas =
+                            RepertorioService.filtrarPorTituloYTonalidad(
+                          secuencias,
+                          titulo: _busquedaController.text,
+                          tonalidad: '',
                         );
-                      }
-                      final secuencias =
-                          docs.map((d) => {...d.data(), 'id': d.id}).toList();
-                      final filtradas =
-                          RepertorioService.filtrarPorTituloYTonalidad(
-                        secuencias,
-                        titulo: _busquedaController.text,
-                        tonalidad: '',
-                      );
-                      if (filtradas.isEmpty) {
-                        return Center(child: Text(context.l10n.sinResultados));
-                      }
-                      return ListView.separated(
-                        padding: const EdgeInsets.only(bottom: 88),
-                        itemCount: filtradas.length,
-                        separatorBuilder: (_, __) => const Divider(height: 1),
-                        itemBuilder: (context, i) {
-                          final data = filtradas[i];
-                          final id = data['id'] as String;
-                          final titulo = data['titulo'] as String? ?? '';
-                          return FilaSecuencia(
-                            reproductor: _reproductor,
-                            id: id,
-                            titulo: titulo,
-                            audioUrl: data['audioUrl'] as String? ?? '',
-                            acciones: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                IconButton(
-                                  icon: const Icon(Icons.edit),
-                                  tooltip: context.l10n.renombrar,
-                                  onPressed: () =>
-                                      _renombrar(user.uid, id, titulo),
+                        if (filtradas.isEmpty) {
+                          return Center(
+                              child: Text(context.l10n.sinResultados));
+                        }
+                        final usables = esPro
+                            ? null
+                            : idsUsablesGratis(
+                                secuencias, kMaxSecuenciasGratis);
+                        return ListView.separated(
+                          padding: const EdgeInsets.only(bottom: 88),
+                          itemCount: filtradas.length,
+                          separatorBuilder: (_, __) => const Divider(height: 1),
+                          itemBuilder: (context, i) {
+                            final data = filtradas[i];
+                            final id = data['id'] as String;
+                            final titulo = data['titulo'] as String? ?? '';
+                            if (usables != null && !usables.contains(id)) {
+                              return ListTile(
+                                leading: const Icon(Icons.lock_outline,
+                                    color: Colors.grey),
+                                title: Text(titulo,
+                                    style: const TextStyle(color: Colors.grey)),
+                                subtitle: Text(context.l10n.fueraDelCupoGratis),
+                                onTap: () => showDialog<void>(
+                                  context: context,
+                                  builder: (context) => AlertDialog(
+                                    title: Text(context.l10n.funcionPro),
+                                    content: Text(context.l10n
+                                        .limiteGratisSecuencias(
+                                            kMaxSecuenciasGratis)),
+                                    actions: [
+                                      TextButton(
+                                          onPressed: () =>
+                                              Navigator.pop(context),
+                                          child: Text(context.l10n.entendido))
+                                    ],
+                                  ),
                                 ),
-                                IconButton(
+                                trailing: IconButton(
                                   icon: const Icon(Icons.delete,
                                       color: Colors.red),
                                   tooltip: context.l10n.eliminar,
@@ -12080,12 +12247,39 @@ class _MisSecuenciasScreenState extends State<MisSecuenciasScreen> {
                                       titulo,
                                       data['storagePath'] as String?),
                                 ),
-                              ],
-                            ),
-                          );
-                        },
-                      );
-                    },
+                              );
+                            }
+                            return FilaSecuencia(
+                              reproductor: _reproductor,
+                              id: id,
+                              titulo: titulo,
+                              audioUrl: data['audioUrl'] as String? ?? '',
+                              acciones: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  IconButton(
+                                    icon: const Icon(Icons.edit),
+                                    tooltip: context.l10n.renombrar,
+                                    onPressed: () =>
+                                        _renombrar(user.uid, id, titulo),
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(Icons.delete,
+                                        color: Colors.red),
+                                    tooltip: context.l10n.eliminar,
+                                    onPressed: () => _confirmarEliminar(
+                                        user.uid,
+                                        id,
+                                        titulo,
+                                        data['storagePath'] as String?),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        );
+                      },
+                    ),
                   ),
                 ),
               ],

@@ -525,8 +525,8 @@
   "soloAppPaga": "Paid app only",
   "planPro": "Pro plan",
   "planProSubtitulo": "More tools for your band",
-  "planProRepertorio": "My repertoire: upload your PDFs and build your song library.",
-  "planProSecuencias": "My tracks: upload your audio tracks (they are compressed automatically to save space).",
+  "planProRepertorio": "My repertoire with no limit: the free version allows up to 4 PDFs.",
+  "planProSecuencias": "My tracks with no limit: the free version allows up to 3 audio tracks.",
   "planProTono": "Raise and lower the key in a room where someone has the Pro version.",
   "planProPrecio": "Price: coming soon",
   "planProTuPlanPro": "Your plan: Pro",
@@ -545,5 +545,9 @@
   "proGratisQuitado": "Removed.",
   "proGratisQuitarTitulo": "Remove free Pro from this email?",
   "proGratisVacio": "You have not added anyone yet.",
-  "planProEspacio": "More space for your files: 2 GB per account."
+  "planProEspacio": "More space for your files: 2 GB per account.",
+  "limiteGratisPdfs": "The free version lets you keep up to {n} PDFs. With Pro, no limit.",
+  "limiteGratisSecuencias": "The free version lets you keep up to {n} tracks. With Pro, no limit.",
+  "limiteGratisSubidos": "Because of the free version limit, only the first {n} are uploaded.",
+  "fueraDelCupoGratis": "Outside the free version allowance. It stays saved and comes back with Pro."
 }

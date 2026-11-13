@@ -2477,13 +2477,13 @@ abstract class AppLocalizations {
   /// No description provided for @planProRepertorio.
   ///
   /// In es, this message translates to:
-  /// **'Mi repertorio: subí tus PDF y armá tu biblioteca de canciones.'**
+  /// **'Mi repertorio sin límite: la versión gratis permite hasta 4 PDFs.'**
   String get planProRepertorio;
 
   /// No description provided for @planProSecuencias.
   ///
   /// In es, this message translates to:
-  /// **'Mis secuencias: subí tus pistas de audio (se comprimen solas para ahorrar espacio).'**
+  /// **'Mis secuencias sin límite: la versión gratis permite hasta 3 pistas de audio.'**
   String get planProSecuencias;
 
   /// No description provided for @planProTono.
@@ -2599,6 +2599,30 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'Más espacio para tus archivos: 2 GB por cuenta.'**
   String get planProEspacio;
+
+  /// No description provided for @limiteGratisPdfs.
+  ///
+  /// In es, this message translates to:
+  /// **'Con la versión gratis podés guardar hasta {n} PDFs. Con Pro, sin ese límite.'**
+  String limiteGratisPdfs(int n);
+
+  /// No description provided for @limiteGratisSecuencias.
+  ///
+  /// In es, this message translates to:
+  /// **'Con la versión gratis podés guardar hasta {n} secuencias. Con Pro, sin ese límite.'**
+  String limiteGratisSecuencias(int n);
+
+  /// No description provided for @limiteGratisSubidos.
+  ///
+  /// In es, this message translates to:
+  /// **'Por el límite de la versión gratis, solo se suben los primeros {n}.'**
+  String limiteGratisSubidos(int n);
+
+  /// No description provided for @fueraDelCupoGratis.
+  ///
+  /// In es, this message translates to:
+  /// **'Fuera del cupo de la versión gratis. Queda guardado y vuelve con Pro.'**
+  String get fueraDelCupoGratis;
 }
 
 class _AppLocalizationsDelegate

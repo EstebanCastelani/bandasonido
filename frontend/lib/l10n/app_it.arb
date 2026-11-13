@@ -525,8 +525,8 @@
   "soloAppPaga": "Solo app a pagamento",
   "planPro": "Piano Pro",
   "planProSubtitulo": "Più strumenti per la tua band",
-  "planProRepertorio": "Il mio repertorio: carica i tuoi PDF e crea la tua libreria di canzoni.",
-  "planProSecuencias": "Le mie sequenze: carica le tue tracce audio (vengono compresse automaticamente per risparmiare spazio).",
+  "planProRepertorio": "Il mio repertorio senza limite: la versione gratuita permette fino a 4 PDF.",
+  "planProSecuencias": "Le mie sequenze senza limite: la versione gratuita permette fino a 3 tracce audio.",
   "planProTono": "Alzare e abbassare la tonalità in una sala dove qualcuno ha la versione Pro.",
   "planProPrecio": "Prezzo: prossimamente",
   "planProTuPlanPro": "Il tuo piano: Pro",
@@ -545,5 +545,9 @@
   "proGratisQuitado": "Rimosso.",
   "proGratisQuitarTitulo": "Togliere il Pro gratis a questa e-mail?",
   "proGratisVacio": "Non hai ancora aggiunto nessuno.",
-  "planProEspacio": "Più spazio per i tuoi file: 2 GB per account."
+  "planProEspacio": "Più spazio per i tuoi file: 2 GB per account.",
+  "limiteGratisPdfs": "La versione gratuita permette di tenere fino a {n} PDF. Con Pro, senza limite.",
+  "limiteGratisSecuencias": "La versione gratuita permette di tenere fino a {n} sequenze. Con Pro, senza limite.",
+  "limiteGratisSubidos": "Per il limite della versione gratuita, vengono caricati solo i primi {n}.",
+  "fueraDelCupoGratis": "Fuori dalla quota della versione gratuita. Resta salvato e torna con Pro."
 }
