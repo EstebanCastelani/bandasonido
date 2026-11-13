@@ -6781,28 +6781,21 @@ class IngressMenuScreen extends StatelessWidget {
   }
 }
 
-/// Un cartelito "Solo app paga" para los botones que son de la versión paga.
-class EtiquetaSoloPago extends StatelessWidget {
-  const EtiquetaSoloPago({super.key});
+/// Un candado para los botones que son de la versión paga. Al mantenerlo
+/// apretado dice "Solo app paga".
+class IconoSoloPago extends StatelessWidget {
+  const IconoSoloPago({super.key});
 
   @override
-  Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-        decoration: BoxDecoration(
-          border: Border.all(color: context.acento),
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Text(context.l10n.soloAppPaga,
-            style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.bold,
-                color: context.acento)),
+  Widget build(BuildContext context) => Tooltip(
+        message: context.l10n.soloAppPaga,
+        child: const Icon(Icons.lock_outline, size: 18),
       );
 }
 
 /// Los botones de la cuenta en la pantalla de inicio, debajo de "Mis salas":
-/// Mis frases (gratis), Mi repertorio y Mis secuencias (con el cartel "Solo
-/// app paga" para quien no tiene la app paga). Siguen siendo usables mientras
+/// Mis frases (gratis), Mi repertorio y Mis secuencias (con un candado y
+/// aspecto apagado para quien no tiene la app paga). Siguen siendo usables mientras
 /// [kFuncionesProGratisPorAhora] sea true.
 class _BotonesDeCuenta extends StatelessWidget {
   final String uid;
@@ -6813,28 +6806,31 @@ class _BotonesDeCuenta extends StatelessWidget {
     return StreamBuilder<bool>(
       stream: UsuarioService.streamEsPro(uid),
       builder: (context, snapshot) {
-        // Mientras carga no se muestra el cartel (evita un parpadeo).
+        // Mientras carga no se apaga el botón (evita un parpadeo).
         final noEsPro = snapshot.hasData && snapshot.data != true;
         Widget boton(IconData icono, String texto, Widget Function() pantalla,
                 {bool soloPago = false}) =>
             Padding(
               padding: const EdgeInsets.only(top: 12),
-              child: OutlinedButton.icon(
-                icon: Icon(icono),
-                label: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Flexible(child: Text(texto)),
-                    if (soloPago && noEsPro) ...[
-                      const SizedBox(width: 8),
-                      const EtiquetaSoloPago(),
+              child: Opacity(
+                opacity: soloPago && noEsPro ? 0.5 : 1,
+                child: OutlinedButton.icon(
+                  icon: Icon(icono),
+                  label: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Flexible(child: Text(texto)),
+                      if (soloPago && noEsPro) ...[
+                        const SizedBox(width: 8),
+                        const IconoSoloPago(),
+                      ],
                     ],
-                  ],
+                  ),
+                  onPressed: () => Navigator.push(
+                      context, MaterialPageRoute(builder: (_) => pantalla())),
+                  style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.all(16)),
                 ),
-                onPressed: () => Navigator.push(
-                    context, MaterialPageRoute(builder: (_) => pantalla())),
-                style:
-                    OutlinedButton.styleFrom(padding: const EdgeInsets.all(16)),
               ),
             );
         return Column(

@@ -110,10 +110,11 @@ void main() {
     expect(velocidad, BotonAutoDesplazar.rapida);
   });
 
-  testWidgets('el cartel "Solo app paga" se muestra en el idioma elegido',
+  testWidgets('el candado de "Solo app paga" avisa en el idioma elegido',
       (tester) async {
-    await tester.pumpWidget(conApp((context) => const EtiquetaSoloPago()));
-    expect(find.text('Solo app paga'), findsOneWidget);
+    await tester.pumpWidget(conApp((context) => const IconoSoloPago()));
+    expect(find.byIcon(Icons.lock_outline), findsOneWidget);
+    expect(find.byTooltip('Solo app paga'), findsOneWidget);
   });
 
   testWidgets('cómo instalar la app explica iPhone y Android', (tester) async {
