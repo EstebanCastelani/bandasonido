@@ -461,7 +461,7 @@
   "guiaTitulo": "How Sound Check Pro works",
   "guiaPaso1": "Create a room or join with the 8-character code (or by scanning the QR). Musicians and the sound engineer stay connected live.",
   "guiaPaso2": "Send one-tap requests to the sound engineer (\"more guitar\", \"monitor volume\") and see when they are seen and handled.",
-  "guiaPaso3": "Upload your lyric and chord PDFs to your repertoire, build the room setlist and transpose the key with one tap.",
+  "guiaPaso3": "Upload your lyric and chord PDFs to your repertoire, build the room setlist and, with Pro, transpose the key for the whole band.",
   "comoFunciona": "How it works",
   "vacioRepertorioTitulo": "Your repertoire is empty",
   "vacioRepertorioAyuda": "Upload your lyric and chord PDFs, or import songs from a text file using the menu above.",

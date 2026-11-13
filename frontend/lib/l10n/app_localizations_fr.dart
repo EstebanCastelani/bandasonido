@@ -1345,7 +1345,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get guiaPaso3 =>
-      'Importez vos PDF de paroles et d’accords dans votre répertoire, composez le setlist de la salle et transposez la tonalité en un geste.';
+      'Importez vos PDF de paroles et d’accords dans votre répertoire, composez le setlist de la salle et, avec Pro, transposez la tonalité pour tout le groupe.';
 
   @override
   String get comoFunciona => 'Comment ça marche';

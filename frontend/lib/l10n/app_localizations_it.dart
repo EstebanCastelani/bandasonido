@@ -1340,7 +1340,7 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String get guiaPaso3 =>
-      'Carica i tuoi PDF con testo e accordi nel repertorio, prepara la scaletta della sala e trasponi la tonalità con un tocco.';
+      'Carica i tuoi PDF con testo e accordi nel repertorio, prepara la scaletta della sala e, con Pro, trasponi la tonalità per tutta la band.';
 
   @override
   String get comoFunciona => 'Come funziona';

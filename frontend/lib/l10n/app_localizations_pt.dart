@@ -1339,7 +1339,7 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String get guiaPaso3 =>
-      'Envie seus PDFs de letra e cifra para o repertório, monte o setlist da sala e transponha o tom com um toque.';
+      'Envie seus PDFs de letra e cifra para o repertório, monte o setlist da sala e, com Pro, transponha o tom para toda a banda.';
 
   @override
   String get comoFunciona => 'Como funciona';

@@ -2321,7 +2321,7 @@ abstract class AppLocalizations {
   /// No description provided for @guiaPaso3.
   ///
   /// In es, this message translates to:
-  /// **'Subí tus PDF de letra y acordes a tu repertorio, armá el setlist de la sala y transponé el tono con un toque.'**
+  /// **'Subí tus PDF de letra y acordes a tu repertorio, armá el setlist de la sala y, con Pro, transponé el tono para toda la banda.'**
   String get guiaPaso3;
 
   /// No description provided for @comoFunciona.

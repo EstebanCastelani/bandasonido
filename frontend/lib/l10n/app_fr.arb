@@ -461,7 +461,7 @@
   "guiaTitulo": "Comment fonctionne Sound Check Pro",
   "guiaPaso1": "Créez une salle ou rejoignez-en une avec le code à 8 caractères (ou en scannant le QR). Musiciens et ingénieur du son restent connectés en direct.",
   "guiaPaso2": "Envoyez des demandes en un geste à l’ingénieur du son (« plus de guitare », « volume retour ») et voyez quand elles sont vues et traitées.",
-  "guiaPaso3": "Importez vos PDF de paroles et d’accords dans votre répertoire, composez le setlist de la salle et transposez la tonalité en un geste.",
+  "guiaPaso3": "Importez vos PDF de paroles et d’accords dans votre répertoire, composez le setlist de la salle et, avec Pro, transposez la tonalité pour tout le groupe.",
   "comoFunciona": "Comment ça marche",
   "vacioRepertorioTitulo": "Votre répertoire est vide",
   "vacioRepertorioAyuda": "Importez vos PDF de paroles et d’accords, ou des chansons depuis un fichier texte avec le menu ci-dessus.",

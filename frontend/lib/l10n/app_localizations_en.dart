@@ -1335,7 +1335,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get guiaPaso3 =>
-      'Upload your lyric and chord PDFs to your repertoire, build the room setlist and transpose the key with one tap.';
+      'Upload your lyric and chord PDFs to your repertoire, build the room setlist and, with Pro, transpose the key for the whole band.';
 
   @override
   String get comoFunciona => 'How it works';

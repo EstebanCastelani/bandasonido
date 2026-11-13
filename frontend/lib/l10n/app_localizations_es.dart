@@ -1342,7 +1342,7 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get guiaPaso3 =>
-      'Subí tus PDF de letra y acordes a tu repertorio, armá el setlist de la sala y transponé el tono con un toque.';
+      'Subí tus PDF de letra y acordes a tu repertorio, armá el setlist de la sala y, con Pro, transponé el tono para toda la banda.';
 
   @override
   String get comoFunciona => 'Cómo funciona';

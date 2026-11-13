@@ -9089,10 +9089,15 @@ class _RequestScreenState extends State<RequestScreen>
                 side: BorderSide(color: context.acento.withValues(alpha: 0.2))),
           ),
           onPressed: () => _enviarMensaje(pedido),
-          child: Text(pedido,
-              textAlign: TextAlign.center,
-              style:
-                  const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+          // Con la letra muy grande una palabra larga ("coordinador") no entra
+          // en el botón y se cortaba: se limita cuánto crece solo acá.
+          child: MediaQuery.withClampedTextScaling(
+            maxScaleFactor: 1.15,
+            child: Text(pedido,
+                textAlign: TextAlign.center,
+                style:
+                    const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+          ),
         );
       },
     );
