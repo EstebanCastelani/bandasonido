@@ -6,7 +6,7 @@ Parte de `PLAN_COSTOS.md` (Fases 3 y 4). La app sube, borra y baja PDF y secuenc
 - Los **topes de tamaño y de espacio por cuenta** los aplica el servidor (los de la app se pueden saltear).
 - **De cada archivo idéntico se guarda una sola copia** (identificado por su huella SHA-256), sin que la gente vea nada distinto. Cada cuenta sigue viendo "su" canción.
 
-Estado (12-nov-2026): código y pruebas listos; **todavía no está desplegado**. Mientras la app no tenga `R2_WORKER_URL`, sigue usando Supabase como siempre.
+Estado (13-nov-2026): **desplegado** en `https://sound-check-pro-archivos.sound-check-pro-archivos.workers.dev` (bucket R2 y base D1 `sound-check-pro-archivos` creados; `schema.sql` cargado). Probado con una subida real desde el celular (AAC de 5,3 MB), descarga con `Range`, caché de un año y borrado (R2 y D1 vuelven a 0). Mientras la app no se compile con `R2_WORKER_URL`, sigue usando Supabase como siempre.
 
 ## Cómo funciona
 - Las copias viven en R2 con la clave `blob/{huella}`. La **huella la calcula el servidor** al recibir el archivo: nadie puede declarar una huella que no es.

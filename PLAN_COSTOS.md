@@ -94,7 +94,7 @@ Orden recomendado: 0 → 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8. Esfuerzo: 
 | 0 Medir y proteger | **Parcial**: topes por archivo (5 MB PDF, 30 MB audio) y tamaño guardado en cada archivo. Faltan las alertas de presupuesto 🔑 |
 | 1 Cuotas por cuenta | **Hecha en la app y en el servidor** (500 MB, una sola cuota; falta decidir gratis vs Pro 🔑). El servidor no está desplegado |
 | 2 Archivos más livianos | **Hecha en la web** (MP3 ≤ 192 kbps) **y en Android** (AAC 128 kbps con el codificador del sistema; un WAV de 58 MB quedó en 5,3 MB; 13-nov-2026). Falta oír la calidad y probar WAV de 24 bits. El PDF no se puede recomprimir (probado) |
-| 3 Almacenamiento nuevo | **Código y pruebas listos** (`worker/` + `ArchivosR2`); falta la cuenta de Cloudflare, desplegar y compilar con `R2_WORKER_URL` 🔑 |
+| 3 Almacenamiento nuevo | **Desplegado y probado** (13-nov-2026, `worker/` + `ArchivosR2`); falta compilar las versiones publicadas con `R2_WORKER_URL` |
 | 4 a 8 | Sin empezar |
 | 6 Firestore | **Topes puestos** en 6 escuchas; falta el Historial (B-16) y revisar la región 🔑 |
 | Caché | Carpeta persistente y más retención, hecho |
