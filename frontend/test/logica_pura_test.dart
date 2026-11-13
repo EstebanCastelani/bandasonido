@@ -1360,4 +1360,52 @@ Tu gloria llena la tierra///
       expect(ReproductorSecuencias.soportaTono, isTrue);
     });
   });
+
+  group('Pro gratis por mail', () {
+    test('emailValido acepta mails normales y rechaza los dudosos', () {
+      expect(ProGratisService.emailValido('Ana.Perez+x@Gmail.com'), isTrue);
+      expect(ProGratisService.emailValido(' ana@mail.com '), isTrue);
+      expect(ProGratisService.emailValido('ana@mail'), isFalse);
+      expect(ProGratisService.emailValido('a/b@mail.com'), isFalse);
+      expect(ProGratisService.emailValido('ana @mail.com'), isFalse);
+      expect(ProGratisService.emailValido(''), isFalse);
+    });
+
+    test('normalizar pasa a minúsculas y saca espacios', () {
+      expect(ProGratisService.normalizar('  Ana@Mail.COM '), 'ana@mail.com');
+    });
+
+    test('combinarOr espera a los dos y vale sí si alguno es sí', () async {
+      final a = StreamController<bool>();
+      final b = StreamController<bool>();
+      final salida = <bool>[];
+      final sub = combinarOr(a.stream, b.stream).listen(salida.add);
+      a.add(false);
+      await Future<void>.delayed(Duration.zero);
+      expect(salida, isEmpty); // todavía falta la respuesta de b
+      b.add(true);
+      await Future<void>.delayed(Duration.zero);
+      expect(salida, [true]);
+      b.add(false);
+      await Future<void>.delayed(Duration.zero);
+      expect(salida, [true, false]);
+      await sub.cancel();
+      await a.close();
+      await b.close();
+    });
+
+    test('combinarOr: si b falla cuenta como no y deja pasar a a', () async {
+      final a = StreamController<bool>();
+      final b = StreamController<bool>();
+      final salida = <bool>[];
+      final sub = combinarOr(a.stream, b.stream).listen(salida.add);
+      b.addError('permission-denied');
+      a.add(true);
+      await Future<void>.delayed(Duration.zero);
+      expect(salida, [true]);
+      await sub.cancel();
+      await a.close();
+      await b.close();
+    });
+  });
 }

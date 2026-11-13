@@ -1473,4 +1473,32 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get accesosInicioSoloPro => 'Disponible con la versión Pro.';
+
+  @override
+  String get proGratisTitulo => 'Pro gratis';
+
+  @override
+  String get proGratisAyuda =>
+      'Las personas con estos mails tienen Pro sin pagar. Tienen que entrar a la app con ese mismo mail (verificado).';
+
+  @override
+  String get proGratisMail => 'Mail';
+
+  @override
+  String get proGratisNota => 'Nota (opcional)';
+
+  @override
+  String get proGratisMailInvalido => 'Ese mail no parece válido.';
+
+  @override
+  String get proGratisAgregado => 'Agregado.';
+
+  @override
+  String get proGratisQuitado => 'Quitado.';
+
+  @override
+  String get proGratisQuitarTitulo => '¿Quitar el Pro gratis a este mail?';
+
+  @override
+  String get proGratisVacio => 'Todavía no agregaste a nadie.';
 }

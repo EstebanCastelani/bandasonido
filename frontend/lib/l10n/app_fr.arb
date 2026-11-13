@@ -535,5 +535,14 @@
   "accesosInicioTitulo": "Écran d’accueil",
   "accesosInicioMostrar": "Afficher Mes phrases, Mon répertoire et Mes séquences sur l’écran d’accueil",
   "accesosInicioAyuda": "Si vous le désactivez, vous les retrouvez dans le menu en haut à droite.",
-  "accesosInicioSoloPro": "Disponible avec la version Pro."
+  "accesosInicioSoloPro": "Disponible avec la version Pro.",
+  "proGratisTitulo": "Pro gratuit",
+  "proGratisAyuda": "Les personnes avec ces e-mails ont Pro sans payer. Elles doivent se connecter à l’app avec ce même e-mail (vérifié).",
+  "proGratisMail": "E-mail",
+  "proGratisNota": "Note (facultatif)",
+  "proGratisMailInvalido": "Cet e-mail ne semble pas valide.",
+  "proGratisAgregado": "Ajouté.",
+  "proGratisQuitado": "Retiré.",
+  "proGratisQuitarTitulo": "Retirer le Pro gratuit de cet e-mail ?",
+  "proGratisVacio": "Vous n’avez encore ajouté personne."
 }

@@ -2194,7 +2194,252 @@ class UsuarioService {
   /// usuario: lo protegen las reglas de Firestore, y hoy se activa a mano
   /// desde la consola hasta que haya cobro real integrado.
   static Stream<bool> streamEsPro(String uid) {
-    return _ref(uid).snapshots().map((snap) => snap.data()?['esPro'] == true);
+    final perfil =
+        _ref(uid).snapshots().map((snap) => snap.data()?['esPro'] == true);
+    final email = AuthService.currentUser?.email;
+    if (email == null || email.trim().isEmpty) return perfil;
+    return combinarOr(perfil, ProGratisService.streamInvitado(email));
+  }
+}
+
+/// Une dos flujos de sí/no en uno solo que vale "sí" si alguno lo es. Emite
+/// recién cuando ambos ya contestaron (para que `.first` no devuelva un "no"
+/// provisorio). Si [b] falla (por ejemplo sin permiso), cuenta como "no".
+Stream<bool> combinarOr(Stream<bool> a, Stream<bool> b) {
+  late final StreamController<bool> control;
+  StreamSubscription<bool>? sa;
+  StreamSubscription<bool>? sb;
+  bool? va;
+  bool? vb;
+  bool? ultimo;
+  void emitir() {
+    if (va == null || vb == null) return;
+    final v = va! || vb!;
+    if (v != ultimo) {
+      ultimo = v;
+      control.add(v);
+    }
+  }
+
+  control = StreamController<bool>(
+    onListen: () {
+      sa = a.listen((x) {
+        va = x;
+        emitir();
+      }, onError: control.addError);
+      sb = b.listen((x) {
+        vb = x;
+        emitir();
+      }, onError: (_) {
+        vb = false;
+        emitir();
+      });
+    },
+    onCancel: () async {
+      await sa?.cancel();
+      await sb?.cancel();
+    },
+  );
+  return control.stream;
+}
+
+/// Lista de mails que tienen Pro gratis (colección `pro_gratis`, un documento
+/// por mail en minúsculas). La administra la persona dueña desde la pantalla
+/// [ProGratisScreen]; cada usuario solo puede leer el documento de SU mail
+/// (lo exigen las reglas de Firestore), así que nadie ve la lista completa.
+class ProGratisService {
+  static CollectionReference<Map<String, dynamic>> get _col =>
+      FirebaseFirestore.instance.collection('pro_gratis');
+
+  static String normalizar(String email) => email.trim().toLowerCase();
+
+  static bool emailValido(String email) =>
+      RegExp(r'^[a-z0-9._%+\-]+@[a-z0-9\-]+(\.[a-z0-9\-]+)*\.[a-z]{2,}$')
+          .hasMatch(normalizar(email));
+
+  /// ¿Este mail está en la lista? Se actualiza solo.
+  static Stream<bool> streamInvitado(String email) =>
+      _col.doc(normalizar(email)).snapshots().map((s) => s.exists);
+
+  static String? _uidAdmin;
+  static Future<bool>? _esAdmin;
+
+  /// ¿Esta cuenta administra la lista? Lo decide un documento `admins/{uid}`
+  /// que solo se puede crear desde la consola de Firebase.
+  static Future<bool> soyAdmin() {
+    final uid = AuthService.currentUser?.uid;
+    if (uid == null || !AuthService.esUsuarioRegistrado) {
+      return Future.value(false);
+    }
+    if (_uidAdmin != uid) {
+      _uidAdmin = uid;
+      _esAdmin = () async {
+        try {
+          final s = await FirebaseFirestore.instance
+              .collection('admins')
+              .doc(uid)
+              .get();
+          return s.exists;
+        } catch (_) {
+          return false;
+        }
+      }();
+    }
+    return _esAdmin!;
+  }
+
+  static Stream<QuerySnapshot<Map<String, dynamic>>> lista() =>
+      _col.orderBy('createdAt', descending: true).limit(500).snapshots();
+
+  static Future<void> agregar(String email, String nota) =>
+      _col.doc(normalizar(email)).set({
+        'email': normalizar(email),
+        'nota': nota.trim(),
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+
+  static Future<void> quitar(String email) =>
+      _col.doc(normalizar(email)).delete();
+}
+
+/// Menú ⋮ → "Pro gratis": agregar y quitar los mails con Pro sin pagar. Solo
+/// aparece para quien está en `admins`.
+class ProGratisScreen extends StatefulWidget {
+  const ProGratisScreen({super.key});
+
+  @override
+  State<ProGratisScreen> createState() => _ProGratisScreenState();
+}
+
+class _ProGratisScreenState extends State<ProGratisScreen> {
+  final _mail = TextEditingController();
+  final _nota = TextEditingController();
+  bool _guardando = false;
+
+  @override
+  void dispose() {
+    _mail.dispose();
+    _nota.dispose();
+    super.dispose();
+  }
+
+  Future<void> _agregar() async {
+    final l = context.l10n;
+    final messenger = ScaffoldMessenger.of(context);
+    if (!ProGratisService.emailValido(_mail.text)) {
+      messenger.showSnackBar(SnackBar(content: Text(l.proGratisMailInvalido)));
+      return;
+    }
+    setState(() => _guardando = true);
+    try {
+      await ProGratisService.agregar(_mail.text, _nota.text);
+      _mail.clear();
+      _nota.clear();
+      messenger.showSnackBar(SnackBar(content: Text(l.proGratisAgregado)));
+    } catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text(mensajeError(l, e))));
+    } finally {
+      if (mounted) setState(() => _guardando = false);
+    }
+  }
+
+  Future<void> _quitar(String mail) async {
+    final l = context.l10n;
+    final messenger = ScaffoldMessenger.of(context);
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(l.proGratisQuitarTitulo),
+        content: Text(mail),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text(l.cancelar)),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, true), child: Text(l.quitar)),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    try {
+      await ProGratisService.quitar(mail);
+      messenger.showSnackBar(SnackBar(content: Text(l.proGratisQuitado)));
+    } catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text(mensajeError(l, e))));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l = context.l10n;
+    return Scaffold(
+      appBar: AppBar(title: Text(l.proGratisTitulo)),
+      body: SafeArea(
+        child: ListView(
+          padding: rellenoFormulario(context),
+          children: [
+            Text(l.proGratisAyuda),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _mail,
+              keyboardType: TextInputType.emailAddress,
+              autocorrect: false,
+              decoration: InputDecoration(
+                  labelText: l.proGratisMail,
+                  border: const OutlineInputBorder()),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _nota,
+              maxLength: 80,
+              decoration: InputDecoration(
+                  labelText: l.proGratisNota,
+                  border: const OutlineInputBorder()),
+            ),
+            FilledButton.icon(
+              onPressed: _guardando ? null : _agregar,
+              icon: const Icon(Icons.person_add_alt_1),
+              label: Text(l.agregar),
+            ),
+            const SizedBox(height: 16),
+            StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+              stream: ProGratisService.lista(),
+              builder: (context, snap) {
+                if (snap.hasError) {
+                  return Text(l.errorDeConexion('${snap.error}'));
+                }
+                if (!snap.hasData) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                final docs = snap.data!.docs;
+                if (docs.isEmpty) {
+                  return Text(l.proGratisVacio,
+                      style: const TextStyle(color: Colors.grey));
+                }
+                return Column(
+                  children: [
+                    for (final d in docs)
+                      ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: const Icon(Icons.workspace_premium),
+                        title: Text('${d.data()['email'] ?? d.id}'),
+                        subtitle: ('${d.data()['nota'] ?? ''}').isEmpty
+                            ? null
+                            : Text('${d.data()['nota']}'),
+                        trailing: IconButton(
+                          icon: const Icon(Icons.delete_outline),
+                          tooltip: l.quitar,
+                          onPressed: () => _quitar(d.id),
+                        ),
+                      ),
+                  ],
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
@@ -7263,10 +7508,18 @@ class MenuHamburguesa extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    return FutureBuilder<bool>(
+      future: conCuenta ? ProGratisService.soyAdmin() : Future.value(false),
+      builder: (context, admin) => _menu(context, admin.data == true),
+    );
+  }
+
+  Widget _menu(BuildContext context, bool esAdmin) {
     return PopupMenuButton<String>(
       icon: Icon(Icons.menu, color: colorIcono),
       onSelected: (valor) {
         Widget? pantalla = switch (valor) {
+          'progratis' => const ProGratisScreen(),
           'frases' => const FrasesAdminScreen(),
           'repertorio' => const MiRepertorioScreen(),
           'secuencias' => const MisSecuenciasScreen(),
@@ -7296,6 +7549,9 @@ class MenuHamburguesa extends StatelessWidget {
           PopupMenuItem(
               value: 'secuencias', child: Text(context.l10n.misSecuencias2)),
           PopupMenuItem(value: 'plan', child: Text(context.l10n.planPro)),
+          if (esAdmin)
+            PopupMenuItem(
+                value: 'progratis', child: Text(context.l10n.proGratisTitulo)),
         ],
         _ItemConfiguracion(conCuenta: conCuenta),
         PopupMenuItem(value: 'guia', child: Text(context.l10n.comoFunciona)),

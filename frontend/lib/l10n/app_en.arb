@@ -535,5 +535,14 @@
   "accesosInicioTitulo": "Home screen",
   "accesosInicioMostrar": "Show My phrases, My repertoire and My tracks on the home screen",
   "accesosInicioAyuda": "If you turn it off, you will still find them in the menu at the top right.",
-  "accesosInicioSoloPro": "Available with the Pro version."
+  "accesosInicioSoloPro": "Available with the Pro version.",
+  "proGratisTitulo": "Free Pro",
+  "proGratisAyuda": "People with these emails get Pro for free. They must sign in to the app with that same (verified) email.",
+  "proGratisMail": "Email",
+  "proGratisNota": "Note (optional)",
+  "proGratisMailInvalido": "That email does not look valid.",
+  "proGratisAgregado": "Added.",
+  "proGratisQuitado": "Removed.",
+  "proGratisQuitarTitulo": "Remove free Pro from this email?",
+  "proGratisVacio": "You have not added anyone yet."
 }

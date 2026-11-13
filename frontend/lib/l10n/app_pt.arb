@@ -535,5 +535,14 @@
   "accesosInicioTitulo": "Tela inicial",
   "accesosInicioMostrar": "Mostrar Minhas frases, Meu repertório e Minhas sequências na tela inicial",
   "accesosInicioAyuda": "Se desligar, você os encontra no menu no canto superior direito.",
-  "accesosInicioSoloPro": "Disponível com a versão Pro."
+  "accesosInicioSoloPro": "Disponível com a versão Pro.",
+  "proGratisTitulo": "Pro grátis",
+  "proGratisAyuda": "As pessoas com estes e-mails têm Pro sem pagar. Precisam entrar no app com esse mesmo e-mail (verificado).",
+  "proGratisMail": "E-mail",
+  "proGratisNota": "Nota (opcional)",
+  "proGratisMailInvalido": "Esse e-mail não parece válido.",
+  "proGratisAgregado": "Adicionado.",
+  "proGratisQuitado": "Removido.",
+  "proGratisQuitarTitulo": "Remover o Pro grátis deste e-mail?",
+  "proGratisVacio": "Você ainda não adicionou ninguém."
 }

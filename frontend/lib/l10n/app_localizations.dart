@@ -2539,6 +2539,60 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'Disponible con la versión Pro.'**
   String get accesosInicioSoloPro;
+
+  /// No description provided for @proGratisTitulo.
+  ///
+  /// In es, this message translates to:
+  /// **'Pro gratis'**
+  String get proGratisTitulo;
+
+  /// No description provided for @proGratisAyuda.
+  ///
+  /// In es, this message translates to:
+  /// **'Las personas con estos mails tienen Pro sin pagar. Tienen que entrar a la app con ese mismo mail (verificado).'**
+  String get proGratisAyuda;
+
+  /// No description provided for @proGratisMail.
+  ///
+  /// In es, this message translates to:
+  /// **'Mail'**
+  String get proGratisMail;
+
+  /// No description provided for @proGratisNota.
+  ///
+  /// In es, this message translates to:
+  /// **'Nota (opcional)'**
+  String get proGratisNota;
+
+  /// No description provided for @proGratisMailInvalido.
+  ///
+  /// In es, this message translates to:
+  /// **'Ese mail no parece válido.'**
+  String get proGratisMailInvalido;
+
+  /// No description provided for @proGratisAgregado.
+  ///
+  /// In es, this message translates to:
+  /// **'Agregado.'**
+  String get proGratisAgregado;
+
+  /// No description provided for @proGratisQuitado.
+  ///
+  /// In es, this message translates to:
+  /// **'Quitado.'**
+  String get proGratisQuitado;
+
+  /// No description provided for @proGratisQuitarTitulo.
+  ///
+  /// In es, this message translates to:
+  /// **'¿Quitar el Pro gratis a este mail?'**
+  String get proGratisQuitarTitulo;
+
+  /// No description provided for @proGratisVacio.
+  ///
+  /// In es, this message translates to:
+  /// **'Todavía no agregaste a nadie.'**
+  String get proGratisVacio;
 }
 
 class _AppLocalizationsDelegate
