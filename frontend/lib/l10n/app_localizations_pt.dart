@@ -1498,4 +1498,8 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String get proGratisVacio => 'Você ainda não adicionou ninguém.';
+
+  @override
+  String get planProEspacio =>
+      'Mais espaço para seus arquivos: 2 GB por conta.';
 }

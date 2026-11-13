@@ -40,6 +40,9 @@ export const CARPETAS = {
 /** Espacio total por cuenta (mismo valor que kCuotaBytesPorUsuario en la app). */
 export const CUOTA_BYTES = 500 * MB;
 
+/** Espacio total por cuenta con la versión Pro (kCuotaProBytes en la app). */
+export const CUOTA_PRO_BYTES = 2048 * MB;
+
 /** Cuántos trozos del archivo se piden como prueba, y de cuántos bytes cada uno. */
 const TROZOS = 4;
 const LARGO_TROZO = 64;
@@ -146,8 +149,40 @@ export async function verificarToken(token, { proyecto, buscarJwks, ahora }) {
   if (!(datos.exp > ahoraS)) throw new Error('token vencido');
   if (datos.iat > ahoraS + 60) throw new Error('token del futuro');
   if (!datos.sub) throw new Error('sin usuario');
-  return { uid: datos.sub, anonimo: datos.firebase?.sign_in_provider === 'anonymous' };
+  return {
+    uid: datos.sub,
+    anonimo: datos.firebase?.sign_in_provider === 'anonymous',
+    email: typeof datos.email === 'string' ? datos.email : '',
+    emailVerificado: datos.email_verified === true,
+  };
 }
+
+/**
+ * ¿Esta cuenta tiene la versión Pro? Lo mira en Firestore con el PROPIO token
+ * de la persona (las reglas le dejan leer su perfil y el documento de su mail
+ * en pro_gratis/), así que el servidor no necesita ninguna clave. Pro es
+ * esPro==true en usuarios/{uid} o estar en la lista pro_gratis (mail verificado).
+ */
+export async function esProEnFirestore(proyecto, sesion, token, buscar = fetch) {
+  const base = `https://firestore.googleapis.com/v1/projects/${proyecto}/databases/(default)/documents`;
+  const leer = async (ruta) => {
+    const r = await buscar(`${base}/${ruta}`, { headers: { Authorization: `Bearer ${token}` } });
+    if (r.status === 404) return null;
+    if (!r.ok) throw new Error(`firestore ${r.status}`);
+    return r.json();
+  };
+  const perfil = await leer(`usuarios/${encodeURIComponent(sesion.uid)}`);
+  if (perfil?.fields?.esPro?.booleanValue === true) return true;
+  if (sesion.email && sesion.emailVerificado) {
+    const invitado = await leer(`pro_gratis/${encodeURIComponent(sesion.email.trim().toLowerCase())}`);
+    if (invitado) return true;
+  }
+  return false;
+}
+
+/** Respuestas recientes de "¿es Pro?" por cuenta (se pierden al reiniciar el servidor). */
+const cacheEsPro = new Map();
+const VIDA_CACHE_PRO_MS = 5 * 60 * 1000;
 
 /** Bytes que ocupa una cuenta: la suma de sus enlaces, sin contar [excepto]. */
 export async function usoDeUsuario(db, uid, excepto = '') {
@@ -199,6 +234,8 @@ export function crearManejador({
   proyecto,
   origenes = [],
   cuota = CUOTA_BYTES,
+  cuotaPro = CUOTA_PRO_BYTES,
+  esPro = (sesion, token) => esProEnFirestore(proyecto, sesion, token),
   ahora = () => Date.now(),
   azar = Math.random,
   buscarJwks = () => fetch(JWKS_URL).then((r) => r.json()),
@@ -293,6 +330,26 @@ export function crearManejador({
       return respuestaJson(403, { error: 'hace falta una cuenta registrada' }, {}, corsEscritura);
     }
 
+    // Espacio de esta cuenta: el normal, o el de Pro si lo pide y lo es. Solo
+    // se consulta cuando lo que se sube no entra en el normal.
+    const tokenCrudo = auth.slice(7);
+    const cuotaPara = async (usado, nuevos) => {
+      if (usado + nuevos <= cuota) return cuota;
+      const memo = cacheEsPro.get(sesion.uid);
+      let pro;
+      if (memo && memo.hasta > ahora()) {
+        pro = memo.pro;
+      } else {
+        try {
+          pro = (await esPro(sesion, tokenCrudo)) === true;
+          cacheEsPro.set(sesion.uid, { pro, hasta: ahora() + VIDA_CACHE_PRO_MS });
+        } catch {
+          pro = false; // sin poder comprobarlo, vale el espacio normal
+        }
+      }
+      return pro ? cuotaPro : cuota;
+    };
+
     // --- Enlazar una copia que ya existe, sin volver a subirla ---
     if (esVincular) {
       let cuerpo;
@@ -344,11 +401,12 @@ export function crearManejador({
         return respuestaJson(415, { error: `tipo no permitido: ${blob.tipo}` }, {}, corsEscritura);
       }
       const usado = await usoDeUsuario(env.DB, sesion.uid, d.clave);
-      if (usado + blob.bytes > cuota) {
+      const cuotaCuenta = await cuotaPara(usado, blob.bytes);
+      if (usado + blob.bytes > cuotaCuenta) {
         return respuestaJson(
           507,
           { error: 'sin espacio en la cuenta' },
-          { 'x-usado': String(usado), 'x-cuota': String(cuota) },
+          { 'x-usado': String(usado), 'x-cuota': String(cuotaCuenta) },
           corsEscritura,
         );
       }
@@ -415,11 +473,12 @@ export function crearManejador({
     }
 
     const usado = await usoDeUsuario(env.DB, ruta.uid, ruta.clave);
-    if (usado + bytes.byteLength > cuota) {
+    const cuotaCuenta = await cuotaPara(usado, bytes.byteLength);
+    if (usado + bytes.byteLength > cuotaCuenta) {
       return respuestaJson(
         507,
         { error: 'sin espacio en la cuenta' },
-        { 'x-usado': String(usado), 'x-cuota': String(cuota) },
+        { 'x-usado': String(usado), 'x-cuota': String(cuotaCuenta) },
         corsEscritura,
       );
     }
@@ -455,6 +514,8 @@ export default {
     const manejar = crearManejador({
       proyecto: env.FIREBASE_PROJECT_ID,
       origenes: (env.ORIGENES_PERMITIDOS ?? '').split(',').map((s) => s.trim()).filter(Boolean),
+      cuota: (Number(env.CUOTA_GRATIS_MB) || 500) * MB,
+      cuotaPro: (Number(env.CUOTA_PRO_MB) || 2048) * MB,
     });
     return manejar(request, env);
   },

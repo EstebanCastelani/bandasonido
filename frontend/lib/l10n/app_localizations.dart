@@ -2593,6 +2593,12 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'Todavía no agregaste a nadie.'**
   String get proGratisVacio;
+
+  /// No description provided for @planProEspacio.
+  ///
+  /// In es, this message translates to:
+  /// **'Más espacio para tus archivos: 2 GB por cuenta.'**
+  String get planProEspacio;
 }
 
 class _AppLocalizationsDelegate

@@ -1499,4 +1499,7 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String get proGratisVacio => 'Non hai ancora aggiunto nessuno.';
+
+  @override
+  String get planProEspacio => 'Più spazio per i tuoi file: 2 GB per account.';
 }

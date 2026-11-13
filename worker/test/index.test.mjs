@@ -11,7 +11,9 @@ import { before, beforeEach, describe, test } from 'node:test';
 import {
   CARPETAS,
   CUOTA_BYTES,
+  CUOTA_PRO_BYTES,
   crearManejador,
+  esProEnFirestore,
   olvidarClaves,
   parseBlob,
   parseRuta,
@@ -131,12 +133,21 @@ before(async () => {
 });
 
 let reloj;
+let cuentasPro;
+let consultasPro;
 
 beforeEach(() => {
   olvidarClaves();
   reloj = AHORA;
   env = { BUCKET: crearBucket(), DB: crearD1() };
+  cuentasPro = new Set();
+  consultasPro = 0;
   manejar = crearManejador({
+    esPro: async (sesion) => {
+      consultasPro++;
+      if (sesion.uid === 'falla') throw new Error('sin red');
+      return cuentasPro.has(sesion.uid);
+    },
     proyecto: PROYECTO,
     origenes: [ORIGEN],
     ahora: () => reloj,
@@ -208,7 +219,12 @@ describe('verificarToken', () => {
   const opc = () => ({ proyecto: PROYECTO, buscarJwks: async () => jwks, ahora: () => AHORA });
 
   test('acepta un token válido y marca a los anónimos', async () => {
-    assert.deepEqual(await verificarToken(await firmar(datosToken('u1')), opc()), { uid: 'u1', anonimo: false });
+    assert.deepEqual(await verificarToken(await firmar(datosToken('u1')), opc()), {
+      uid: 'u1',
+      anonimo: false,
+      email: '',
+      emailVerificado: false,
+    });
     const anon = await firmar(datosToken('u1', { firebase: { sign_in_provider: 'anonymous' } }));
     assert.equal((await verificarToken(anon, opc())).anonimo, true);
   });
@@ -305,6 +321,52 @@ describe('PUT: subir', () => {
     assert.equal(r.headers.get('x-usado'), String(CUOTA_BYTES - 50));
     assert.equal(r.headers.get('x-cuota'), String(CUOTA_BYTES));
     assert.equal((await subir('u3', pdf(100), '1_a.pdf')).status, 201);
+  });
+
+  test('Pro tiene más espacio: pasa el normal y para en el de Pro', async () => {
+    cuentasPro.add('p1');
+    sembrar('p1', 'usuarios/p1/secuencias/viejo.mp3', CUOTA_BYTES - 50);
+    assert.equal((await subir('p1', pdf(100), '1_a.pdf')).status, 201);
+    sembrar('p1', 'usuarios/p1/secuencias/enorme.mp3', CUOTA_PRO_BYTES - CUOTA_BYTES);
+    const r = await subir('p1', pdf(100), '2_b.pdf');
+    assert.equal(r.status, 507);
+    assert.equal(r.headers.get('x-cuota'), String(CUOTA_PRO_BYTES));
+  });
+  test('sin Pro, o si no se puede comprobar, vale el espacio normal', async () => {
+    sembrar('falla', 'usuarios/falla/secuencias/viejo.mp3', CUOTA_BYTES - 50);
+    const r = await subir('falla', pdf(100), '1_a.pdf');
+    assert.equal(r.status, 507);
+    assert.equal(r.headers.get('x-cuota'), String(CUOTA_BYTES));
+  });
+  test('solo se consulta si es Pro cuando no entra en el espacio normal, y se recuerda', async () => {
+    assert.equal((await subir('u1', pdf(100), '1_a.pdf')).status, 201);
+    assert.equal(consultasPro, 0);
+    sembrar('u2', 'usuarios/u2/secuencias/viejo.mp3', CUOTA_BYTES - 50);
+    await subir('u2', pdf(100), '1_a.pdf');
+    await subir('u2', pdf(100), '2_b.pdf');
+    assert.equal(consultasPro, 1);
+  });
+});
+
+describe('esProEnFirestore', () => {
+  const sesion = { uid: 'u1', email: 'Ana@Mail.com', emailVerificado: true };
+  const respuestas = (mapa) => async (url) => {
+    const clave = Object.keys(mapa).find((k) => url.endsWith(k));
+    const r = clave ? mapa[clave] : null;
+    return { status: r === null ? 404 : r.status ?? 200, ok: r === null ? false : (r.status ?? 200) < 400, json: async () => r?.cuerpo };
+  };
+  test('esPro en el perfil', async () => {
+    const f = respuestas({ '/usuarios/u1': { cuerpo: { fields: { esPro: { booleanValue: true } } } } });
+    assert.equal(await esProEnFirestore(PROYECTO, sesion, 't', f), true);
+  });
+  test('mail en pro_gratis (en minúsculas) con el mail verificado', async () => {
+    const f = respuestas({ '/usuarios/u1': { cuerpo: { fields: { esPro: { booleanValue: false } } } }, '/pro_gratis/ana%40mail.com': { cuerpo: {} } });
+    assert.equal(await esProEnFirestore(PROYECTO, sesion, 't', f), true);
+    assert.equal(await esProEnFirestore(PROYECTO, { ...sesion, emailVerificado: false }, 't', f), false);
+  });
+  test('ninguno de los dos: no es Pro; un error de Firestore se propaga', async () => {
+    assert.equal(await esProEnFirestore(PROYECTO, sesion, 't', respuestas({})), false);
+    await assert.rejects(esProEnFirestore(PROYECTO, sesion, 't', respuestas({ '/usuarios/u1': { status: 500 } })));
   });
 });
 

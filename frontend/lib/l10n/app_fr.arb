@@ -544,5 +544,6 @@
   "proGratisAgregado": "Ajouté.",
   "proGratisQuitado": "Retiré.",
   "proGratisQuitarTitulo": "Retirer le Pro gratuit de cet e-mail ?",
-  "proGratisVacio": "Vous n’avez encore ajouté personne."
+  "proGratisVacio": "Vous n’avez encore ajouté personne.",
+  "planProEspacio": "Plus d’espace pour vos fichiers : 2 Go par compte."
 }

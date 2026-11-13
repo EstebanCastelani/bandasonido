@@ -2842,6 +2842,10 @@ const int kKbpsMaximoAudio = 192;
 /// Espacio total por cuenta (PDF + audios).
 const int kCuotaBytesPorUsuario = 500 * 1024 * 1024;
 
+/// Espacio total por cuenta con la versión Pro (mismo valor que CUOTA_PRO_MB en
+/// worker/wrangler.toml; el que manda es el servidor).
+const int kCuotaProBytes = 2048 * 1024 * 1024;
+
 /// Dirección del servidor de archivos de Cloudflare R2 (carpeta worker/). Se
 /// puede cambiar al compilar: --dart-define=R2_WORKER_URL=https://...
 const String kR2WorkerUrl = String.fromEnvironment('R2_WORKER_URL',
@@ -3051,8 +3055,15 @@ class CuotaArchivos {
   /// Lanza [EspacioInsuficiente] si [nuevos] bytes no entran en la cuenta.
   static Future<void> verificar(String uid, int nuevos) async {
     final usado = await uso(uid);
-    if (excede(usado, nuevos)) {
-      throw EspacioInsuficiente(usado, kCuotaBytesPorUsuario);
+    if (!excede(usado, nuevos)) return;
+    // No entra en el espacio normal: con Pro vale el mayor. Si no se puede
+    // saber, se deja que decida el servidor (que verifica lo mismo).
+    var cuota = kCuotaBytesPorUsuario;
+    try {
+      if (await UsuarioService.streamEsPro(uid).first) cuota = kCuotaProBytes;
+    } catch (_) {}
+    if (excede(usado, nuevos, cuota: cuota)) {
+      throw EspacioInsuficiente(usado, cuota);
     }
   }
 
@@ -7162,6 +7173,7 @@ class PlanProScreen extends StatelessWidget {
             beneficio(Icons.library_music, l.planProRepertorio),
             beneficio(Icons.graphic_eq, l.planProSecuencias),
             beneficio(Icons.swap_vert, l.planProTono),
+            beneficio(Icons.cloud_upload_outlined, l.planProEspacio),
             const SizedBox(height: 16),
             Card(
               child: Padding(
