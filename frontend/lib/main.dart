@@ -8328,7 +8328,7 @@ class _RequestScreenState extends State<RequestScreen>
   bool _pantallaEncendida = true;
 
   bool _esUrgente = false;
-  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _conexionSub;
+  StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _conexionSub;
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _respuestasSub;
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _precargaSub;
   final _estadoRespuestas = <String, ({bool atendido, String respuesta})>{};
@@ -8452,11 +8452,15 @@ class _RequestScreenState extends State<RequestScreen>
   /// Escucha si hay conexión con Firestore y muestra un aviso fijo cuando se
   /// pierde: así nadie cree que un pedido llegó cuando no hay red.
   void _vigilarConexion() {
+    // Escucha el documento de presencia PROPIO, que casi nunca cambia (antes
+    // escuchaba el último pedido de la sala, y cada pedido nuevo o cada cambio
+    // en él costaba una lectura a todos los músicos). Si todavía no existe
+    // (invitados) alcanza igual: solo importa si la respuesta vino del servidor.
     _conexionSub = FirebaseFirestore.instance
         .collection('salas')
         .doc(widget.codigoSala)
-        .collection('pedidos')
-        .limit(1)
+        .collection('miembros')
+        .doc(AuthService.currentUser?.uid ?? 'sin-sesion')
         .snapshots(includeMetadataChanges: true)
         .listen((s) {
       final desdeCache = s.metadata.isFromCache;
