@@ -27,6 +27,7 @@ Objetivo: **≤ 15 minutos**. Cada versión publicada tiene un tag `vX.Y.Z`.
 
 - El build de Android **no se hace en la CI por defecto**. Existe un trabajo `android` apagado: para activarlo 🔑 crear en GitHub (Settings → Secrets and variables → Actions) el secreto `GOOGLE_SERVICES_JSON` (contenido de `frontend/android/app/google-services.json`, descargable desde la consola de Firebase) y la variable `ANDROID_BUILD=true`. Genera un APK de **depuración** como artefacto.
 - Build local: copiar `google-services.json` a `frontend/android/app/` (está en `.gitignore` a propósito) y ejecutar `flutter build apk --debug` desde `frontend/`.
+- **Archivos en Cloudflare:** todas las compilaciones (web en `deploy.yml`, Android a mano) llevan `--dart-define=R2_WORKER_URL=https://sound-check-pro-archivos.sound-check-pro-archivos.workers.dev`. Sin esa opción la app sube a Supabase. Para el APK/AAB de publicación agregarla también.
 - **Publicar en Play Store:** ver `PLAY_STORE.md`. El build de release ya lee la firma desde `android/key.properties` (ejemplo en `android/key.properties.example`; el archivo y el `.jks` están en `.gitignore`). **Sin `key.properties` el build se firma con la clave de depuración y no sirve para la tienda.** El 25-oct-2026 se verificó que `flutter build apk --release` compila (versión 1.1.0, código 2).
 - El manifiesto de Android no declaraba el permiso `INTERNET` (Flutter solo lo agrega en debug/profile): se agregó el 25-oct-2026; sin él una versión de tienda no podía conectarse.
 
