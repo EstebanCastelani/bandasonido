@@ -6801,8 +6801,8 @@ class EtiquetaSoloPago extends StatelessWidget {
 }
 
 /// Los botones de la cuenta en la pantalla de inicio, debajo de "Mis salas":
-/// Mis frases y Mi repertorio (con el cartel "Solo app paga" para quien no
-/// tiene la app paga) y Mis secuencias. Siguen siendo usables mientras
+/// Mis frases (gratis), Mi repertorio y Mis secuencias (con el cartel "Solo
+/// app paga" para quien no tiene la app paga). Siguen siendo usables mientras
 /// [kFuncionesProGratisPorAhora] sea true.
 class _BotonesDeCuenta extends StatelessWidget {
   final String uid;
@@ -6841,13 +6841,13 @@ class _BotonesDeCuenta extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             boton(Icons.chat_bubble_outline, context.l10n.misFrases2,
-                () => const FrasesAdminScreen(),
-                soloPago: true),
+                () => const FrasesAdminScreen()),
             boton(Icons.library_music, context.l10n.miRepertorio2,
                 () => const MiRepertorioScreen(),
                 soloPago: true),
             boton(Icons.graphic_eq, context.l10n.misSecuencias2,
-                () => const MisSecuenciasScreen()),
+                () => const MisSecuenciasScreen(),
+                soloPago: true),
           ],
         );
       },
