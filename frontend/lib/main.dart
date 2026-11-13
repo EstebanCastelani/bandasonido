@@ -24,8 +24,6 @@ import 'package:firebase_core/firebase_core.dart';
 
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 
-import 'package:firebase_storage/firebase_storage.dart';
-
 import 'package:flutter/foundation.dart'
     show kDebugMode, kIsWeb, listEquals, defaultTargetPlatform, TargetPlatform;
 
@@ -52,8 +50,6 @@ import 'package:share_plus/share_plus.dart';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:supabase_flutter/supabase_flutter.dart' hide User;
-
 import 'package:syncfusion_flutter_pdf/pdf.dart' as sf_pdf;
 
 import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
@@ -76,55 +72,6 @@ const FirebaseOptions firebaseOptions = FirebaseOptions(
   messagingSenderId: '784903375488',
   appId: '1:784903375488:web:6db920dbfb9ebbc6eef465',
 );
-
-// --- CONFIGURACIÓN DE SUPABASE (SOLO STORAGE, MIENTRAS FIREBASE STORAGE ---
-
-// --- NO ESTÁ APROVISIONADO — VER RepertorioService) ---
-
-/// Igual que la config de Firebase de arriba: no es un secreto crítico,
-
-/// la key "anon" está pensada para ir en el cliente. La seguridad real la
-
-/// dan las políticas RLS del bucket en Supabase, no ocultar esta key.
-
-const String kSupabaseUrl = 'https://aecmjdwfttcomcumcbwh.supabase.co';
-
-const String kSupabaseAnonKey =
-    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFlY21qZHdmdHRjb21jdW1jYndoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU3OTk5NDcsImV4cCI6MjEwMTM3NTk0N30.ahjRL6QX8pa0Ca8BJ9hrLKC6M2LBBQV8pSPE5_3_guY';
-
-/// Nombre del bucket de Storage en Supabase donde viven los PDFs del
-
-/// repertorio personal, mientras Firebase Storage no está aprovisionado
-
-/// (requiere plan Blaze). Ver RepertorioService para el detalle.
-
-const String kSupabaseRepertorioBucket = 'repertorio-pdfs';
-
-/// Acceso corto al cliente de Supabase, mismo patrón que se usa en la
-
-/// mayoría de las apps Flutter+Supabase.
-
-SupabaseClient get supabase => Supabase.instance.client;
-
-/// Inicializa Supabase pasando el ID token de Firebase Auth como
-
-/// accessToken en cada request (Third-Party Auth: Firebase, configurado en
-
-/// el dashboard de Supabase). Así las políticas RLS del bucket pueden
-
-/// identificar al dueño real del archivo sin necesitar una sesión de
-
-/// Supabase Auth separada — Auth sigue siendo 100% Firebase.
-
-Future<void> _inicializarSupabase() async {
-  await Supabase.initialize(
-    url: kSupabaseUrl,
-    publishableKey: kSupabaseAnonKey,
-    accessToken: () async {
-      return FirebaseAuth.instance.currentUser?.getIdToken();
-    },
-  );
-}
 
 /// Site key de reCAPTCHA v3 para Firebase App Check en Web. Se genera en
 
@@ -200,12 +147,6 @@ void main() async {
     await _activarRegistroDeErrores();
   } catch (e) {
     debugPrint("Error inicializando Firebase: $e");
-  }
-
-  try {
-    await _inicializarSupabase();
-  } catch (e) {
-    debugPrint("Error inicializando Supabase: $e");
   }
 
   runApp(const SoundCheckProApp());
@@ -429,7 +370,7 @@ Future<bool> confirmarSalidaSala(BuildContext context) async {
 
 /// Versión de la app que se muestra en Configuración. Tiene que coincidir
 /// con `version:` de pubspec.yaml (lo verifica una prueba).
-const String kVersionApp = '1.1.0';
+const String kVersionApp = '1.2.0';
 
 /// Dirección pública de la versión web (para armar el enlace de una sala).
 const String kUrlWeb = 'https://estebancastelani.github.io/bandasonido/';
@@ -2655,9 +2596,10 @@ const int kKbpsMaximoAudio = 192;
 const int kCuotaBytesPorUsuario = 500 * 1024 * 1024;
 
 /// Dirección del servidor de archivos de Cloudflare R2 (carpeta worker/). Se
-/// pasa al compilar: --dart-define=R2_WORKER_URL=https://... Vacía = los
-/// archivos nuevos siguen yendo a Supabase.
-const String kR2WorkerUrl = String.fromEnvironment('R2_WORKER_URL');
+/// puede cambiar al compilar: --dart-define=R2_WORKER_URL=https://...
+const String kR2WorkerUrl = String.fromEnvironment('R2_WORKER_URL',
+    defaultValue:
+        'https://sound-check-pro-archivos.sound-check-pro-archivos.workers.dev');
 
 /// El archivo pesa más de lo permitido.
 class ArchivoDemasiadoGrande implements Exception {
@@ -2873,9 +2815,9 @@ class CuotaArchivos {
   }
 }
 
-/// Dónde está cada archivo: 'cloudflare_r2' (el actual si hay [kR2WorkerUrl]),
-/// 'supabase' (el que se usa si no) o 'firebase' (los más viejos). Cada
-/// documento guarda su 'storageProvider', así que los tres conviven.
+/// Dónde está cada archivo: 'cloudflare_r2' (el único actual). Los documentos
+/// más viejos dicen 'supabase' o 'firebase': esos archivos ya no existen (se
+/// borraron al dejar esos servicios), así que solo se conserva su fila.
 const String kProveedorR2 = 'cloudflare_r2';
 
 /// Cliente del servidor de archivos (carpeta worker/): subir, borrar y bajar
@@ -2969,66 +2911,36 @@ class ArchivosR2 {
   }
 }
 
-/// Sube un archivo al almacenamiento activo (R2 si está configurado, si no
-/// Supabase) y devuelve con qué proveedor quedó y su dirección pública.
+/// Sube un archivo a Cloudflare R2 y devuelve con qué proveedor quedó y su
+/// dirección pública.
 Future<({String proveedor, String url})> subirArchivo(
     String ruta, Uint8List bytes, String tipo) async {
-  if (ArchivosR2.disponible) {
-    // Si el servidor ya tiene una copia idéntica no se sube nada: se enlaza.
-    final copia =
-        await ArchivosR2.vincular(ruta, bytes, huellaDeArchivo(bytes));
-    return (
-      proveedor: kProveedorR2,
-      url: copia ?? await ArchivosR2.subir(ruta, bytes, tipo)
-    );
-  }
-  await supabase.storage.from(kSupabaseRepertorioBucket).uploadBinary(
-        ruta,
-        bytes,
-        fileOptions: FileOptions(contentType: tipo),
-      );
+  // Si el servidor ya tiene una copia idéntica no se sube nada: se enlaza.
+  final copia = await ArchivosR2.vincular(ruta, bytes, huellaDeArchivo(bytes));
   return (
-    proveedor: 'supabase',
-    url: supabase.storage.from(kSupabaseRepertorioBucket).getPublicUrl(ruta)
+    proveedor: kProveedorR2,
+    url: copia ?? await ArchivosR2.subir(ruta, bytes, tipo)
   );
 }
 
 /// Borra un archivo del proveedor con el que se subió (lanza si falla: cada
 /// llamador decide si sigue igual).
 Future<void> borrarArchivoDe(String proveedor, String ruta) async {
-  switch (proveedor) {
-    case kProveedorR2:
-      await ArchivosR2.borrar(ruta);
-    case 'supabase':
-      await supabase.storage.from(kSupabaseRepertorioBucket).remove([ruta]);
-    default:
-      await FirebaseStorage.instance.ref(ruta).delete();
-  }
+  // Los archivos de Supabase y Firebase ya no existen: no hay nada que borrar.
+  if (proveedor == kProveedorR2) await ArchivosR2.borrar(ruta);
 }
 
 /// Baja los bytes de un archivo del proveedor con el que se subió.
 Future<Uint8List?> bajarArchivoDe(String proveedor, String ruta) async {
-  switch (proveedor) {
-    case kProveedorR2:
-      return ArchivosR2.bajar(ruta);
-    case 'supabase':
-      return supabase.storage.from(kSupabaseRepertorioBucket).download(ruta);
-    default:
-      return FirebaseStorage.instance.ref(ruta).getData();
-  }
+  // Null si el archivo era de Supabase o Firebase (ya no existe).
+  return proveedor == kProveedorR2 ? ArchivosR2.bajar(ruta) : null;
 }
 
 // --- SERVICIO DE REPERTORIO PERSONAL (BIBLIOTECA DE PARTITURAS) ---
 
 /// Biblioteca de canciones/partituras propia de cada usuario.
-/// PDFs en Storage: usuarios/{uid}/canciones/{archivo}.pdf — hoy en el
-/// bucket de Supabase (kSupabaseRepertorioBucket), TEMPORALMENTE, mientras
-/// Firebase Storage no está aprovisionado (falta activar el plan Blaze; ver
-/// CONTEXTO_PARA_IA.md). El documento de metadatos guarda 'storageProvider'
-/// ('supabase' o 'firebase') para saber con qué backend borrar el archivo.
-/// Cuando se active Blaze, volver a Firebase acá adentro es cambiar
-/// subirCancion (y el branch de eliminarCancion) — no hace falta migrar
-/// los documentos viejos, conviven los dos providers por su campo.
+/// PDFs en Cloudflare R2: usuarios/{uid}/canciones/{archivo}.pdf (ver
+/// ArchivosR2). El documento de metadatos guarda 'storageProvider'.
 /// Metadatos en Firestore: usuarios/{uid}/mi_repertorio/{cancionId}
 class RepertorioService {
   static CollectionReference<Map<String, dynamic>> _ref(String uid) =>
@@ -3059,7 +2971,7 @@ class RepertorioService {
     return ordenados;
   }
 
-  /// Supabase Storage rechaza keys con espacios, tildes, paréntesis, etc.
+  /// Los nombres de archivo no deben llevar espacios, tildes, paréntesis, etc.
   /// (statusCode 400, error InvalidKey). Se sanitiza el nombre de archivo
   /// original antes de armar el storagePath — no afecta el 'titulo' que
   /// se muestra en la UI, solo el nombre interno del objeto en el bucket.
@@ -3151,8 +3063,7 @@ class RepertorioService {
     return (actualizadas: actualizadas, sinTexto: sinTexto, fallidas: fallidas);
   }
 
-  /// Sube el PDF a Supabase Storage (bucket público, ver kSupabaseRepertorioBucket
-  /// y CONTEXTO_PARA_IA.md para el porqué) y crea el documento de metadatos
+  /// Sube el PDF a Cloudflare R2 y crea el documento de metadatos
   /// en Firestore. Devuelve el mapa con los datos guardados (incluye pdfUrl).
   static Future<Map<String, dynamic>> subirCancion({
     required String uid,
@@ -3381,9 +3292,8 @@ class SetlistService {
 /// Secuencias = pistas de audio (backing tracks, clicks, loops) que cada
 /// usuario guarda en su cuenta, sin límite de cantidad, y que después carga
 /// en la sala para el show del día. Mismo esquema que el repertorio de PDFs:
-/// archivo en el bucket de Supabase (kSupabaseRepertorioBucket, carpeta
-/// usuarios/{uid}/secuencias/ — las políticas RLS por carpeta de usuario ya
-/// la cubren) y metadatos en Firestore:
+/// archivo en Cloudflare R2 (carpeta usuarios/{uid}/secuencias/) y metadatos
+/// en Firestore:
 ///   usuarios/{uid}/mis_secuencias/{id} — biblioteca personal
 ///   salas/{codigoSala}/secuencias/{id} — las elegidas para el show (copia
 ///     liviana: título + URL pública, igual que el setlist con los PDFs)
@@ -3509,7 +3419,7 @@ class SecuenciasService {
       try {
         final doc = await _refUsuario(uid).doc(id).get();
         final proveedor =
-            doc.data()?['storageProvider'] as String? ?? 'supabase';
+            doc.data()?['storageProvider'] as String? ?? 'firebase';
         await borrarArchivoDe(proveedor, storagePath);
         CuotaArchivos.sumar(
             uid, -((doc.data()?['bytes'] as num?)?.toInt() ?? 0));
@@ -11314,8 +11224,7 @@ class _MisSecuenciasScreenState extends State<MisSecuenciasScreen> {
     );
     if (result == null || result.files.isEmpty) return;
 
-    // Supabase gratis rechaza los archivos de más de 50 MB con un error poco
-    // claro. En web se convierten a MP3 antes de subirlos y en Android se
+    // En web se convierten a MP3 antes de subirlos y en Android se
     // comprimen a AAC; fuera de eso (sin conversor) se avisa acá y se sigue con
     // los demás.
     const limite = SecuenciasService.tamanoMaximoBytes;

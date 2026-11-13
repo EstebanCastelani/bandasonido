@@ -4,7 +4,10 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). La versió
 
 ## [Sin publicar]
 
+_Versión 1.2.0 (código 3) lista en el código; se publica con el tag `v1.2.0` cuando salga a la tienda._
+
 ### Cambiado
+- **Se quitaron Supabase y Firebase Storage del código** (13-nov-2026): la app ya no los usa ni los lleva como dependencias (`supabase_flutter`, `firebase_storage`). Los archivos van siempre a Cloudflare, cuya dirección ahora viene incluida en la app (no hace falta `--dart-define`). Un archivo viejo de Supabase o Firebase ya no se baja ni se borra: solo queda su fila. Versión 1.2.0+3. Compila (APK de publicación de 70,4 MB), 214 pruebas en verde; **no se probó en el celular después de este cambio**.
 - **Se vació el bucket de Supabase** (13-nov-2026, decisión del dueño, único usuario): se borraron todos los PDF y audios viejos. Las canciones y secuencias que ya estaban en las listas conservan su título, tonalidad y texto de cifrado (el visor de cifrados y la transposición siguen andando), pero su PDF o audio original ya no abre; hay que volver a subirlo a Cloudflare. El código todavía puede leer de Supabase por si apareciera una URL vieja.
 
 ### Agregado

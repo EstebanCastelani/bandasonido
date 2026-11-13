@@ -66,7 +66,8 @@ Nota original: el *applicationId* **no se puede cambiar una vez publicada** y ti
 |---|---|---|---|
 | Nombre | Sí (el que escribe la persona) | Funcionalidad de la app | Procesado por Firebase (Google) |
 | Correo electrónico | Solo con cuenta | Autenticación | Firebase / Google Sign-In |
-| Contenido del usuario (pedidos, frases, setlist, PDFs, audios) | Sí | Funcionalidad de la app | Firebase y **Supabase** (los archivos en un bucket público por enlace) |
+| Contenido del usuario (pedidos, frases, setlist, PDFs, audios) | Sí | Funcionalidad de la app | Firebase y **Cloudflare** (los archivos, en un almacenamiento accesible por enlace; Supabase ya no se usa) |
+| Registros de fallas y diagnóstico (modelo del celular, versión de Android, detalle técnico del error; sin contenido) | Sí, solo en la app instalada | Análisis de fallas | Firebase Crashlytics (Google) |
 | ID de usuario (también el anónimo de invitados) | Sí | Autenticación | Firebase |
 | Ubicación, contactos, fotos, publicidad, analítica | **No** | — | — |
 Cifrado en tránsito: sí (HTTPS). Eliminación: ver §7.
