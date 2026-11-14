@@ -69,6 +69,7 @@ Nota original: el *applicationId* **no se puede cambiar una vez publicada** y ti
 | Contenido del usuario (pedidos, frases, setlist, PDFs, audios) | Sí | Funcionalidad de la app | Firebase y **Cloudflare** (los archivos, en un almacenamiento accesible por enlace; Supabase ya no se usa) |
 | Registros de fallas y diagnóstico (modelo del celular, versión de Android, detalle técnico del error; sin contenido) | Sí, solo en la app instalada | Análisis de fallas | Firebase Crashlytics (Google) |
 | ID de usuario (también el anónimo de invitados) | Sí | Autenticación | Firebase |
+| Cámara | Solo se pide el permiso al usar "Escanear QR" en Unirme a sala; las imágenes no se guardan ni se envían | Funcionalidad de la app | No |
 | Ubicación, contactos, fotos, publicidad, analítica | **No** | — | — |
 Cifrado en tránsito: sí (HTTPS). Eliminación: ver §7.
 
