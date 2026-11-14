@@ -12,6 +12,7 @@ Guía para publicar, volver atrás, entender de qué depende la app y qué hacer
    git push origin vX.Y.Z
    ```
 4. Verificar en https://estebancastelani.github.io/bandasonido/ (recargar con Ctrl+F5) y en Configuración que figure la versión nueva.
+5. **Web en Cloudflare** (la dirección que usan los enlaces y el QR de invitación, `kUrlWeb`; no se publica sola): `cd frontend && flutter build web --release --dart-define=R2_WORKER_URL=https://sound-check-pro-archivos.sound-check-pro-archivos.workers.dev` y después `cd web-hosting && npx wrangler deploy`. Dirección: https://sound-check-pro-web.sound-check-pro-archivos.workers.dev (debe estar en los dominios autorizados de Firebase y en `ORIGENES_PERMITIDOS` del Worker).
 
 ## 2. Volver a una versión anterior (rollback)
 
