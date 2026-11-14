@@ -6,6 +6,8 @@
 // tiene ningún proveedor de acceso. Mientras BORRAR_ANONIMOS no sea "true" solo
 // lista a quién borraría (modo de prueba).
 
+import { DIAS_SALA_INACTIVA, borrarSala, salasAbandonadas } from './limpieza_salas.js';
+
 export const DIAS_INACTIVO = 90;
 const DIA_MS = 24 * 60 * 60 * 1000;
 
@@ -26,7 +28,7 @@ export async function tokenDeServicio(cuenta, { ahora = Date.now, buscar = fetch
   const carga = textoABase64url(
     JSON.stringify({
       iss: cuenta.client_email,
-      scope: 'https://www.googleapis.com/auth/identitytoolkit',
+      scope: 'https://www.googleapis.com/auth/identitytoolkit https://www.googleapis.com/auth/datastore',
       aud: 'https://oauth2.googleapis.com/token',
       iat: emitido,
       exp: emitido + 3600,
@@ -132,4 +134,21 @@ export async function limpiarInvitados(env, { ahora = Date.now, buscar = fetch }
     borradas = await borrarCuentas(proyecto, token, ids, buscar);
   }
   return { cuentas: cuentas.length, candidatas: ids.length, borradas, modo: real ? 'borrar' : 'solo listar' };
+}
+
+/**
+ * Una pasada de salas abandonadas (se llama solo el día 1 de cada mes).
+ * Sin la cuenta de servicio no hace nada; con BORRAR_SALAS distinto de "true" solo lista.
+ */
+export async function limpiarSalas(env, { ahora = Date.now, buscar = fetch } = {}) {
+  if (!env.GOOGLE_SERVICE_ACCOUNT) return { omitido: 'sin GOOGLE_SERVICE_ACCOUNT' };
+  const cuenta = JSON.parse(env.GOOGLE_SERVICE_ACCOUNT);
+  const proyecto = env.FIREBASE_PROJECT_ID;
+  const dias = Number(env.DIAS_INACTIVA_SALA) || DIAS_SALA_INACTIVA;
+  const token = await tokenDeServicio(cuenta, { ahora, buscar });
+  const salas = await salasAbandonadas(proyecto, token, ahora(), dias, buscar);
+  const real = env.BORRAR_SALAS === 'true';
+  let documentos = 0;
+  if (real) for (const sala of salas) documentos += await borrarSala(proyecto, token, sala, buscar);
+  return { candidatas: salas.length, salas: real ? salas : undefined, documentos, modo: real ? 'borrar' : 'solo listar' };
 }

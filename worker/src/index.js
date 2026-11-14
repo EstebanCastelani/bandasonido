@@ -17,7 +17,7 @@
 // usan y se borra recién cuando ya no la usa nadie. Descargar no cuesta ancho
 // de banda en R2 y, como el nombre es la huella, se puede cachear para siempre.
 
-import { limpiarInvitados } from './limpieza.js';
+import { limpiarInvitados, limpiarSalas } from './limpieza.js';
 
 const MB = 1024 * 1024;
 
@@ -542,12 +542,20 @@ export function crearManejador({
 /** Punto de entrada de Cloudflare: lee la configuración de wrangler.toml. */
 export default {
   /** Cron (ver wrangler.toml): borra invitados que no volvieron en mucho tiempo. */
-  async scheduled(_evento, env, ctx) {
+  async scheduled(evento, env, ctx) {
     ctx.waitUntil(
       limpiarInvitados(env)
         .then((r) => console.log('limpieza de invitados', JSON.stringify(r)))
         .catch((e) => console.error('limpieza de invitados falló', e.message)),
     );
+    // Las salas solo se revisan el día 1 de cada mes (cuesta lecturas de Firestore).
+    if (new Date(evento.scheduledTime).getUTCDate() === 1) {
+      ctx.waitUntil(
+        limpiarSalas(env)
+          .then((r) => console.log('limpieza de salas', JSON.stringify(r)))
+          .catch((e) => console.error('limpieza de salas falló', e.message)),
+      );
+    }
   },
 
   fetch(request, env) {

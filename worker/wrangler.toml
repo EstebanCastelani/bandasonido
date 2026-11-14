@@ -18,9 +18,11 @@ LIMITE_PDFS_GRATIS = "4"
 LIMITE_SECUENCIAS_GRATIS = "3"
 DIAS_INACTIVO_INVITADO = "90"
 BORRAR_ANONIMOS = "true"
+DIAS_INACTIVA_SALA = "180"
+BORRAR_SALAS = "false"
 ORIGENES_PERMITIDOS = "https://estebancastelani.github.io,http://localhost:5000"
 
-# Limpieza de invitados: cada 10 días aproximadamente (días 1, 11 y 21 de cada
+# Limpieza (invitados y, el día 1, salas abandonadas): cada 10 días aproximadamente (días 1, 11 y 21 de cada
 # mes, 08:00 UTC) borra las cuentas anónimas sin entrar hace DIAS_INACTIVO_INVITADO
 # días. Necesita el secreto GOOGLE_SERVICE_ACCOUNT (npx wrangler secret put
 # GOOGLE_SERVICE_ACCOUNT). Con BORRAR_ANONIMOS en "false" solo lista (modo de prueba).
