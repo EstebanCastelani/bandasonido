@@ -1537,4 +1537,31 @@ class AppLocalizationsIt extends AppLocalizations {
   @override
   String get salaYaNoExiste =>
       'Questa sala non esiste più: è stata eliminata per lunga inattività.';
+
+  @override
+  String get escanearQr => 'Scansiona QR';
+
+  @override
+  String get escanearQrAyuda => 'Inquadra il QR della sala con la fotocamera.';
+
+  @override
+  String get qrNoEsDeSala => 'Questo QR non è di una sala Sound Check Pro.';
+
+  @override
+  String get camaraNoDisponible =>
+      'Impossibile usare la fotocamera. Controlla il permesso o digita il codice.';
+
+  @override
+  String get notaDeSonido => 'Nota di suono';
+
+  @override
+  String get notaDeSonidoHint => 'Es: alzare la chitarra nell’assolo';
+
+  @override
+  String get temaActualTitulo => 'Brano attuale';
+
+  @override
+  String temaSiguiente(String titulo) {
+    return 'Prossimo: $titulo';
+  }
 }

@@ -64,6 +64,15 @@ android {
 
     buildTypes {
         release {
+            // Reduce y ofusca el código Java/Kotlin (R8) y quita recursos sin
+            // usar. El código Dart se ofusca al compilar con --obfuscate (ver
+            // PLAY_STORE.md). Reglas en proguard-rules.pro.
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro",
+            )
             signingConfig = if (keystorePropertiesFile.exists()) {
                 signingConfigs.getByName("release")
             } else {

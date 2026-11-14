@@ -963,5 +963,20 @@
       }
     }
   },
-  "salaYaNoExiste": "Esa sala ya no existe: se borró por estar mucho tiempo sin actividad."
+  "salaYaNoExiste": "Esa sala ya no existe: se borró por estar mucho tiempo sin actividad.",
+  "escanearQr": "Escanear QR",
+  "escanearQrAyuda": "Apuntá la cámara al QR de la sala.",
+  "qrNoEsDeSala": "Ese QR no es de una sala de Sound Check Pro.",
+  "camaraNoDisponible": "No se pudo usar la cámara. Revisá el permiso o escribí el código.",
+  "notaDeSonido": "Nota de sonido",
+  "notaDeSonidoHint": "Ej: subir la guitarra en el solo",
+  "temaActualTitulo": "Tema actual",
+  "temaSiguiente": "Siguiente: {titulo}",
+  "@temaSiguiente": {
+    "placeholders": {
+      "titulo": {
+        "type": "String"
+      }
+    }
+  }
 }

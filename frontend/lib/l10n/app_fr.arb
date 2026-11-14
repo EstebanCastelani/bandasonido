@@ -560,5 +560,20 @@
       }
     }
   },
-  "salaYaNoExiste": "Cette salle n’existe plus : elle a été supprimée après une longue inactivité."
+  "salaYaNoExiste": "Cette salle n’existe plus : elle a été supprimée après une longue inactivité.",
+  "escanearQr": "Scanner le QR",
+  "escanearQrAyuda": "Pointez la caméra vers le QR de la salle.",
+  "qrNoEsDeSala": "Ce QR n’est pas celui d’une salle Sound Check Pro.",
+  "camaraNoDisponible": "Impossible d’utiliser la caméra. Vérifiez l’autorisation ou saisissez le code.",
+  "notaDeSonido": "Note de son",
+  "notaDeSonidoHint": "Ex : monter la guitare pendant le solo",
+  "temaActualTitulo": "Morceau en cours",
+  "temaSiguiente": "Suivant : {titulo}",
+  "@temaSiguiente": {
+    "placeholders": {
+      "titulo": {
+        "type": "String"
+      }
+    }
+  }
 }

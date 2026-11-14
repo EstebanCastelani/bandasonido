@@ -50,7 +50,7 @@ Nota original: el *applicationId* **no se puede cambiar una vez publicada** y ti
 
 ## 4. Generar el paquete para la tienda
 1. Subí el número de compilación en `frontend/pubspec.yaml` (`version: 1.1.0+3`: el número después del `+` **tiene que ser mayor en cada envío**). Mantené `kVersionApp` en `main.dart` igual a la parte `X.Y.Z`.
-2. `cd frontend` y `flutter build appbundle --release`.
+2. `cd frontend` y compilar ofuscado: `flutter build appbundle --release --obfuscate --split-debug-info=build/symbols --dart-define=R2_WORKER_URL=https://sound-check-pro-archivos.sound-check-pro-archivos.workers.dev`. **Guardá la carpeta `build/symbols` de cada versión** (sin ella no se pueden leer los errores de esa versión) y subila a Crashlytics si querés trazas legibles. El release ya reduce y ofusca el código nativo con R8 (`proguard-rules.pro`).
 3. El archivo queda en `frontend/build/app/outputs/bundle/release/app-release.aab`. Comprobá que **no** esté firmado con "Android Debug": con `key.properties` bien cargado, está firmado con tu clave de subida.
 
 ## 5. Cuenta y ficha de Play Console 🔑

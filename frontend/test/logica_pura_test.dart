@@ -1469,4 +1469,51 @@ Tu gloria llena la tierra///
           isTrue);
     });
   });
+
+  group('codigoDeSalaDesdeTexto (QR)', () {
+    test('enlace de sala', () {
+      expect(
+          codigoDeSalaDesdeTexto(
+              'https://estebancastelani.github.io/bandasonido/?sala=wca32a8d'),
+          'WCA32A8D');
+    });
+    test('código suelto', () {
+      expect(codigoDeSalaDesdeTexto(' wca32a8d '), 'WCA32A8D');
+    });
+    test('lo que no es de una sala', () {
+      expect(codigoDeSalaDesdeTexto(null), isNull);
+      expect(codigoDeSalaDesdeTexto(''), isNull);
+      expect(codigoDeSalaDesdeTexto('https://ejemplo.com/?sala=corto'), isNull);
+      expect(codigoDeSalaDesdeTexto('hola'), isNull);
+    });
+  });
+
+  group('notas de sonido', () {
+    test('recortarNotaSonido limpia y limita el largo', () {
+      expect(recortarNotaSonido('  subir la guitarra  '), 'subir la guitarra');
+      expect(recortarNotaSonido('   '), '');
+      expect(recortarNotaSonido('a' * 500).length, kMaxNotaSonido);
+    });
+    test('estadoDeTema entiende los documentos viejos', () {
+      expect(estadoDeTema({'estado': 'pausado'}), 'pausado');
+      expect(estadoDeTema({'completado': true}), 'tocado');
+      expect(estadoDeTema({}), 'pendiente');
+    });
+    test('temaActualYSiguiente', () {
+      var r = temaActualYSiguiente(['tocado', 'pendiente', 'pendiente']);
+      expect((r.actual, r.siguiente), (1, 2));
+      // Un tema en pausa sigue siendo el actual.
+      r = temaActualYSiguiente(['tocado', 'pausado', 'pendiente']);
+      expect((r.actual, r.siguiente), (1, 2));
+      // El siguiente salta los ya tocados.
+      r = temaActualYSiguiente(['pendiente', 'tocado', 'pendiente']);
+      expect((r.actual, r.siguiente), (0, 2));
+      r = temaActualYSiguiente(['tocado', 'pendiente']);
+      expect((r.actual, r.siguiente), (1, null));
+      r = temaActualYSiguiente(['tocado', 'tocado']);
+      expect((r.actual, r.siguiente), (null, null));
+      r = temaActualYSiguiente([]);
+      expect((r.actual, r.siguiente), (null, null));
+    });
+  });
 }

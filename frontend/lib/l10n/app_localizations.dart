@@ -2647,6 +2647,54 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'Esa sala ya no existe: se borró por estar mucho tiempo sin actividad.'**
   String get salaYaNoExiste;
+
+  /// No description provided for @escanearQr.
+  ///
+  /// In es, this message translates to:
+  /// **'Escanear QR'**
+  String get escanearQr;
+
+  /// No description provided for @escanearQrAyuda.
+  ///
+  /// In es, this message translates to:
+  /// **'Apuntá la cámara al QR de la sala.'**
+  String get escanearQrAyuda;
+
+  /// No description provided for @qrNoEsDeSala.
+  ///
+  /// In es, this message translates to:
+  /// **'Ese QR no es de una sala de Sound Check Pro.'**
+  String get qrNoEsDeSala;
+
+  /// No description provided for @camaraNoDisponible.
+  ///
+  /// In es, this message translates to:
+  /// **'No se pudo usar la cámara. Revisá el permiso o escribí el código.'**
+  String get camaraNoDisponible;
+
+  /// No description provided for @notaDeSonido.
+  ///
+  /// In es, this message translates to:
+  /// **'Nota de sonido'**
+  String get notaDeSonido;
+
+  /// No description provided for @notaDeSonidoHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Ej: subir la guitarra en el solo'**
+  String get notaDeSonidoHint;
+
+  /// No description provided for @temaActualTitulo.
+  ///
+  /// In es, this message translates to:
+  /// **'Tema actual'**
+  String get temaActualTitulo;
+
+  /// No description provided for @temaSiguiente.
+  ///
+  /// In es, this message translates to:
+  /// **'Siguiente: {titulo}'**
+  String temaSiguiente(String titulo);
 }
 
 class _AppLocalizationsDelegate

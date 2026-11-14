@@ -44,6 +44,7 @@ import 'package:http/http.dart' as http;
 
 import 'package:path_provider/path_provider.dart';
 
+import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
 import 'package:share_plus/share_plus.dart';
@@ -440,6 +441,17 @@ String? codigoDeSalaDesdeUri(Uri uri) {
   final codigo = uri.queryParameters['sala']?.trim().toUpperCase();
   if (codigo == null || !RegExp(r'^[A-Z0-9]{8}$').hasMatch(codigo)) return null;
   return codigo;
+}
+
+/// Código de sala dentro de lo que leyó el escáner de QR: un enlace de sala
+/// (`.../?sala=ABCD2345`) o el código suelto. Null si no es de una sala.
+String? codigoDeSalaDesdeTexto(String? texto) {
+  final t = texto?.trim() ?? '';
+  if (t.isEmpty) return null;
+  final suelto = t.toUpperCase();
+  if (RegExp(r'^[A-Z0-9]{8}$').hasMatch(suelto)) return suelto;
+  final uri = Uri.tryParse(t);
+  return uri == null ? null : codigoDeSalaDesdeUri(uri);
 }
 
 /// Enlace para unirse a una sala desde el navegador.
@@ -3569,6 +3581,31 @@ class RepertorioService {
 
 // --- SERVICIO DE SETLIST DE SALA (LISTA DE TEMAS DEL DÍA) ---
 
+/// Largo máximo de la nota de sonido de un tema.
+const int kMaxNotaSonido = 300;
+
+/// Deja la nota lista para guardar: sin espacios de más y de hasta
+/// [kMaxNotaSonido] caracteres.
+String recortarNotaSonido(String texto) {
+  final t = texto.trim();
+  return t.length > kMaxNotaSonido ? t.substring(0, kMaxNotaSonido).trim() : t;
+}
+
+/// Estado de un tema del setlist ('pendiente', 'pausado' o 'tocado'); los
+/// documentos viejos solo tienen el campo 'completado'.
+String estadoDeTema(Map<String, dynamic> datos) =>
+    (datos['estado'] as String?) ??
+    ((datos['completado'] as bool? ?? false) ? 'tocado' : 'pendiente');
+
+/// Posición del tema actual (el primero que todavía no se tocó, incluido uno en
+/// pausa por un corte técnico) y del siguiente, dados los estados en orden.
+({int? actual, int? siguiente}) temaActualYSiguiente(List<String> estados) {
+  final actual = estados.indexWhere((e) => e != 'tocado');
+  if (actual < 0) return (actual: null, siguiente: null);
+  final sig = estados.indexWhere((e) => e != 'tocado', actual + 1);
+  return (actual: actual, siguiente: sig < 0 ? null : sig);
+}
+
 class SetlistService {
   static CollectionReference<Map<String, dynamic>> _ref(String codigoSala) =>
       FirebaseFirestore.instance
@@ -3628,6 +3665,16 @@ class SetlistService {
       'completadoAt': estado == 'tocado'
           ? FieldValue.serverTimestamp()
           : FieldValue.delete(),
+    });
+  }
+
+  /// Guarda la nota de sonido de un tema (vacía = la borra). La puede editar
+  /// cualquiera de la sala.
+  static Future<void> guardarNotaSonido(
+      String codigoSala, String itemId, String texto) async {
+    final nota = recortarNotaSonido(texto);
+    await _ref(codigoSala).doc(itemId).update({
+      'notaSonido': nota.isEmpty ? FieldValue.delete() : nota,
     });
   }
 
@@ -6284,10 +6331,17 @@ class BotonAutoDesplazar extends StatelessWidget {
 class ConBotonVolverAlVisor extends StatelessWidget {
   final Widget? visor;
   final Widget child;
-  const ConBotonVolverAlVisor({super.key, this.visor, required this.child});
+
+  /// Algo fijo arriba del contenido (la consola del sonidista muestra el tema
+  /// actual).
+  final Widget? arriba;
+  const ConBotonVolverAlVisor(
+      {super.key, this.visor, required this.child, this.arriba});
 
   @override
-  Widget build(BuildContext context) => child;
+  Widget build(BuildContext context) => arriba == null
+      ? child
+      : Column(children: [arriba!, Expanded(child: child)]);
 }
 
 /// Botón flotante para volver al último PDF/cifrado que se estaba viendo (lo
@@ -8228,6 +8282,11 @@ class _CrearSalaScreenState extends State<CrearSalaScreen> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     IconButton(
+                      icon: const Icon(Icons.qr_code_2),
+                      tooltip: context.l10n.compartirSalaTitulo,
+                      onPressed: () => mostrarCompartirSala(context, _pin),
+                    ),
+                    IconButton(
                       icon: const Icon(Icons.share),
                       tooltip: context.l10n.compartirEnlaceSala,
                       onPressed: () => Share.share(
@@ -8300,6 +8359,86 @@ class _CrearSalaScreenState extends State<CrearSalaScreen> {
 }
 
 // --- PANTALLA PARA UNIRSE A SALA ---
+
+/// Abre la cámara, lee el QR de una sala y devuelve su código (con pop). Solo
+/// en la app: en el navegador se escanea con la cámara del celular, que abre el
+/// enlace.
+class EscanearQrScreen extends StatefulWidget {
+  const EscanearQrScreen({super.key});
+
+  @override
+  State<EscanearQrScreen> createState() => _EscanearQrScreenState();
+}
+
+class _EscanearQrScreenState extends State<EscanearQrScreen> {
+  final _controlador = MobileScannerController(
+    formats: const [BarcodeFormat.qrCode],
+    detectionSpeed: DetectionSpeed.noDuplicates,
+  );
+  bool _listo = false;
+  bool _avisado = false;
+
+  @override
+  void dispose() {
+    _controlador.dispose();
+    super.dispose();
+  }
+
+  void _alLeer(BarcodeCapture captura) {
+    if (_listo) return;
+    for (final b in captura.barcodes) {
+      final codigo = codigoDeSalaDesdeTexto(b.rawValue);
+      if (codigo != null) {
+        _listo = true;
+        Navigator.pop(context, codigo);
+        return;
+      }
+    }
+    // Un QR que no es de una sala: se avisa una vez y se sigue buscando.
+    if (!_avisado && captura.barcodes.isNotEmpty) {
+      _avisado = true;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(context.l10n.qrNoEsDeSala)));
+      Future.delayed(const Duration(seconds: 3), () => _avisado = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text(context.l10n.escanearQr)),
+      body: Stack(
+        children: [
+          MobileScanner(
+            controller: _controlador,
+            onDetect: _alLeer,
+            errorBuilder: (context, error) => Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Text(context.l10n.camaraNoDisponible,
+                    textAlign: TextAlign.center),
+              ),
+            ),
+          ),
+          Align(
+            alignment: Alignment.bottomCenter,
+            child: Container(
+              width: double.infinity,
+              color: Colors.black54,
+              padding: const EdgeInsets.all(16),
+              child: SafeArea(
+                top: false,
+                child: Text(context.l10n.escanearQrAyuda,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: Colors.white)),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
 class UnirmeSalaScreen extends StatefulWidget {
   final String? codigoInicial;
@@ -8434,6 +8573,25 @@ class _UnirmeSalaScreenState extends State<UnirmeSalaScreen> {
                 border: const OutlineInputBorder(),
               ),
             ),
+            if (!kIsWeb) ...[
+              const SizedBox(height: 8),
+              Align(
+                alignment: AlignmentDirectional.centerStart,
+                child: TextButton.icon(
+                  icon: const Icon(Icons.qr_code_scanner),
+                  label: Text(context.l10n.escanearQr),
+                  onPressed: () async {
+                    final codigo = await Navigator.push<String>(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => const EscanearQrScreen()));
+                    if (codigo != null && mounted) {
+                      setState(() => _pinController.text = codigo);
+                    }
+                  },
+                ),
+              ),
+            ],
             const SizedBox(height: 16),
             TextField(
               controller: _nameController,
@@ -8607,7 +8765,8 @@ class MisSalasScreen extends StatelessWidget {
                           return Padding(
                             padding: const EdgeInsets.all(16),
                             child: Text(
-                                context.l10n.misSalasLimiteGratis(kMaxSalasGratis),
+                                context.l10n
+                                    .misSalasLimiteGratis(kMaxSalasGratis),
                                 textAlign: TextAlign.center,
                                 style: const TextStyle(
                                     fontSize: 13, color: Colors.grey)),
@@ -9219,7 +9378,7 @@ class _RequestScreenState extends State<RequestScreen>
                         color: context.acento),
                   ),
                   const SizedBox(width: 4),
-                  Icon(Icons.copy, size: 12, color: context.acento),
+                  Icon(Icons.qr_code_2, size: 16, color: context.acento),
                 ],
               ),
             ],
@@ -9582,6 +9741,146 @@ class _RequestScreenState extends State<RequestScreen>
 }
 
 // --- LISTA DE TEMAS COMPARTIDA (SETLIST DE SALA) ---
+
+/// Pide la nota de sonido de un tema y la guarda. El controlador se crea acá,
+/// fuera del builder del diálogo (DF-23).
+Future<void> editarNotaSonido(BuildContext context, String codigoSala,
+    String itemId, String notaActual) async {
+  final controlador = TextEditingController(text: notaActual);
+  final texto = await showDialog<String>(
+    context: context,
+    builder: (c) => AlertDialog(
+      title: Text(c.l10n.notaDeSonido),
+      content: TextField(
+        controller: controlador,
+        autofocus: true,
+        maxLength: kMaxNotaSonido,
+        maxLines: 4,
+        minLines: 2,
+        textCapitalization: TextCapitalization.sentences,
+        decoration: InputDecoration(
+            hintText: c.l10n.notaDeSonidoHint,
+            border: const OutlineInputBorder()),
+      ),
+      actions: [
+        TextButton(
+            onPressed: () => Navigator.pop(c), child: Text(c.l10n.cancelar)),
+        TextButton(
+            onPressed: () => Navigator.pop(c, controlador.text),
+            child: Text(c.l10n.guardar)),
+      ],
+    ),
+  );
+  controlador.dispose();
+  if (texto == null) return;
+  try {
+    await SetlistService.guardarNotaSonido(codigoSala, itemId, texto);
+  } catch (_) {}
+}
+
+/// Tarjeta fija de la consola del sonidista: el tema actual del setlist, su
+/// nota de sonido y el siguiente. Se actualiza en vivo y, si el tema nuevo
+/// tiene nota, avisa con la alerta suave (según la configuración de cada uno).
+class TarjetaTemaActual extends StatefulWidget {
+  final String codigoSala;
+  const TarjetaTemaActual({super.key, required this.codigoSala});
+
+  @override
+  State<TarjetaTemaActual> createState() => _TarjetaTemaActualState();
+}
+
+class _TarjetaTemaActualState extends State<TarjetaTemaActual> {
+  AlertasConfig _alertas = const AlertasConfig();
+  bool _primeraVez = true;
+  String? _ultimoId;
+
+  @override
+  void initState() {
+    super.initState();
+    AlertasService.cargar().then((c) {
+      if (mounted) _alertas = c;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+      stream: SetlistService.streamSetlist(widget.codigoSala),
+      builder: (context, snapshot) {
+        final docs = snapshot.data?.docs;
+        if (docs == null || docs.isEmpty) return const SizedBox.shrink();
+        final pos = temaActualYSiguiente(
+            docs.map((d) => estadoDeTema(d.data())).toList());
+        if (pos.actual == null) return const SizedBox.shrink();
+        final actual = docs[pos.actual!];
+        final titulo = actual.data()['titulo'] as String? ?? '';
+        final nota = actual.data()['notaSonido'] as String? ?? '';
+        final siguiente = pos.siguiente == null
+            ? null
+            : docs[pos.siguiente!].data()['titulo'] as String?;
+        // Aviso suave al pasar a un tema con nota (no al abrir la pantalla).
+        if (!_primeraVez && actual.id != _ultimoId && nota.isNotEmpty) {
+          scheduleMicrotask(
+              () => AlertasService.avisar(_alertas, urgente: false));
+        }
+        _primeraVez = false;
+        _ultimoId = actual.id;
+        return SizedBox(
+            width: double.infinity,
+            child: Card(
+              margin: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(context.l10n.temaActualTitulo,
+                        style: TextStyle(
+                            fontSize: 12,
+                            letterSpacing: 1,
+                            color: Theme.of(context)
+                                .colorScheme
+                                .onSurfaceVariant)),
+                    const SizedBox(height: 2),
+                    Text(titulo,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                            fontSize: 18, fontWeight: FontWeight.bold)),
+                    if (nota.isNotEmpty) ...[
+                      const SizedBox(height: 6),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(Icons.graphic_eq,
+                              size: 18, color: context.acento),
+                          const SizedBox(width: 6),
+                          Expanded(
+                              child: Text(nota,
+                                  style: TextStyle(
+                                      fontSize: 15, color: context.acento))),
+                        ],
+                      ),
+                    ],
+                    if (siguiente != null) ...[
+                      const SizedBox(height: 6),
+                      Text(context.l10n.temaSiguiente(siguiente),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                              fontSize: 12,
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onSurfaceVariant)),
+                    ],
+                  ],
+                ),
+              ),
+            ));
+      },
+    );
+  }
+}
 
 class SetlistTab extends StatelessWidget {
   final String codigoSala;
@@ -10168,6 +10467,8 @@ class SetlistTab extends StatelessWidget {
 
             final cifradoTexto = data['cifradoTexto'] as String? ?? '';
 
+            final notaSonido = data['notaSonido'] as String? ?? '';
+
             final estado = estadoDe(data);
 
             final completado = estado == 'tocado';
@@ -10246,9 +10547,33 @@ class SetlistTab extends StatelessWidget {
                   ],
                 ],
               ),
-              subtitle: Text(
-                context.l10n.subidoPor(subidoPor),
-                style: TextStyle(color: completado ? Colors.grey : null),
+              subtitle: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    context.l10n.subidoPor(subidoPor),
+                    style: TextStyle(color: completado ? Colors.grey : null),
+                  ),
+                  if (notaSonido.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 2),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(Icons.graphic_eq,
+                              size: 14, color: context.acento),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(notaSonido,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                    fontSize: 12, color: context.acento)),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
               ),
               onTap: pdfUrl.isEmpty
                   ? null
@@ -10268,6 +10593,16 @@ class SetlistTab extends StatelessWidget {
               trailing: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  IconButton(
+                    icon: Icon(
+                        notaSonido.isEmpty
+                            ? Icons.sticky_note_2_outlined
+                            : Icons.sticky_note_2,
+                        color: notaSonido.isEmpty ? null : context.acento),
+                    tooltip: context.l10n.notaDeSonido,
+                    onPressed: () => editarNotaSonido(
+                        context, codigoSala, doc.id, notaSonido),
+                  ),
                   if (cifradoTexto.isNotEmpty)
                     IconButton(
                       icon: Icon(Icons.music_note, color: context.acento),
@@ -14028,32 +14363,36 @@ class _SonidistaPageState extends State<SonidistaPage>
       appBar: AppBar(
         // Dos líneas ("Consola" arriba, el PIN abajo): en un celular no entra
         // "Consola: PIN" en una sola línea con los cuatro íconos de la derecha.
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              context.l10n
-                  .consola2('')
-                  .replaceAll(RegExp(r'\s*[:：]\s*$'), '')
-                  .trim(),
-              style: TextStyle(
-                  fontSize: 12,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant),
-            ),
-            FittedBox(
-              fit: BoxFit.scaleDown,
-              alignment: AlignmentDirectional.centerStart,
-              child: Text(
-                widget.codigoSala,
-                maxLines: 1,
-                style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 1),
+        title: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: () => mostrarCompartirSala(context, widget.codigoSala),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                context.l10n
+                    .consola2('')
+                    .replaceAll(RegExp(r'\s*[:：]\s*$'), '')
+                    .trim(),
+                style: TextStyle(
+                    fontSize: 12,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant),
               ),
-            ),
-          ],
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: AlignmentDirectional.centerStart,
+                child: Text(
+                  widget.codigoSala,
+                  maxLines: 1,
+                  style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1),
+                ),
+              ),
+            ],
+          ),
         ),
 
         leading: IconButton(
@@ -14100,6 +14439,8 @@ class _SonidistaPageState extends State<SonidistaPage>
             tooltip: context.l10n.masOpciones,
             onSelected: (v) {
               switch (v) {
+                case 'compartir':
+                  mostrarCompartirSala(context, widget.codigoSala);
                 case 'alertas':
                   _abrirAlertas();
                 case 'show':
@@ -14111,6 +14452,13 @@ class _SonidistaPageState extends State<SonidistaPage>
               }
             },
             itemBuilder: (c) => [
+              PopupMenuItem(
+                  value: 'compartir',
+                  child: Row(children: [
+                    const Icon(Icons.qr_code_2, size: 20),
+                    const SizedBox(width: 12),
+                    Text(c.l10n.compartirSalaTitulo),
+                  ])),
               PopupMenuItem(value: 'alertas', child: Text(c.l10n.alertas)),
               PopupMenuItem(value: 'show', child: Text(c.l10n.modoShow)),
               PopupMenuItem(
@@ -14150,6 +14498,7 @@ class _SonidistaPageState extends State<SonidistaPage>
         contenido: _contenidoDePestanas({
           PestanaSala.pedidos: ConBotonVolverAlVisor(
             visor: _ultimoVisor,
+            arriba: TarjetaTemaActual(codigoSala: widget.codigoSala),
             child: Listener(
               onPointerDown: (e) => _inicioArrastrePedidos = e.position,
               onPointerUp: _manejarSwipeAbajoEnPedidos,

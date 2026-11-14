@@ -1,0 +1,10 @@
+# Hosting de la web (Flutter) en Cloudflare. Sirve los archivos de
+# frontend/build/web y aplica sus encabezados (web/_headers).
+# Se publica con: cd frontend && flutter build web --release --dart-define=R2_WORKER_URL=... 
+# y después: cd web-hosting && npx wrangler deploy
+name = "sound-check-pro-web"
+compatibility_date = "2026-11-01"
+
+[assets]
+directory = "../frontend/build/web"
+not_found_handling = "single-page-application"

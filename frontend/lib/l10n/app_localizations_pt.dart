@@ -1537,4 +1537,31 @@ class AppLocalizationsPt extends AppLocalizations {
   @override
   String get salaYaNoExiste =>
       'Essa sala não existe mais: foi apagada por ficar muito tempo sem atividade.';
+
+  @override
+  String get escanearQr => 'Ler QR';
+
+  @override
+  String get escanearQrAyuda => 'Aponte a câmera para o QR da sala.';
+
+  @override
+  String get qrNoEsDeSala => 'Esse QR não é de uma sala do Sound Check Pro.';
+
+  @override
+  String get camaraNoDisponible =>
+      'Não foi possível usar a câmera. Verifique a permissão ou digite o código.';
+
+  @override
+  String get notaDeSonido => 'Nota de som';
+
+  @override
+  String get notaDeSonidoHint => 'Ex: subir a guitarra no solo';
+
+  @override
+  String get temaActualTitulo => 'Música atual';
+
+  @override
+  String temaSiguiente(String titulo) {
+    return 'Próxima: $titulo';
+  }
 }

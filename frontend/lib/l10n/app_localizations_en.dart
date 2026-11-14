@@ -1532,4 +1532,31 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get salaYaNoExiste =>
       'That room no longer exists: it was deleted after a long time without activity.';
+
+  @override
+  String get escanearQr => 'Scan QR';
+
+  @override
+  String get escanearQrAyuda => 'Point the camera at the room’s QR code.';
+
+  @override
+  String get qrNoEsDeSala => 'That QR is not a Sound Check Pro room.';
+
+  @override
+  String get camaraNoDisponible =>
+      'The camera could not be used. Check the permission or type the code.';
+
+  @override
+  String get notaDeSonido => 'Sound note';
+
+  @override
+  String get notaDeSonidoHint => 'E.g. bring up the guitar in the solo';
+
+  @override
+  String get temaActualTitulo => 'Current song';
+
+  @override
+  String temaSiguiente(String titulo) {
+    return 'Next: $titulo';
+  }
 }
