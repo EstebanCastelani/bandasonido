@@ -559,5 +559,6 @@
         "type": "int"
       }
     }
-  }
+  },
+  "salaYaNoExiste": "That room no longer exists: it was deleted after a long time without activity."
 }

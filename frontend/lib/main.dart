@@ -211,6 +211,18 @@ const int kMaximoSalasHistorial = 100;
 /// quedan guardadas y vuelven si la cuenta pasa a Pro.
 const int kMaxSalasGratis = 2;
 
+/// Días sin actividad tras los cuales el servidor borra una sala (el mismo valor
+/// que DIAS_INACTIVA_SALA en worker/wrangler.toml).
+const int kDiasSalaCaducada = 180;
+
+/// ¿Pasó tanto tiempo desde el último acceso que la sala pudo haberse borrado?
+/// Sin fecha no se puede saber: se supone que no.
+bool salaPudoCaducar(DateTime? ultimoAcceso, DateTime ahora,
+    {int dias = kDiasSalaCaducada}) {
+  if (ultimoAcceso == null) return false;
+  return ahora.difference(ultimoAcceso).inDays >= dias;
+}
+
 /// Palabras COMPLETAS que indican un rol de sonido: sonidista, sonido, FOH,
 /// monitorista, audio, sound (sound engineer), som (portugués), fónico
 /// (italiano), Tontechniker (alemán), "du son" (francés) y "del suono"
@@ -2505,6 +2517,27 @@ class MisSalasService {
 
   static Future<void> quitar(String uid, String codigoSala) async {
     await _ref(uid).doc(codigoSala).delete();
+  }
+
+  /// Si la sala lleva mucho sin que la abras y ya está vacía (el servidor la
+  /// borró por inactividad), la saca del historial y devuelve true. Ante
+  /// cualquier duda (error, sin red) devuelve false y se entra normalmente.
+  static Future<bool> quitarSiCaduco(
+      String uid, String codigoSala, Map<String, dynamic> datos) async {
+    try {
+      final ultimo = (datos['ultimoAcceso'] as Timestamp?)?.toDate();
+      if (!salaPudoCaducar(ultimo, DateTime.now())) return false;
+      final sala =
+          FirebaseFirestore.instance.collection('salas').doc(codigoSala);
+      for (final sub in ['pedidos', 'setlist', 'secuencias']) {
+        final r = await sala.collection(sub).limit(1).get();
+        if (r.docs.isNotEmpty) return false;
+      }
+      await quitar(uid, codigoSala);
+      return true;
+    } catch (_) {
+      return false;
+    }
   }
 }
 
@@ -8598,8 +8631,19 @@ class MisSalasScreen extends StatelessWidget {
                           subtitle: Text(tieneNombre
                               ? '$codigoSala · ${rolParaMostrar(context.l10n, rol)}'
                               : rolParaMostrar(context.l10n, rol)),
-                          onTap: () => _entrar(
-                              context, user.uid, codigoSala, rol, nombre),
+                          onTap: () async {
+                            final mensajero = ScaffoldMessenger.of(context);
+                            final aviso = context.l10n.salaYaNoExiste;
+                            if (await MisSalasService.quitarSiCaduco(
+                                user.uid, codigoSala, data)) {
+                              mensajero
+                                  .showSnackBar(SnackBar(content: Text(aviso)));
+                              return;
+                            }
+                            if (!context.mounted) return;
+                            await _entrar(
+                                context, user.uid, codigoSala, rol, nombre);
+                          },
                           trailing: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [

@@ -962,5 +962,6 @@
         "type": "int"
       }
     }
-  }
+  },
+  "salaYaNoExiste": "Esa sala ya no existe: se borró por estar mucho tiempo sin actividad."
 }

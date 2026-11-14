@@ -559,5 +559,6 @@
         "type": "int"
       }
     }
-  }
+  },
+  "salaYaNoExiste": "Cette salle n’existe plus : elle a été supprimée après une longue inactivité."
 }

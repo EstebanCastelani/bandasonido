@@ -2641,6 +2641,12 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'Mis salas sin límite: la versión gratis guarda las últimas 2.'**
   String get planProSalas;
+
+  /// No description provided for @salaYaNoExiste.
+  ///
+  /// In es, this message translates to:
+  /// **'Esa sala ya no existe: se borró por estar mucho tiempo sin actividad.'**
+  String get salaYaNoExiste;
 }
 
 class _AppLocalizationsDelegate

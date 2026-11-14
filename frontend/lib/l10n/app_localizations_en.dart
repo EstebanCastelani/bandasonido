@@ -1528,4 +1528,8 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get planProSalas =>
       'My rooms without limit: the free version keeps the last 2.';
+
+  @override
+  String get salaYaNoExiste =>
+      'That room no longer exists: it was deleted after a long time without activity.';
 }

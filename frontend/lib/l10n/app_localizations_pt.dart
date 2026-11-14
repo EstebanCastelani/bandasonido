@@ -1533,4 +1533,8 @@ class AppLocalizationsPt extends AppLocalizations {
   @override
   String get planProSalas =>
       'Minhas salas sem limite: a versão grátis guarda as últimas 2.';
+
+  @override
+  String get salaYaNoExiste =>
+      'Essa sala não existe mais: foi apagada por ficar muito tempo sem atividade.';
 }

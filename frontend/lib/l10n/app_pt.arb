@@ -559,5 +559,6 @@
         "type": "int"
       }
     }
-  }
+  },
+  "salaYaNoExiste": "Essa sala não existe mais: foi apagada por ficar muito tempo sem atividade."
 }
