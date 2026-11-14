@@ -1524,4 +1524,17 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String get tonoSoloPro => 'Cambiare la tonalità è una funzione Pro.';
+
+  @override
+  String misSalasLimiteGratis(int n) {
+    return 'La versione gratuita conserva le tue ultime $n sale. Con Pro, tutte.';
+  }
+
+  @override
+  String get planProSalas =>
+      'Le mie sale senza limite: la versione gratuita conserva le ultime 2.';
+
+  @override
+  String get salaYaNoExiste =>
+      'Questa sala non esiste più: è stata eliminata per lunga inattività.';
 }

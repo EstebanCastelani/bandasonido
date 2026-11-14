@@ -1454,4 +1454,19 @@ Tu gloria llena la tierra///
           inInclusiveRange(DivisionPedidos.minimo, DivisionPedidos.maximo));
     });
   });
+
+  group('salaPudoCaducar', () {
+    final ahora = DateTime(2026, 11, 13);
+    test('sin fecha no se supone caducada', () {
+      expect(salaPudoCaducar(null, ahora), isFalse);
+    });
+    test('reciente no, de 180 días o más sí', () {
+      expect(salaPudoCaducar(ahora.subtract(const Duration(days: 179)), ahora),
+          isFalse);
+      expect(salaPudoCaducar(ahora.subtract(const Duration(days: 180)), ahora),
+          isTrue);
+      expect(salaPudoCaducar(ahora.subtract(const Duration(days: 400)), ahora),
+          isTrue);
+    });
+  });
 }

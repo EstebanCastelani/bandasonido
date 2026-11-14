@@ -1519,4 +1519,17 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get tonoSoloPro => 'Changing the key is a Pro feature.';
+
+  @override
+  String misSalasLimiteGratis(int n) {
+    return 'The free version keeps your last $n rooms. With Pro, all of them.';
+  }
+
+  @override
+  String get planProSalas =>
+      'My rooms without limit: the free version keeps the last 2.';
+
+  @override
+  String get salaYaNoExiste =>
+      'That room no longer exists: it was deleted after a long time without activity.';
 }

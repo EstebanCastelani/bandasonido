@@ -1527,4 +1527,17 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get tonoSoloPro => 'El tono es una función Pro.';
+
+  @override
+  String misSalasLimiteGratis(int n) {
+    return 'La versión gratis guarda tus últimas $n salas. Con Pro, todas.';
+  }
+
+  @override
+  String get planProSalas =>
+      'Mis salas sin límite: la versión gratis guarda las últimas 2.';
+
+  @override
+  String get salaYaNoExiste =>
+      'Esa sala ya no existe: se borró por estar mucho tiempo sin actividad.';
 }

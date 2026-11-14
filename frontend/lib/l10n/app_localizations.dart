@@ -2629,6 +2629,24 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'El tono es una función Pro.'**
   String get tonoSoloPro;
+
+  /// No description provided for @misSalasLimiteGratis.
+  ///
+  /// In es, this message translates to:
+  /// **'La versión gratis guarda tus últimas {n} salas. Con Pro, todas.'**
+  String misSalasLimiteGratis(int n);
+
+  /// No description provided for @planProSalas.
+  ///
+  /// In es, this message translates to:
+  /// **'Mis salas sin límite: la versión gratis guarda las últimas 2.'**
+  String get planProSalas;
+
+  /// No description provided for @salaYaNoExiste.
+  ///
+  /// In es, this message translates to:
+  /// **'Esa sala ya no existe: se borró por estar mucho tiempo sin actividad.'**
+  String get salaYaNoExiste;
 }
 
 class _AppLocalizationsDelegate

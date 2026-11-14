@@ -550,5 +550,15 @@
   "limiteGratisSecuencias": "Na versão grátis você pode guardar até {n} sequências. Com Pro, sem esse limite.",
   "limiteGratisSubidos": "Pelo limite da versão grátis, só os primeiros {n} são enviados.",
   "fueraDelCupoGratis": "Fora da cota da versão grátis. Fica guardado e volta com Pro.",
-  "tonoSoloPro": "Mudar o tom é um recurso Pro."
+  "tonoSoloPro": "Mudar o tom é um recurso Pro.",
+  "misSalasLimiteGratis": "A versão grátis guarda suas últimas {n} salas. Com Pro, todas.",
+  "planProSalas": "Minhas salas sem limite: a versão grátis guarda as últimas 2.",
+  "@misSalasLimiteGratis": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "salaYaNoExiste": "Essa sala não existe mais: foi apagada por ficar muito tempo sem atividade."
 }

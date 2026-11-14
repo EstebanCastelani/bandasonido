@@ -953,5 +953,15 @@
       }
     }
   },
-  "tonoSoloPro": "El tono es una función Pro."
+  "tonoSoloPro": "El tono es una función Pro.",
+  "misSalasLimiteGratis": "La versión gratis guarda tus últimas {n} salas. Con Pro, todas.",
+  "planProSalas": "Mis salas sin límite: la versión gratis guarda las últimas 2.",
+  "@misSalasLimiteGratis": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "salaYaNoExiste": "Esa sala ya no existe: se borró por estar mucho tiempo sin actividad."
 }
