@@ -52,7 +52,7 @@ Tus datos: usamos Firebase y Cloudflare para que todo funcione. No hay publicida
 ## English (en-US)
 
 ### Short description
-Live requests between musicians and sound tech, setlist, chord charts and tracks.
+Live requests between musicians and sound tech, setlist, charts and tracks.
 
 ### Full description
 Sound Check Pro connects musicians with the sound engineer during rehearsals and shows, so nobody has to wave or shout from the stage.
