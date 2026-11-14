@@ -575,5 +575,17 @@
         "type": "String"
       }
     }
+  },
+  "eliminarTodoRepertorio": "Apagar todo o repertório",
+  "eliminarTodoPregunta": "Apagar todas as músicas do seu repertório?",
+  "eliminarTodoAviso": "Os arquivos PDF também são apagados. Não dá para desfazer.",
+  "eliminarTodoHecho": "{n} músicas apagadas",
+  "eliminarTodoNada": "Não havia músicas para apagar",
+  "@eliminarTodoHecho": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
   }
 }

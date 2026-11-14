@@ -1564,4 +1564,23 @@ class AppLocalizationsIt extends AppLocalizations {
   String temaSiguiente(String titulo) {
     return 'Prossimo: $titulo';
   }
+
+  @override
+  String get eliminarTodoRepertorio => 'Elimina tutto il repertorio';
+
+  @override
+  String get eliminarTodoPregunta =>
+      'Eliminare tutti i brani del tuo repertorio?';
+
+  @override
+  String get eliminarTodoAviso =>
+      'Vengono eliminati anche i file PDF. Non si può annullare.';
+
+  @override
+  String eliminarTodoHecho(int n) {
+    return '$n brani eliminati';
+  }
+
+  @override
+  String get eliminarTodoNada => 'Non c’erano brani da eliminare';
 }

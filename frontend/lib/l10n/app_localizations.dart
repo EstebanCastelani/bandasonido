@@ -2695,6 +2695,36 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'Siguiente: {titulo}'**
   String temaSiguiente(String titulo);
+
+  /// No description provided for @eliminarTodoRepertorio.
+  ///
+  /// In es, this message translates to:
+  /// **'Eliminar todo el repertorio'**
+  String get eliminarTodoRepertorio;
+
+  /// No description provided for @eliminarTodoPregunta.
+  ///
+  /// In es, this message translates to:
+  /// **'¿Eliminar todas las canciones de tu repertorio?'**
+  String get eliminarTodoPregunta;
+
+  /// No description provided for @eliminarTodoAviso.
+  ///
+  /// In es, this message translates to:
+  /// **'Se borran también los archivos PDF. No se puede deshacer.'**
+  String get eliminarTodoAviso;
+
+  /// No description provided for @eliminarTodoHecho.
+  ///
+  /// In es, this message translates to:
+  /// **'Se eliminaron {n} canciones'**
+  String eliminarTodoHecho(int n);
+
+  /// No description provided for @eliminarTodoNada.
+  ///
+  /// In es, this message translates to:
+  /// **'No había canciones para eliminar'**
+  String get eliminarTodoNada;
 }
 
 class _AppLocalizationsDelegate

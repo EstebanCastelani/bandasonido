@@ -575,5 +575,17 @@
         "type": "String"
       }
     }
+  },
+  "eliminarTodoRepertorio": "Elimina tutto il repertorio",
+  "eliminarTodoPregunta": "Eliminare tutti i brani del tuo repertorio?",
+  "eliminarTodoAviso": "Vengono eliminati anche i file PDF. Non si può annullare.",
+  "eliminarTodoHecho": "{n} brani eliminati",
+  "eliminarTodoNada": "Non c’erano brani da eliminare",
+  "@eliminarTodoHecho": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
   }
 }

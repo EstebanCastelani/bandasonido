@@ -575,5 +575,17 @@
         "type": "String"
       }
     }
+  },
+  "eliminarTodoRepertorio": "Delete the whole repertoire",
+  "eliminarTodoPregunta": "Delete all the songs in your repertoire?",
+  "eliminarTodoAviso": "The PDF files are deleted too. This can’t be undone.",
+  "eliminarTodoHecho": "{n} songs deleted",
+  "eliminarTodoNada": "There were no songs to delete",
+  "@eliminarTodoHecho": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
   }
 }

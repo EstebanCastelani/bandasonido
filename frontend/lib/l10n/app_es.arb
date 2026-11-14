@@ -978,5 +978,17 @@
         "type": "String"
       }
     }
+  },
+  "eliminarTodoRepertorio": "Eliminar todo el repertorio",
+  "eliminarTodoPregunta": "¿Eliminar todas las canciones de tu repertorio?",
+  "eliminarTodoAviso": "Se borran también los archivos PDF. No se puede deshacer.",
+  "eliminarTodoHecho": "Se eliminaron {n} canciones",
+  "eliminarTodoNada": "No había canciones para eliminar",
+  "@eliminarTodoHecho": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
   }
 }

@@ -1564,4 +1564,23 @@ class AppLocalizationsPt extends AppLocalizations {
   String temaSiguiente(String titulo) {
     return 'Próxima: $titulo';
   }
+
+  @override
+  String get eliminarTodoRepertorio => 'Apagar todo o repertório';
+
+  @override
+  String get eliminarTodoPregunta =>
+      'Apagar todas as músicas do seu repertório?';
+
+  @override
+  String get eliminarTodoAviso =>
+      'Os arquivos PDF também são apagados. Não dá para desfazer.';
+
+  @override
+  String eliminarTodoHecho(int n) {
+    return '$n músicas apagadas';
+  }
+
+  @override
+  String get eliminarTodoNada => 'Não havia músicas para apagar';
 }

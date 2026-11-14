@@ -1559,4 +1559,22 @@ class AppLocalizationsEn extends AppLocalizations {
   String temaSiguiente(String titulo) {
     return 'Next: $titulo';
   }
+
+  @override
+  String get eliminarTodoRepertorio => 'Delete the whole repertoire';
+
+  @override
+  String get eliminarTodoPregunta => 'Delete all the songs in your repertoire?';
+
+  @override
+  String get eliminarTodoAviso =>
+      'The PDF files are deleted too. This can’t be undone.';
+
+  @override
+  String eliminarTodoHecho(int n) {
+    return '$n songs deleted';
+  }
+
+  @override
+  String get eliminarTodoNada => 'There were no songs to delete';
 }

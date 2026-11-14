@@ -575,5 +575,17 @@
         "type": "String"
       }
     }
+  },
+  "eliminarTodoRepertorio": "Supprimer tout le répertoire",
+  "eliminarTodoPregunta": "Supprimer tous les morceaux de votre répertoire ?",
+  "eliminarTodoAviso": "Les fichiers PDF sont aussi supprimés. Action irréversible.",
+  "eliminarTodoHecho": "{n} morceaux supprimés",
+  "eliminarTodoNada": "Aucun morceau à supprimer",
+  "@eliminarTodoHecho": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
   }
 }

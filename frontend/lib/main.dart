@@ -3524,6 +3524,42 @@ class RepertorioService {
     await _ref(uid).doc(cancionId).delete();
   }
 
+  /// Cuántas canciones se borran por vuelta en [eliminarTodas].
+  static const int loteDeBorrado = 100;
+
+  /// Elimina TODAS las canciones de la biblioteca: primero sus archivos (los
+  /// que fallen quedan sin borrar, igual que al eliminar de a una) y después
+  /// los documentos, de a [loteDeBorrado]. Devuelve cuántas eliminó.
+  static Future<int> eliminarTodas(String uid) async {
+    var total = 0;
+    for (;;) {
+      final snap = await _ref(uid).limit(loteDeBorrado).get();
+      if (snap.docs.isEmpty) break;
+      var bytes = 0;
+      for (final d in snap.docs) {
+        final m = d.data();
+        final ruta = m['storagePath'] as String? ?? '';
+        if (ruta.isEmpty) continue;
+        try {
+          await borrarArchivoDe(
+              m['storageProvider'] as String? ?? 'firebase', ruta);
+          bytes += (m['bytes'] as num?)?.toInt() ?? 0;
+        } catch (e) {
+          debugPrint('No se pudo borrar el archivo de Storage: $e');
+        }
+      }
+      final lote = FirebaseFirestore.instance.batch();
+      for (final d in snap.docs) {
+        lote.delete(d.reference);
+      }
+      await lote.commit();
+      if (bytes > 0) CuotaArchivos.sumar(uid, -bytes);
+      total += snap.docs.length;
+      if (snap.docs.length < loteDeBorrado) break;
+    }
+    return total;
+  }
+
   /// Trae TODAS las canciones de las bibliotecas de los compañeros de sala
   /// (ver MiembrosSalaService) de una sola vez — no en toda la app.
   /// Firestore no soporta "uid in [...]" combinado con full-text search, así
@@ -12119,6 +12155,51 @@ class _MiRepertorioScreenState extends State<MiRepertorioScreen> {
     }
   }
 
+  Future<void> _confirmarEliminarTodo(String uid) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: Text(c.l10n.eliminarTodoPregunta),
+        content: Text(c.l10n.eliminarTodoAviso),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(c, false),
+              child: Text(c.l10n.cancelar)),
+          TextButton(
+              onPressed: () => Navigator.pop(c, true),
+              child: Text(c.l10n.eliminarTodoRepertorio,
+                  style: const TextStyle(color: Colors.red))),
+        ],
+      ),
+    );
+    if (confirm != true || !mounted) return;
+
+    final mensajero = ScaffoldMessenger.of(context);
+    final navegador = Navigator.of(context, rootNavigator: true);
+    final l = context.l10n;
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const PopScope(
+        canPop: false,
+        child: Center(child: CircularProgressIndicator()),
+      ),
+    );
+    int? cantidad;
+    try {
+      cantidad = await RepertorioService.eliminarTodas(uid);
+    } catch (e) {
+      debugPrint('No se pudo eliminar todo el repertorio: $e');
+    }
+    navegador.pop();
+    mensajero.showSnackBar(SnackBar(
+        content: Text(cantidad == null
+            ? l.error(mensajeError(l, 'eliminar'))
+            : (cantidad == 0
+                ? l.eliminarTodoNada
+                : l.eliminarTodoHecho(cantidad)))));
+  }
+
   @override
   Widget build(BuildContext context) => StreamBuilder<User?>(
         stream: AuthService.authStateChanges(),
@@ -12150,6 +12231,7 @@ class _MiRepertorioScreenState extends State<MiRepertorioScreen> {
                 if (v == 'cho') _exportar(user.uid, respaldo: false);
                 if (v == 'json') _exportar(user.uid, respaldo: true);
                 if (v == 'importar') _importar(user.uid);
+                if (v == 'borrar_todo') _confirmarEliminarTodo(user.uid);
               },
               itemBuilder: (context) => [
                 PopupMenuItem(
@@ -12158,6 +12240,11 @@ class _MiRepertorioScreenState extends State<MiRepertorioScreen> {
                     value: 'json', child: Text(context.l10n.exportarCopia)),
                 PopupMenuItem(
                     value: 'importar', child: Text(context.l10n.importarTexto)),
+                const PopupMenuDivider(),
+                PopupMenuItem(
+                    value: 'borrar_todo',
+                    child: Text(context.l10n.eliminarTodoRepertorio,
+                        style: const TextStyle(color: Colors.red))),
               ],
             ),
         ],
