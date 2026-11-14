@@ -8228,6 +8228,11 @@ class _CrearSalaScreenState extends State<CrearSalaScreen> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     IconButton(
+                      icon: const Icon(Icons.qr_code_2),
+                      tooltip: context.l10n.compartirSalaTitulo,
+                      onPressed: () => mostrarCompartirSala(context, _pin),
+                    ),
+                    IconButton(
                       icon: const Icon(Icons.share),
                       tooltip: context.l10n.compartirEnlaceSala,
                       onPressed: () => Share.share(
@@ -8607,7 +8612,8 @@ class MisSalasScreen extends StatelessWidget {
                           return Padding(
                             padding: const EdgeInsets.all(16),
                             child: Text(
-                                context.l10n.misSalasLimiteGratis(kMaxSalasGratis),
+                                context.l10n
+                                    .misSalasLimiteGratis(kMaxSalasGratis),
                                 textAlign: TextAlign.center,
                                 style: const TextStyle(
                                     fontSize: 13, color: Colors.grey)),
@@ -9219,7 +9225,7 @@ class _RequestScreenState extends State<RequestScreen>
                         color: context.acento),
                   ),
                   const SizedBox(width: 4),
-                  Icon(Icons.copy, size: 12, color: context.acento),
+                  Icon(Icons.qr_code_2, size: 16, color: context.acento),
                 ],
               ),
             ],
@@ -14028,32 +14034,36 @@ class _SonidistaPageState extends State<SonidistaPage>
       appBar: AppBar(
         // Dos líneas ("Consola" arriba, el PIN abajo): en un celular no entra
         // "Consola: PIN" en una sola línea con los cuatro íconos de la derecha.
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              context.l10n
-                  .consola2('')
-                  .replaceAll(RegExp(r'\s*[:：]\s*$'), '')
-                  .trim(),
-              style: TextStyle(
-                  fontSize: 12,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant),
-            ),
-            FittedBox(
-              fit: BoxFit.scaleDown,
-              alignment: AlignmentDirectional.centerStart,
-              child: Text(
-                widget.codigoSala,
-                maxLines: 1,
-                style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 1),
+        title: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: () => mostrarCompartirSala(context, widget.codigoSala),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                context.l10n
+                    .consola2('')
+                    .replaceAll(RegExp(r'\s*[:：]\s*$'), '')
+                    .trim(),
+                style: TextStyle(
+                    fontSize: 12,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant),
               ),
-            ),
-          ],
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: AlignmentDirectional.centerStart,
+                child: Text(
+                  widget.codigoSala,
+                  maxLines: 1,
+                  style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1),
+                ),
+              ),
+            ],
+          ),
         ),
 
         leading: IconButton(
@@ -14100,6 +14110,8 @@ class _SonidistaPageState extends State<SonidistaPage>
             tooltip: context.l10n.masOpciones,
             onSelected: (v) {
               switch (v) {
+                case 'compartir':
+                  mostrarCompartirSala(context, widget.codigoSala);
                 case 'alertas':
                   _abrirAlertas();
                 case 'show':
@@ -14111,6 +14123,13 @@ class _SonidistaPageState extends State<SonidistaPage>
               }
             },
             itemBuilder: (c) => [
+              PopupMenuItem(
+                  value: 'compartir',
+                  child: Row(children: [
+                    const Icon(Icons.qr_code_2, size: 20),
+                    const SizedBox(width: 12),
+                    Text(c.l10n.compartirSalaTitulo),
+                  ])),
               PopupMenuItem(value: 'alertas', child: Text(c.l10n.alertas)),
               PopupMenuItem(value: 'show', child: Text(c.l10n.modoShow)),
               PopupMenuItem(
