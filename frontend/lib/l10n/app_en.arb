@@ -550,5 +550,14 @@
   "limiteGratisSecuencias": "The free version lets you keep up to {n} tracks. With Pro, no limit.",
   "limiteGratisSubidos": "Because of the free version limit, only the first {n} are uploaded.",
   "fueraDelCupoGratis": "Outside the free version allowance. It stays saved and comes back with Pro.",
-  "tonoSoloPro": "Changing the key is a Pro feature."
+  "tonoSoloPro": "Changing the key is a Pro feature.",
+  "misSalasLimiteGratis": "The free version keeps your last {n} rooms. With Pro, all of them.",
+  "planProSalas": "My rooms without limit: the free version keeps the last 2.",
+  "@misSalasLimiteGratis": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  }
 }

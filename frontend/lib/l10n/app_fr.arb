@@ -550,5 +550,14 @@
   "limiteGratisSecuencias": "La version gratuite permet de garder jusqu’à {n} séquences. Avec Pro, sans limite.",
   "limiteGratisSubidos": "À cause de la limite de la version gratuite, seuls les {n} premiers sont envoyés.",
   "fueraDelCupoGratis": "Hors du quota de la version gratuite. Il reste enregistré et revient avec Pro.",
-  "tonoSoloPro": "Changer la tonalité est une fonction Pro."
+  "tonoSoloPro": "Changer la tonalité est une fonction Pro.",
+  "misSalasLimiteGratis": "La version gratuite garde vos {n} dernières salles. Avec Pro, toutes.",
+  "planProSalas": "Mes salles sans limite : la version gratuite garde les 2 dernières.",
+  "@misSalasLimiteGratis": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  }
 }

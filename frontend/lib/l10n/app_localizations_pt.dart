@@ -1524,4 +1524,13 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String get tonoSoloPro => 'Mudar o tom é um recurso Pro.';
+
+  @override
+  String misSalasLimiteGratis(int n) {
+    return 'A versão grátis guarda suas últimas $n salas. Com Pro, todas.';
+  }
+
+  @override
+  String get planProSalas =>
+      'Minhas salas sem limite: a versão grátis guarda as últimas 2.';
 }

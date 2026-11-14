@@ -207,6 +207,10 @@ const int kMaximoBiblioteca = 1000;
 const int kMaximoFrases = 100;
 const int kMaximoSalasHistorial = 100;
 
+/// Cuántas salas recientes ve en "Mis salas" una cuenta sin Pro. Las demás
+/// quedan guardadas y vuelven si la cuenta pasa a Pro.
+const int kMaxSalasGratis = 2;
+
 /// Palabras COMPLETAS que indican un rol de sonido: sonidista, sonido, FOH,
 /// monitorista, audio, sound (sound engineer), som (portugués), fónico
 /// (italiano), Tontechniker (alemán), "du son" (francés) y "del suono"
@@ -2471,11 +2475,11 @@ class MisSalasService {
           .doc(uid)
           .collection('mis_salas');
 
-  static Stream<QuerySnapshot<Map<String, dynamic>>> streamMisSalas(
-      String uid) {
+  static Stream<QuerySnapshot<Map<String, dynamic>>> streamMisSalas(String uid,
+      {int limite = kMaximoSalasHistorial}) {
     return _ref(uid)
         .orderBy('ultimoAcceso', descending: true)
-        .limit(kMaximoSalasHistorial)
+        .limit(limite)
         .snapshots();
   }
 
@@ -7315,6 +7319,7 @@ class PlanProScreen extends StatelessWidget {
             const SizedBox(height: 20),
             beneficio(Icons.library_music, l.planProRepertorio),
             beneficio(Icons.graphic_eq, l.planProSecuencias),
+            beneficio(Icons.history, l.planProSalas),
             beneficio(Icons.swap_vert, l.planProTono),
             beneficio(Icons.cloud_upload_outlined, l.planProEspacio),
             const SizedBox(height: 16),
@@ -8547,27 +8552,9 @@ class MisSalasScreen extends StatelessWidget {
               builder: (context, proSnapshot) {
                 final esPro =
                     kFuncionesProGratisPorAhora || proSnapshot.data == true;
-                if (!esPro) {
-                  return Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.workspace_premium,
-                              color: context.acento, size: 48),
-                          const SizedBox(height: 12),
-                          Text(
-                            context.l10n.guardarUnHistorialDeVarias,
-                            textAlign: TextAlign.center,
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                }
                 return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-                  stream: MisSalasService.streamMisSalas(user.uid),
+                  stream: MisSalasService.streamMisSalas(user.uid,
+                      limite: esPro ? kMaximoSalasHistorial : kMaxSalasGratis),
                   builder: (context, snapshot) {
                     if (!snapshot.hasData) {
                       return const Center(child: CircularProgressIndicator());
@@ -8580,9 +8567,19 @@ class MisSalasScreen extends StatelessWidget {
                           ayuda: context.l10n.vacioSalasAyuda);
                     }
                     return ListView.separated(
-                      itemCount: docs.length,
+                      itemCount: docs.length + (esPro ? 0 : 1),
                       separatorBuilder: (_, __) => const Divider(height: 1),
                       itemBuilder: (context, i) {
+                        if (i == docs.length) {
+                          return Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Text(
+                                context.l10n.misSalasLimiteGratis(kMaxSalasGratis),
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                    fontSize: 13, color: Colors.grey)),
+                          );
+                        }
                         final doc = docs[i];
                         final data = doc.data();
                         final codigoSala = doc.id;
