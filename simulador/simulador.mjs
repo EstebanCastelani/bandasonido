@@ -43,7 +43,10 @@ if (lecturas > 20000) {
   process.exit(1);
 }
 
-const codigo = 'SIM' + Math.random().toString(36).slice(2, 7).toUpperCase().padEnd(5, 'X');
+// SALA=XXXXXXXX: se une a una sala que ya existe (con celulares reales) y el
+// dispositivo 0 atiende TODOS los pedidos, también los de los celulares.
+const SALA_REAL = process.env.SALA ?? '';
+const codigo = SALA_REAL || ('SIM' + Math.random().toString(36).slice(2, 7).toUpperCase().padEnd(5, 'X'));
 const dormir = (ms) => new Promise((r) => setTimeout(r, ms));
 const pct = (a, p) => (a.length ? [...a].sort((x, y) => x - y)[Math.min(a.length - 1, Math.floor((a.length * p) / 100))] : null);
 const maximo = (a) => (a.length ? Math.max(...a) : 0);
@@ -52,6 +55,7 @@ const m = {
   conexion: [], escritura: [], alSonidista: [], vueltaAlAutor: [], setlist: [], trasCorte: [], reconexion: [],
   enviados: 0, fallidos: 0, errores: {},
   lecturas: { sonidista: 0, propios: 0, vigilante: 0, setlist: 0 },
+  reales: {},
 };
 const anotarError = (e) => {
   const c = e?.code ?? e?.message ?? String(e);
@@ -74,11 +78,23 @@ const RE = /^SIM (\d+) (\d+) (\d+)( OFF)?$/;
 function escuchar(d) {
   const salaCol = (sub) => collection(d.db, 'salas', codigo, sub);
   if (d.i === 0) {
-    d.cierres.push(onSnapshot(query(salaCol('pedidos'), orderBy('createdAt', 'desc'), limit(200)), (snap) => {
+    d.cierres.push(onSnapshot(query(salaCol('pedidos'), orderBy('createdAt', 'desc'), limit(SALA_REAL ? 600 : 200)), (snap) => {
       for (const c of snap.docChanges()) {
         m.lecturas.sonidista++;
         if (c.type !== 'added' || c.doc.metadata.hasPendingWrites) continue;
         const x = RE.exec(c.doc.data().pedido ?? '');
+        if (!x && SALA_REAL && !d.recibidos.has(c.doc.id)) {
+          // Pedido de un celular real: se cuenta por autor y se atiende igual.
+          d.recibidos.add(c.doc.id);
+          const autor = c.doc.data().nombre ?? '?';
+          m.reales[autor] = (m.reales[autor] ?? 0) + 1;
+          const ref0 = c.doc.ref;
+          dormir(300 + Math.random() * 500)
+            .then(() => updateDoc(ref0, { visto: true }))
+            .then(() => (Math.random() < 0.5 ? updateDoc(ref0, { respuesta: 'ok', atendido: true }) : null))
+            .catch(anotarError);
+          continue;
+        }
         if (!x || d.recibidos.has(c.doc.id)) continue;
         d.recibidos.add(c.doc.id);
         (x[4] ? m.trasCorte : m.alSonidista).push(Date.now() - Number(x[3]));
@@ -141,7 +157,7 @@ async function mandar(d, secuencia) {
 
 async function limpiar() {
   try {
-    for (const sub of ['pedidos', 'setlist']) {
+    for (const sub of (process.env.NOLIMPIAR ? [] : SALA_REAL ? ['pedidos'] : ['pedidos', 'setlist'])) {
       const todos = await getDocs(collection(dispositivos[0].db, 'salas', codigo, sub));
       await Promise.all(todos.docs.map((x) => deleteDoc(x.ref).catch(() => {})));
     }
@@ -159,9 +175,11 @@ try {
   await Promise.all(Array.from({ length: N }, (_, i) => crear(i)));
   dispositivos.sort((a, b) => a.i - b.i);
   dispositivos.forEach(escuchar);
-  await setDoc(doc(dispositivos[0].db, 'salas', codigo, 'setlist', 'tema1'), {
-    titulo: 'Tema de prueba', orden: 0, transposicion: 0, sim_t0: Date.now(), sim_de: 0,
-  });
+  if (!SALA_REAL) {
+    await setDoc(doc(dispositivos[0].db, 'salas', codigo, 'setlist', 'tema1'), {
+      titulo: 'Tema de prueba', orden: 0, transposicion: 0, sim_t0: Date.now(), sim_de: 0,
+    });
+  }
   await dormir(1500);
 
   const fin = Date.now() + SEGUNDOS * 1000;
@@ -174,7 +192,7 @@ try {
       await dormir(INTERVALO * (0.7 + Math.random() * 0.6));
     }
   });
-  const cambiosTono = musicos.slice(0, 3).map(async (d) => {
+  const cambiosTono = (SALA_REAL ? [] : musicos.slice(0, 3)).map(async (d) => {
     while (Date.now() < fin) {
       await dormir(5000 * (0.8 + Math.random() * 0.4));
       updateDoc(doc(d.db, 'salas', codigo, 'setlist', 'tema1'), {
@@ -218,6 +236,7 @@ const informe = {
   cambioDeTonoMs: { n: m.setlist.length, p50: pct(m.setlist, 50), p95: pct(m.setlist, 95), max: maximo(m.setlist) },
   conCorteDeRed: { pedidos: m.trasCorte.length, reconexionMaxMs: maximo(m.reconexion), llegadaMs: { p50: pct(m.trasCorte, 50), max: maximo(m.trasCorte) } },
   lecturas: { ...m.lecturas, total, porPedido: m.enviados ? Math.round((total / m.enviados) * 10) / 10 : null },
+  celularesReales: m.reales,
   errores: m.errores,
 };
 writeFileSync(new URL('./informe.json', import.meta.url), JSON.stringify(informe, null, 2));

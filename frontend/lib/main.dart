@@ -6239,38 +6239,52 @@ class BotonAutoDesplazar extends StatelessWidget {
       );
 }
 
-/// Sobre la pestaña Pedidos: botón para volver al último PDF/cifrado que se
-/// estaba viendo (lo mismo que deslizar hacia abajo).
+/// Antes ponía el botón de "volver al visor" encima de Pedidos con un Stack, y
+/// los avisos (por ejemplo "Atendido: Volumen al 2") se le ponían encima y lo
+/// tapaban. Ahora el botón es el flotante del Scaffold de la sala
+/// ([botonVolverAlVisor]), que los avisos respetan; esto solo deja pasar el
+/// contenido.
 class ConBotonVolverAlVisor extends StatelessWidget {
   final Widget? visor;
   final Widget child;
   const ConBotonVolverAlVisor({super.key, this.visor, required this.child});
 
   @override
-  Widget build(BuildContext context) {
-    final destino = visor;
-    if (destino == null) return child;
-    return Stack(
-      children: [
-        child,
-        Positioned(
-          right: 12,
-          bottom: 12 + MediaQuery.viewPaddingOf(context).bottom,
-          child: FloatingActionButton.small(
-            heroTag: null,
-            elevation: 0,
-            highlightElevation: 0,
-            backgroundColor: context.acento.withValues(alpha: 0.35),
-            foregroundColor: Colors.white,
-            tooltip: context.l10n.volverAlVisor,
-            onPressed: () => Navigator.push(
-                context, MaterialPageRoute(builder: (_) => destino)),
-            child: const Icon(Icons.keyboard_double_arrow_down),
-          ),
-        ),
-      ],
-    );
-  }
+  Widget build(BuildContext context) => child;
+}
+
+/// Botón flotante para volver al último PDF/cifrado que se estaba viendo (lo
+/// mismo que deslizar hacia abajo). Se muestra solo sobre la pestaña Pedidos
+/// (o siempre, en pantallas anchas donde Pedidos está a la vista) y si hay un
+/// visor al que volver. Va en el `floatingActionButton` del Scaffold de la
+/// sala para que los avisos aparezcan por encima y no lo tapen.
+Widget? botonVolverAlVisor({
+  required Widget? visor,
+  required TabController controlador,
+  required List<PestanaSala> pestanas,
+}) {
+  final destino = visor;
+  if (destino == null) return null;
+  return ListenableBuilder(
+    listenable: controlador,
+    builder: (context, _) {
+      final iPedidos = pestanas.indexOf(PestanaSala.pedidos);
+      final visible = iPedidos >= 0 &&
+          (esSalaAncha(context, pestanas) || controlador.index == iPedidos);
+      if (!visible) return const SizedBox.shrink();
+      return FloatingActionButton.small(
+        heroTag: null,
+        elevation: 0,
+        highlightElevation: 0,
+        backgroundColor: context.acento.withValues(alpha: 0.35),
+        foregroundColor: Colors.white,
+        tooltip: context.l10n.volverAlVisor,
+        onPressed: () =>
+            Navigator.push(context, MaterialPageRoute(builder: (_) => destino)),
+        child: const Icon(Icons.keyboard_double_arrow_down),
+      );
+    },
+  );
 }
 
 /// Capas que van por encima de todas las pantallas: el modo show y el
@@ -9185,6 +9199,10 @@ class _RequestScreenState extends State<RequestScreen>
                 ],
               ),
       ),
+      floatingActionButton: botonVolverAlVisor(
+          visor: _ultimoVisor,
+          controlador: _tabController,
+          pestanas: _pestanas),
       body: cuerpoDeSala(
         context: context,
         controller: _tabController,
@@ -11141,8 +11159,16 @@ class _MiRepertorioScreenState extends State<MiRepertorioScreen> {
     final esPro = kFuncionesProGratisPorAhora ||
         await UsuarioService.streamEsPro(uid).first;
     if (esPro) return null;
-    return lugaresLibresGratis(
-        await RepertorioService.contar(uid), kMaxPdfsGratis);
+    try {
+      return lugaresLibresGratis(
+          await RepertorioService.contar(uid), kMaxPdfsGratis);
+    } catch (e) {
+      // Sin poder contar (sin red, cuota de Firestore agotada...): el botón no
+      // debe quedar mudo. Se deja seguir y decide el servidor de archivos, que
+      // aplica el mismo límite.
+      debugPrint('No se pudo contar los PDFs: $e');
+      return null;
+    }
   }
 
   /// Recorta [cola] a lo que entra en el cupo gratuito y avisa si sobraron.
@@ -12036,10 +12062,17 @@ class _MisSecuenciasScreenState extends State<MisSecuenciasScreen> {
   Future<void> _subirSecuencias(String uid) async {
     final esPro = kFuncionesProGratisPorAhora ||
         await UsuarioService.streamEsPro(uid).first;
-    final int? libres = esPro
-        ? null
-        : lugaresLibresGratis(
+    int? libres;
+    if (!esPro) {
+      try {
+        libres = lugaresLibresGratis(
             await SecuenciasService.contarMias(uid), kMaxSecuenciasGratis);
+      } catch (e) {
+        // Sin poder contar: no se bloquea el botón; decide el servidor, que
+        // aplica el mismo límite.
+        debugPrint('No se pudo contar las secuencias: $e');
+      }
+    }
     if (libres == 0) {
       if (!mounted) return;
       await showDialog<void>(
@@ -14032,6 +14065,10 @@ class _SonidistaPageState extends State<SonidistaPage>
                 ],
               ),
       ),
+      floatingActionButton: botonVolverAlVisor(
+          visor: _ultimoVisor,
+          controlador: _tabController,
+          pestanas: _pestanas),
       body: cuerpoDeSala(
         context: context,
         controller: _tabController,
