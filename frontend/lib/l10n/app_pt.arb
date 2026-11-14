@@ -587,5 +587,17 @@
         "type": "int"
       }
     }
+  },
+  "eliminarTodasSecuencias": "Apagar todas as minhas sequências",
+  "eliminarTodasSecuenciasPregunta": "Apagar todas as suas sequências?",
+  "eliminarTodasSecuenciasAviso": "Os arquivos de áudio também são apagados. Não dá para desfazer.",
+  "eliminarTodasSecuenciasHecho": "{n} sequências apagadas",
+  "eliminarTodasSecuenciasNada": "Não havia sequências para apagar",
+  "@eliminarTodasSecuenciasHecho": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
   }
 }

@@ -587,5 +587,17 @@
         "type": "int"
       }
     }
+  },
+  "eliminarTodasSecuencias": "Elimina tutte le mie sequenze",
+  "eliminarTodasSecuenciasPregunta": "Eliminare tutte le tue sequenze?",
+  "eliminarTodasSecuenciasAviso": "Vengono eliminati anche i file audio. Non si può annullare.",
+  "eliminarTodasSecuenciasHecho": "{n} sequenze eliminate",
+  "eliminarTodasSecuenciasNada": "Non c’erano sequenze da eliminare",
+  "@eliminarTodasSecuenciasHecho": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
   }
 }

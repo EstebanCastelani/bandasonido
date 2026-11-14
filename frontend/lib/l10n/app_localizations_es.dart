@@ -1586,4 +1586,23 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get eliminarTodoNada => 'No había canciones para eliminar';
+
+  @override
+  String get eliminarTodasSecuencias => 'Eliminar todas mis secuencias';
+
+  @override
+  String get eliminarTodasSecuenciasPregunta =>
+      '¿Eliminar todas tus secuencias?';
+
+  @override
+  String get eliminarTodasSecuenciasAviso =>
+      'Se borran también los archivos de audio. No se puede deshacer.';
+
+  @override
+  String eliminarTodasSecuenciasHecho(int n) {
+    return 'Se eliminaron $n secuencias';
+  }
+
+  @override
+  String get eliminarTodasSecuenciasNada => 'No había secuencias para eliminar';
 }

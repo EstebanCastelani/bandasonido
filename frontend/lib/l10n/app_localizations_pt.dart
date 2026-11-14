@@ -1583,4 +1583,23 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String get eliminarTodoNada => 'Não havia músicas para apagar';
+
+  @override
+  String get eliminarTodasSecuencias => 'Apagar todas as minhas sequências';
+
+  @override
+  String get eliminarTodasSecuenciasPregunta =>
+      'Apagar todas as suas sequências?';
+
+  @override
+  String get eliminarTodasSecuenciasAviso =>
+      'Os arquivos de áudio também são apagados. Não dá para desfazer.';
+
+  @override
+  String eliminarTodasSecuenciasHecho(int n) {
+    return '$n sequências apagadas';
+  }
+
+  @override
+  String get eliminarTodasSecuenciasNada => 'Não havia sequências para apagar';
 }

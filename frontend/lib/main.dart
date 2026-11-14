@@ -3882,6 +3882,42 @@ class SecuenciasService {
     await _refUsuario(uid).doc(id).delete();
   }
 
+  /// Elimina TODAS las secuencias de la biblioteca: sus archivos de audio (los
+  /// que fallen quedan sin borrar) y después los documentos, de a
+  /// [RepertorioService.loteDeBorrado]. Las ya cargadas en una sala quedan
+  /// apuntando a un audio que no existe, igual que al eliminar de a una.
+  /// Devuelve cuántas eliminó.
+  static Future<int> eliminarTodas(String uid) async {
+    const lote = RepertorioService.loteDeBorrado;
+    var total = 0;
+    for (;;) {
+      final snap = await _refUsuario(uid).limit(lote).get();
+      if (snap.docs.isEmpty) break;
+      var bytes = 0;
+      for (final d in snap.docs) {
+        final m = d.data();
+        final ruta = m['storagePath'] as String? ?? '';
+        if (ruta.isEmpty) continue;
+        try {
+          await borrarArchivoDe(
+              m['storageProvider'] as String? ?? 'firebase', ruta);
+          bytes += (m['bytes'] as num?)?.toInt() ?? 0;
+        } catch (e) {
+          debugPrint('No se pudo borrar el audio de Storage: $e');
+        }
+      }
+      final batch = FirebaseFirestore.instance.batch();
+      for (final d in snap.docs) {
+        batch.delete(d.reference);
+      }
+      await batch.commit();
+      if (bytes > 0) CuotaArchivos.sumar(uid, -bytes);
+      total += snap.docs.length;
+      if (snap.docs.length < lote) break;
+    }
+    return total;
+  }
+
   /// Carga varias secuencias de la biblioteca a la sala de una sola vez, al
   /// final de la lista (ordenInicial = cantidad que ya había).
   static Future<void> agregarASala({
@@ -12840,6 +12876,53 @@ class _MisSecuenciasScreenState extends State<MisSecuenciasScreen> {
     await SecuenciasService.eliminarSecuencia(uid, id, storagePath);
   }
 
+  Future<void> _confirmarEliminarTodas(String uid) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: Text(c.l10n.eliminarTodasSecuenciasPregunta),
+        content: Text(c.l10n.eliminarTodasSecuenciasAviso),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(c, false),
+              child: Text(c.l10n.cancelar)),
+          TextButton(
+              onPressed: () => Navigator.pop(c, true),
+              child: Text(c.l10n.eliminarTodasSecuencias,
+                  style: const TextStyle(color: Colors.red))),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+
+    final mensajero = ScaffoldMessenger.of(context);
+    final navegador = Navigator.of(context, rootNavigator: true);
+    final l = context.l10n;
+    await _reproductor.detener();
+    if (!mounted) return;
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const PopScope(
+        canPop: false,
+        child: Center(child: CircularProgressIndicator()),
+      ),
+    );
+    int? cantidad;
+    try {
+      cantidad = await SecuenciasService.eliminarTodas(uid);
+    } catch (e) {
+      debugPrint('No se pudieron eliminar todas las secuencias: $e');
+    }
+    navegador.pop();
+    mensajero.showSnackBar(SnackBar(
+        content: Text(cantidad == null
+            ? l.error(mensajeError(l, 'eliminar'))
+            : (cantidad == 0
+                ? l.eliminarTodasSecuenciasNada
+                : l.eliminarTodasSecuenciasHecho(cantidad)))));
+  }
+
   @override
   Widget build(BuildContext context) => StreamBuilder<User?>(
         stream: AuthService.authStateChanges(),
@@ -12855,7 +12938,23 @@ class _MisSecuenciasScreenState extends State<MisSecuenciasScreen> {
   /// abrir la app puede tardar un instante y no es que falte iniciar sesión.
   Widget _construir(BuildContext context, User? user, bool cargando) {
     return Scaffold(
-      appBar: AppBar(title: Text(context.l10n.misSecuencias2)),
+      appBar: AppBar(
+        title: Text(context.l10n.misSecuencias2),
+        actions: [
+          if (user != null && !user.isAnonymous)
+            PopupMenuButton<String>(
+              onSelected: (v) {
+                if (v == 'borrar_todas') _confirmarEliminarTodas(user.uid);
+              },
+              itemBuilder: (context) => [
+                PopupMenuItem(
+                    value: 'borrar_todas',
+                    child: Text(context.l10n.eliminarTodasSecuencias,
+                        style: const TextStyle(color: Colors.red))),
+              ],
+            ),
+        ],
+      ),
       body: (user == null || user.isAnonymous)
           ? (cargando
               ? const Center(child: CircularProgressIndicator())

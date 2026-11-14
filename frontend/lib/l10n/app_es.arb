@@ -990,5 +990,17 @@
         "type": "int"
       }
     }
+  },
+  "eliminarTodasSecuencias": "Eliminar todas mis secuencias",
+  "eliminarTodasSecuenciasPregunta": "¿Eliminar todas tus secuencias?",
+  "eliminarTodasSecuenciasAviso": "Se borran también los archivos de audio. No se puede deshacer.",
+  "eliminarTodasSecuenciasHecho": "Se eliminaron {n} secuencias",
+  "eliminarTodasSecuenciasNada": "No había secuencias para eliminar",
+  "@eliminarTodasSecuenciasHecho": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
   }
 }

@@ -587,5 +587,17 @@
         "type": "int"
       }
     }
+  },
+  "eliminarTodasSecuencias": "Delete all my tracks",
+  "eliminarTodasSecuenciasPregunta": "Delete all your tracks?",
+  "eliminarTodasSecuenciasAviso": "The audio files are deleted too. This can’t be undone.",
+  "eliminarTodasSecuenciasHecho": "{n} tracks deleted",
+  "eliminarTodasSecuenciasNada": "There were no tracks to delete",
+  "@eliminarTodasSecuenciasHecho": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
   }
 }

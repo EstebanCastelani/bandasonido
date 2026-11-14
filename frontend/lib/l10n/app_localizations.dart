@@ -2725,6 +2725,36 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'No había canciones para eliminar'**
   String get eliminarTodoNada;
+
+  /// No description provided for @eliminarTodasSecuencias.
+  ///
+  /// In es, this message translates to:
+  /// **'Eliminar todas mis secuencias'**
+  String get eliminarTodasSecuencias;
+
+  /// No description provided for @eliminarTodasSecuenciasPregunta.
+  ///
+  /// In es, this message translates to:
+  /// **'¿Eliminar todas tus secuencias?'**
+  String get eliminarTodasSecuenciasPregunta;
+
+  /// No description provided for @eliminarTodasSecuenciasAviso.
+  ///
+  /// In es, this message translates to:
+  /// **'Se borran también los archivos de audio. No se puede deshacer.'**
+  String get eliminarTodasSecuenciasAviso;
+
+  /// No description provided for @eliminarTodasSecuenciasHecho.
+  ///
+  /// In es, this message translates to:
+  /// **'Se eliminaron {n} secuencias'**
+  String eliminarTodasSecuenciasHecho(int n);
+
+  /// No description provided for @eliminarTodasSecuenciasNada.
+  ///
+  /// In es, this message translates to:
+  /// **'No había secuencias para eliminar'**
+  String get eliminarTodasSecuenciasNada;
 }
 
 class _AppLocalizationsDelegate

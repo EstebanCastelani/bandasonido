@@ -1583,4 +1583,23 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String get eliminarTodoNada => 'Non c’erano brani da eliminare';
+
+  @override
+  String get eliminarTodasSecuencias => 'Elimina tutte le mie sequenze';
+
+  @override
+  String get eliminarTodasSecuenciasPregunta =>
+      'Eliminare tutte le tue sequenze?';
+
+  @override
+  String get eliminarTodasSecuenciasAviso =>
+      'Vengono eliminati anche i file audio. Non si può annullare.';
+
+  @override
+  String eliminarTodasSecuenciasHecho(int n) {
+    return '$n sequenze eliminate';
+  }
+
+  @override
+  String get eliminarTodasSecuenciasNada => 'Non c’erano sequenze da eliminare';
 }

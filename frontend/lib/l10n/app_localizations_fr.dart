@@ -1591,4 +1591,23 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get eliminarTodoNada => 'Aucun morceau à supprimer';
+
+  @override
+  String get eliminarTodasSecuencias => 'Supprimer toutes mes séquences';
+
+  @override
+  String get eliminarTodasSecuenciasPregunta =>
+      'Supprimer toutes vos séquences ?';
+
+  @override
+  String get eliminarTodasSecuenciasAviso =>
+      'Les fichiers audio sont aussi supprimés. Action irréversible.';
+
+  @override
+  String eliminarTodasSecuenciasHecho(int n) {
+    return '$n séquences supprimées';
+  }
+
+  @override
+  String get eliminarTodasSecuenciasNada => 'Aucune séquence à supprimer';
 }
