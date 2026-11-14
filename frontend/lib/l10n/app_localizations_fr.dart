@@ -1544,4 +1544,18 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get salaYaNoExiste =>
       'Cette salle n’existe plus : elle a été supprimée après une longue inactivité.';
+
+  @override
+  String get escanearQr => 'Scanner le QR';
+
+  @override
+  String get escanearQrAyuda => 'Pointez la caméra vers le QR de la salle.';
+
+  @override
+  String get qrNoEsDeSala =>
+      'Ce QR n’est pas celui d’une salle Sound Check Pro.';
+
+  @override
+  String get camaraNoDisponible =>
+      'Impossible d’utiliser la caméra. Vérifiez l’autorisation ou saisissez le code.';
 }

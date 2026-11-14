@@ -560,5 +560,9 @@
       }
     }
   },
-  "salaYaNoExiste": "Essa sala não existe mais: foi apagada por ficar muito tempo sem atividade."
+  "salaYaNoExiste": "Essa sala não existe mais: foi apagada por ficar muito tempo sem atividade.",
+  "escanearQr": "Ler QR",
+  "escanearQrAyuda": "Aponte a câmera para o QR da sala.",
+  "qrNoEsDeSala": "Esse QR não é de uma sala do Sound Check Pro.",
+  "camaraNoDisponible": "Não foi possível usar a câmera. Verifique a permissão ou digite o código."
 }

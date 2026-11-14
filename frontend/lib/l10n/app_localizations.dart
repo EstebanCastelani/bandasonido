@@ -2647,6 +2647,30 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'Esa sala ya no existe: se borró por estar mucho tiempo sin actividad.'**
   String get salaYaNoExiste;
+
+  /// No description provided for @escanearQr.
+  ///
+  /// In es, this message translates to:
+  /// **'Escanear QR'**
+  String get escanearQr;
+
+  /// No description provided for @escanearQrAyuda.
+  ///
+  /// In es, this message translates to:
+  /// **'Apuntá la cámara al QR de la sala.'**
+  String get escanearQrAyuda;
+
+  /// No description provided for @qrNoEsDeSala.
+  ///
+  /// In es, this message translates to:
+  /// **'Ese QR no es de una sala de Sound Check Pro.'**
+  String get qrNoEsDeSala;
+
+  /// No description provided for @camaraNoDisponible.
+  ///
+  /// In es, this message translates to:
+  /// **'No se pudo usar la cámara. Revisá el permiso o escribí el código.'**
+  String get camaraNoDisponible;
 }
 
 class _AppLocalizationsDelegate

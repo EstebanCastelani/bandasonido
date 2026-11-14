@@ -560,5 +560,9 @@
       }
     }
   },
-  "salaYaNoExiste": "That room no longer exists: it was deleted after a long time without activity."
+  "salaYaNoExiste": "That room no longer exists: it was deleted after a long time without activity.",
+  "escanearQr": "Scan QR",
+  "escanearQrAyuda": "Point the camera at the room’s QR code.",
+  "qrNoEsDeSala": "That QR is not a Sound Check Pro room.",
+  "camaraNoDisponible": "The camera could not be used. Check the permission or type the code."
 }

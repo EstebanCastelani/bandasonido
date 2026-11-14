@@ -44,6 +44,7 @@ import 'package:http/http.dart' as http;
 
 import 'package:path_provider/path_provider.dart';
 
+import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
 import 'package:share_plus/share_plus.dart';
@@ -440,6 +441,17 @@ String? codigoDeSalaDesdeUri(Uri uri) {
   final codigo = uri.queryParameters['sala']?.trim().toUpperCase();
   if (codigo == null || !RegExp(r'^[A-Z0-9]{8}$').hasMatch(codigo)) return null;
   return codigo;
+}
+
+/// Código de sala dentro de lo que leyó el escáner de QR: un enlace de sala
+/// (`.../?sala=ABCD2345`) o el código suelto. Null si no es de una sala.
+String? codigoDeSalaDesdeTexto(String? texto) {
+  final t = texto?.trim() ?? '';
+  if (t.isEmpty) return null;
+  final suelto = t.toUpperCase();
+  if (RegExp(r'^[A-Z0-9]{8}$').hasMatch(suelto)) return suelto;
+  final uri = Uri.tryParse(t);
+  return uri == null ? null : codigoDeSalaDesdeUri(uri);
 }
 
 /// Enlace para unirse a una sala desde el navegador.
@@ -8306,6 +8318,86 @@ class _CrearSalaScreenState extends State<CrearSalaScreen> {
 
 // --- PANTALLA PARA UNIRSE A SALA ---
 
+/// Abre la cámara, lee el QR de una sala y devuelve su código (con pop). Solo
+/// en la app: en el navegador se escanea con la cámara del celular, que abre el
+/// enlace.
+class EscanearQrScreen extends StatefulWidget {
+  const EscanearQrScreen({super.key});
+
+  @override
+  State<EscanearQrScreen> createState() => _EscanearQrScreenState();
+}
+
+class _EscanearQrScreenState extends State<EscanearQrScreen> {
+  final _controlador = MobileScannerController(
+    formats: const [BarcodeFormat.qrCode],
+    detectionSpeed: DetectionSpeed.noDuplicates,
+  );
+  bool _listo = false;
+  bool _avisado = false;
+
+  @override
+  void dispose() {
+    _controlador.dispose();
+    super.dispose();
+  }
+
+  void _alLeer(BarcodeCapture captura) {
+    if (_listo) return;
+    for (final b in captura.barcodes) {
+      final codigo = codigoDeSalaDesdeTexto(b.rawValue);
+      if (codigo != null) {
+        _listo = true;
+        Navigator.pop(context, codigo);
+        return;
+      }
+    }
+    // Un QR que no es de una sala: se avisa una vez y se sigue buscando.
+    if (!_avisado && captura.barcodes.isNotEmpty) {
+      _avisado = true;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(context.l10n.qrNoEsDeSala)));
+      Future.delayed(const Duration(seconds: 3), () => _avisado = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text(context.l10n.escanearQr)),
+      body: Stack(
+        children: [
+          MobileScanner(
+            controller: _controlador,
+            onDetect: _alLeer,
+            errorBuilder: (context, error) => Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Text(context.l10n.camaraNoDisponible,
+                    textAlign: TextAlign.center),
+              ),
+            ),
+          ),
+          Align(
+            alignment: Alignment.bottomCenter,
+            child: Container(
+              width: double.infinity,
+              color: Colors.black54,
+              padding: const EdgeInsets.all(16),
+              child: SafeArea(
+                top: false,
+                child: Text(context.l10n.escanearQrAyuda,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: Colors.white)),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class UnirmeSalaScreen extends StatefulWidget {
   final String? codigoInicial;
 
@@ -8439,6 +8531,25 @@ class _UnirmeSalaScreenState extends State<UnirmeSalaScreen> {
                 border: const OutlineInputBorder(),
               ),
             ),
+            if (!kIsWeb) ...[
+              const SizedBox(height: 8),
+              Align(
+                alignment: AlignmentDirectional.centerStart,
+                child: TextButton.icon(
+                  icon: const Icon(Icons.qr_code_scanner),
+                  label: Text(context.l10n.escanearQr),
+                  onPressed: () async {
+                    final codigo = await Navigator.push<String>(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => const EscanearQrScreen()));
+                    if (codigo != null && mounted) {
+                      setState(() => _pinController.text = codigo);
+                    }
+                  },
+                ),
+              ),
+            ],
             const SizedBox(height: 16),
             TextField(
               controller: _nameController,

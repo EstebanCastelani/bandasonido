@@ -1469,4 +1469,22 @@ Tu gloria llena la tierra///
           isTrue);
     });
   });
+
+  group('codigoDeSalaDesdeTexto (QR)', () {
+    test('enlace de sala', () {
+      expect(
+          codigoDeSalaDesdeTexto(
+              'https://estebancastelani.github.io/bandasonido/?sala=wca32a8d'),
+          'WCA32A8D');
+    });
+    test('código suelto', () {
+      expect(codigoDeSalaDesdeTexto(' wca32a8d '), 'WCA32A8D');
+    });
+    test('lo que no es de una sala', () {
+      expect(codigoDeSalaDesdeTexto(null), isNull);
+      expect(codigoDeSalaDesdeTexto(''), isNull);
+      expect(codigoDeSalaDesdeTexto('https://ejemplo.com/?sala=corto'), isNull);
+      expect(codigoDeSalaDesdeTexto('hola'), isNull);
+    });
+  });
 }

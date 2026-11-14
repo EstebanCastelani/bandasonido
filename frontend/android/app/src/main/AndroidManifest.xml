@@ -2,6 +2,10 @@
     <!-- Sin este permiso una versión release no puede hablar con Firebase ni con
          Supabase (Flutter solo lo agrega a los manifiestos de debug y profile). -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- Cámara: solo para escanear el QR de una sala (Unirme a sala). No es
+         obligatoria: el código también se puede escribir. -->
+    <uses-permission android:name="android.permission.CAMERA"/>
+    <uses-feature android:name="android.hardware.camera" android:required="false"/>
     <application
         android:label="Sound Check Pro"
         android:name="${applicationName}"
