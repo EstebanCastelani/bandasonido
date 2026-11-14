@@ -7403,9 +7403,11 @@ class _BotonesDeCuenta extends StatelessWidget {
                     boton(Icons.chat_bubble_outline, context.l10n.misFrases,
                         () => const FrasesAdminScreen()),
                     boton(Icons.library_music, context.l10n.miRepertorio,
-                        () => const MiRepertorioScreen()),
+                        () => const MiRepertorioScreen(),
+                        soloPago: true),
                     boton(Icons.graphic_eq, context.l10n.misSecuencias,
-                        () => const MisSecuenciasScreen()),
+                        () => const MisSecuenciasScreen(),
+                        soloPago: true),
                   ],
                 ),
         );
@@ -7698,9 +7700,11 @@ class MenuHamburguesa extends StatelessWidget {
         if (conCuenta) ...[
           PopupMenuItem(value: 'frases', child: Text(context.l10n.misFrases2)),
           PopupMenuItem(
-              value: 'repertorio', child: Text(context.l10n.miRepertorio2)),
+              value: 'repertorio',
+              child: _TextoMenuSoloPro(context.l10n.miRepertorio2)),
           PopupMenuItem(
-              value: 'secuencias', child: Text(context.l10n.misSecuencias2)),
+              value: 'secuencias',
+              child: _TextoMenuSoloPro(context.l10n.misSecuencias2)),
           PopupMenuItem(value: 'plan', child: Text(context.l10n.planPro)),
           if (esAdmin)
             PopupMenuItem(
@@ -7714,6 +7718,35 @@ class MenuHamburguesa extends StatelessWidget {
         if (conCuenta)
           PopupMenuItem(value: 'salir', child: Text(context.l10n.cerrarSesion)),
       ],
+    );
+  }
+}
+
+/// Texto de un ítem del menú que es de la app paga: para una cuenta gratis se
+/// ve apagado y con candado (sigue siendo tocable: abre su pantalla con el cupo
+/// gratis). Con Pro, o mientras no se sabe, se ve normal.
+class _TextoMenuSoloPro extends StatelessWidget {
+  final String texto;
+  const _TextoMenuSoloPro(this.texto);
+
+  @override
+  Widget build(BuildContext context) {
+    String? uid;
+    try {
+      uid = AuthService.currentUser?.uid;
+    } catch (_) {}
+    if (uid == null) return Text(texto);
+    return EsProBuilder(
+      uid: uid,
+      builder: (context, esPro) => Opacity(
+        opacity: esPro ? 1 : 0.5,
+        child: Row(
+          children: [
+            Expanded(child: Text(texto)),
+            if (!esPro) const Icon(Icons.lock_outline, size: 18),
+          ],
+        ),
+      ),
     );
   }
 }
