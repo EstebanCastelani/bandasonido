@@ -406,7 +406,8 @@ void irAlSalirDeSala(BuildContext context, {bool volverAMisSalas = false}) {
 const String kVersionApp = '1.2.0';
 
 /// Dirección pública de la versión web (para armar el enlace de una sala).
-const String kUrlWeb = 'https://estebancastelani.github.io/bandasonido/';
+const String kUrlWeb =
+    'https://sound-check-pro-web.sound-check-pro-archivos.workers.dev/';
 
 /// Largo máximo de un pedido escrito a mano (también se debería exigir en las reglas).
 const int kMaxCaracteresPedido = 200;
