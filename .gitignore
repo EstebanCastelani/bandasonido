@@ -1,1 +1,29 @@
+# Claves y credenciales: nunca se suben al repositorio.
+.env
+.env.*
+!.env.example
+.dev.vars
+*.jks
+*.keystore
+*.p12
+*.pem
+key.properties
+google-services.json
+GoogleService-Info.plist
+*adminsdk*.json
+*service-account*.json
+*serviceAccount*.json
+# Exportaciones de cuentas de Firebase (contienen UIDs y mails)
+usuarios*.json
+despues.json
+
+# Compilaciones y dependencias
+build/
+node_modules/
+.dart_tool/
+*.apk
+*.aab
+symbols/
+
+# Cloudflare
 worker/.wrangler/
