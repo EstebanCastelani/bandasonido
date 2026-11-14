@@ -978,5 +978,29 @@
         "type": "String"
       }
     }
+  },
+  "eliminarTodoRepertorio": "Eliminar todo el repertorio",
+  "eliminarTodoPregunta": "¿Eliminar todas las canciones de tu repertorio?",
+  "eliminarTodoAviso": "Se borran también los archivos PDF. No se puede deshacer.",
+  "eliminarTodoHecho": "Se eliminaron {n} canciones",
+  "eliminarTodoNada": "No había canciones para eliminar",
+  "@eliminarTodoHecho": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "eliminarTodasSecuencias": "Eliminar todas mis secuencias",
+  "eliminarTodasSecuenciasPregunta": "¿Eliminar todas tus secuencias?",
+  "eliminarTodasSecuenciasAviso": "Se borran también los archivos de audio. No se puede deshacer.",
+  "eliminarTodasSecuenciasHecho": "Se eliminaron {n} secuencias",
+  "eliminarTodasSecuenciasNada": "No había secuencias para eliminar",
+  "@eliminarTodasSecuenciasHecho": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
   }
 }

@@ -575,5 +575,29 @@
         "type": "String"
       }
     }
+  },
+  "eliminarTodoRepertorio": "Apagar todo o repertório",
+  "eliminarTodoPregunta": "Apagar todas as músicas do seu repertório?",
+  "eliminarTodoAviso": "Os arquivos PDF também são apagados. Não dá para desfazer.",
+  "eliminarTodoHecho": "{n} músicas apagadas",
+  "eliminarTodoNada": "Não havia músicas para apagar",
+  "@eliminarTodoHecho": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "eliminarTodasSecuencias": "Apagar todas as minhas sequências",
+  "eliminarTodasSecuenciasPregunta": "Apagar todas as suas sequências?",
+  "eliminarTodasSecuenciasAviso": "Os arquivos de áudio também são apagados. Não dá para desfazer.",
+  "eliminarTodasSecuenciasHecho": "{n} sequências apagadas",
+  "eliminarTodasSecuenciasNada": "Não havia sequências para apagar",
+  "@eliminarTodasSecuenciasHecho": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
   }
 }

@@ -575,5 +575,29 @@
         "type": "String"
       }
     }
+  },
+  "eliminarTodoRepertorio": "Supprimer tout le répertoire",
+  "eliminarTodoPregunta": "Supprimer tous les morceaux de votre répertoire ?",
+  "eliminarTodoAviso": "Les fichiers PDF sont aussi supprimés. Action irréversible.",
+  "eliminarTodoHecho": "{n} morceaux supprimés",
+  "eliminarTodoNada": "Aucun morceau à supprimer",
+  "@eliminarTodoHecho": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "eliminarTodasSecuencias": "Supprimer toutes mes séquences",
+  "eliminarTodasSecuenciasPregunta": "Supprimer toutes vos séquences ?",
+  "eliminarTodasSecuenciasAviso": "Les fichiers audio sont aussi supprimés. Action irréversible.",
+  "eliminarTodasSecuenciasHecho": "{n} séquences supprimées",
+  "eliminarTodasSecuenciasNada": "Aucune séquence à supprimer",
+  "@eliminarTodasSecuenciasHecho": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
   }
 }

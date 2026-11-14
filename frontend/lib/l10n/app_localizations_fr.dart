@@ -1572,4 +1572,42 @@ class AppLocalizationsFr extends AppLocalizations {
   String temaSiguiente(String titulo) {
     return 'Suivant : $titulo';
   }
+
+  @override
+  String get eliminarTodoRepertorio => 'Supprimer tout le répertoire';
+
+  @override
+  String get eliminarTodoPregunta =>
+      'Supprimer tous les morceaux de votre répertoire ?';
+
+  @override
+  String get eliminarTodoAviso =>
+      'Les fichiers PDF sont aussi supprimés. Action irréversible.';
+
+  @override
+  String eliminarTodoHecho(int n) {
+    return '$n morceaux supprimés';
+  }
+
+  @override
+  String get eliminarTodoNada => 'Aucun morceau à supprimer';
+
+  @override
+  String get eliminarTodasSecuencias => 'Supprimer toutes mes séquences';
+
+  @override
+  String get eliminarTodasSecuenciasPregunta =>
+      'Supprimer toutes vos séquences ?';
+
+  @override
+  String get eliminarTodasSecuenciasAviso =>
+      'Les fichiers audio sont aussi supprimés. Action irréversible.';
+
+  @override
+  String eliminarTodasSecuenciasHecho(int n) {
+    return '$n séquences supprimées';
+  }
+
+  @override
+  String get eliminarTodasSecuenciasNada => 'Aucune séquence à supprimer';
 }

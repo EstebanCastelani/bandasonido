@@ -575,5 +575,29 @@
         "type": "String"
       }
     }
+  },
+  "eliminarTodoRepertorio": "Delete the whole repertoire",
+  "eliminarTodoPregunta": "Delete all the songs in your repertoire?",
+  "eliminarTodoAviso": "The PDF files are deleted too. This can’t be undone.",
+  "eliminarTodoHecho": "{n} songs deleted",
+  "eliminarTodoNada": "There were no songs to delete",
+  "@eliminarTodoHecho": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "eliminarTodasSecuencias": "Delete all my tracks",
+  "eliminarTodasSecuenciasPregunta": "Delete all your tracks?",
+  "eliminarTodasSecuenciasAviso": "The audio files are deleted too. This can’t be undone.",
+  "eliminarTodasSecuenciasHecho": "{n} tracks deleted",
+  "eliminarTodasSecuenciasNada": "There were no tracks to delete",
+  "@eliminarTodasSecuenciasHecho": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
   }
 }
