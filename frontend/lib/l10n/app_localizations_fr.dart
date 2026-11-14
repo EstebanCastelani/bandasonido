@@ -1558,4 +1558,18 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get camaraNoDisponible =>
       'Impossible d’utiliser la caméra. Vérifiez l’autorisation ou saisissez le code.';
+
+  @override
+  String get notaDeSonido => 'Note de son';
+
+  @override
+  String get notaDeSonidoHint => 'Ex : monter la guitare pendant le solo';
+
+  @override
+  String get temaActualTitulo => 'Morceau en cours';
+
+  @override
+  String temaSiguiente(String titulo) {
+    return 'Suivant : $titulo';
+  }
 }

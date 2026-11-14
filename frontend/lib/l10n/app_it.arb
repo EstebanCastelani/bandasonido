@@ -564,5 +564,16 @@
   "escanearQr": "Scansiona QR",
   "escanearQrAyuda": "Inquadra il QR della sala con la fotocamera.",
   "qrNoEsDeSala": "Questo QR non è di una sala Sound Check Pro.",
-  "camaraNoDisponible": "Impossibile usare la fotocamera. Controlla il permesso o digita il codice."
+  "camaraNoDisponible": "Impossibile usare la fotocamera. Controlla il permesso o digita il codice.",
+  "notaDeSonido": "Nota di suono",
+  "notaDeSonidoHint": "Es: alzare la chitarra nell’assolo",
+  "temaActualTitulo": "Brano attuale",
+  "temaSiguiente": "Prossimo: {titulo}",
+  "@temaSiguiente": {
+    "placeholders": {
+      "titulo": {
+        "type": "String"
+      }
+    }
+  }
 }

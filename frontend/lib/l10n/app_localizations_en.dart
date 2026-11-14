@@ -1545,4 +1545,18 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get camaraNoDisponible =>
       'The camera could not be used. Check the permission or type the code.';
+
+  @override
+  String get notaDeSonido => 'Sound note';
+
+  @override
+  String get notaDeSonidoHint => 'E.g. bring up the guitar in the solo';
+
+  @override
+  String get temaActualTitulo => 'Current song';
+
+  @override
+  String temaSiguiente(String titulo) {
+    return 'Next: $titulo';
+  }
 }

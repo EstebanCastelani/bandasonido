@@ -2671,6 +2671,30 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'No se pudo usar la cámara. Revisá el permiso o escribí el código.'**
   String get camaraNoDisponible;
+
+  /// No description provided for @notaDeSonido.
+  ///
+  /// In es, this message translates to:
+  /// **'Nota de sonido'**
+  String get notaDeSonido;
+
+  /// No description provided for @notaDeSonidoHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Ej: subir la guitarra en el solo'**
+  String get notaDeSonidoHint;
+
+  /// No description provided for @temaActualTitulo.
+  ///
+  /// In es, this message translates to:
+  /// **'Tema actual'**
+  String get temaActualTitulo;
+
+  /// No description provided for @temaSiguiente.
+  ///
+  /// In es, this message translates to:
+  /// **'Siguiente: {titulo}'**
+  String temaSiguiente(String titulo);
 }
 
 class _AppLocalizationsDelegate

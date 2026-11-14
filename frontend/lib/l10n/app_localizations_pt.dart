@@ -1550,4 +1550,18 @@ class AppLocalizationsPt extends AppLocalizations {
   @override
   String get camaraNoDisponible =>
       'Não foi possível usar a câmera. Verifique a permissão ou digite o código.';
+
+  @override
+  String get notaDeSonido => 'Nota de som';
+
+  @override
+  String get notaDeSonidoHint => 'Ex: subir a guitarra no solo';
+
+  @override
+  String get temaActualTitulo => 'Música atual';
+
+  @override
+  String temaSiguiente(String titulo) {
+    return 'Próxima: $titulo';
+  }
 }

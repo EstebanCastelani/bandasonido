@@ -564,5 +564,16 @@
   "escanearQr": "Ler QR",
   "escanearQrAyuda": "Aponte a câmera para o QR da sala.",
   "qrNoEsDeSala": "Esse QR não é de uma sala do Sound Check Pro.",
-  "camaraNoDisponible": "Não foi possível usar a câmera. Verifique a permissão ou digite o código."
+  "camaraNoDisponible": "Não foi possível usar a câmera. Verifique a permissão ou digite o código.",
+  "notaDeSonido": "Nota de som",
+  "notaDeSonidoHint": "Ex: subir a guitarra no solo",
+  "temaActualTitulo": "Música atual",
+  "temaSiguiente": "Próxima: {titulo}",
+  "@temaSiguiente": {
+    "placeholders": {
+      "titulo": {
+        "type": "String"
+      }
+    }
+  }
 }
