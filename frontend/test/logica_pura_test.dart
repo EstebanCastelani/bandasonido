@@ -1474,7 +1474,7 @@ Tu gloria llena la tierra///
     test('enlace de sala', () {
       expect(
           codigoDeSalaDesdeTexto(
-              'https://estebancastelani.github.io/bandasonido/?sala=wca32a8d'),
+              'https://sound-check-pro-web.sound-check-pro-archivos.workers.dev/?sala=wca32a8d'),
           'WCA32A8D');
     });
     test('código suelto', () {
