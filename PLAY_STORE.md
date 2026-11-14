@@ -44,7 +44,8 @@ Nota original: el *applicationId* **no se puede cambiar una vez publicada** y ti
    ```
    Te pide contraseñas y datos de identificación. **Anotá las contraseñas y hacé una copia del `.jks` en dos lugares** (si lo perdés tendrás que pedirle a Google un reseteo de la clave de subida).
 2. Copiá `frontend/android/key.properties.example` como `frontend/android/key.properties` y completá las contraseñas, el alias (`upload`) y la ruta al `.jks`. Ese archivo está en `.gitignore`: no lo subas.
-3. Sacá la huella SHA-1 de la clave: `keytool -list -v -keystore C:\claves\sound-check-pro\upload-keystore.jks -alias upload`.
+3. (Hecho el 14-nov-2026: clave en `C:clavessound-check-pro`, SHA-1 `54:41:5C:BC:…:AD:15` ya cargada en la app `com.soundcheckpro.app` de Firebase; el `.aab` firmado con ella coincide.) En esta PC `keytool -list` falla por el idioma: agregar `-J-Duser.language=en -J-Duser.country=US` o usar `-exportcert` y `Get-FileHash`. Para comprobar con qué clave quedó firmado un `.aab`: `keytool -J-Duser.language=en -J-Duser.country=US -printcert -jarfile app-release.aab`.
+   Sacá la huella SHA-1 de la clave: `keytool -list -v -keystore C:\claves\sound-check-pro\upload-keystore.jks -alias upload`.
 4. **Registrá la SHA-1 en Firebase** (⚙️ → *Tus apps* → app Android → *Agregar huella digital*). **Sin esto, "Continuar con Google" deja de funcionar en la versión de la tienda.**
 5. Recomendado: usar **Play App Signing** (se activa solo al crear la app en Play Console). Google guarda la clave que firma lo que reciben los usuarios y vos solo conservás la clave de subida. Después de tu primera subida, en Play Console → *Integridad de la app* aparece la **SHA-1 de la clave de firma de la app**: agregala también en Firebase.
 
