@@ -1595,4 +1595,8 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get eliminarTodasSecuenciasNada => 'There were no tracks to delete';
+
+  @override
+  String get seGuardaEnTuBiblioteca =>
+      'Saved in your library and used when you play it here.';
 }

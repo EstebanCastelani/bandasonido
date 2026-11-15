@@ -1602,4 +1602,8 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String get eliminarTodasSecuenciasNada => 'Non c’erano sequenze da eliminare';
+
+  @override
+  String get seGuardaEnTuBiblioteca =>
+      'Salvato nella tua libreria e usato quando la riproduci qui.';
 }

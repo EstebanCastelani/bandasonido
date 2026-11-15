@@ -1605,4 +1605,8 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get eliminarTodasSecuenciasNada => 'No había secuencias para eliminar';
+
+  @override
+  String get seGuardaEnTuBiblioteca =>
+      'Se guarda en tu biblioteca y se usa cuando la reproducís acá.';
 }

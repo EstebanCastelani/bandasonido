@@ -1002,5 +1002,6 @@
         "type": "int"
       }
     }
-  }
+  },
+  "seGuardaEnTuBiblioteca": "Se guarda en tu biblioteca y se usa cuando la reproducís acá."
 }

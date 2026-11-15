@@ -1602,4 +1602,8 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String get eliminarTodasSecuenciasNada => 'Não havia sequências para apagar';
+
+  @override
+  String get seGuardaEnTuBiblioteca =>
+      'Fica salvo na sua biblioteca e é usado quando você a toca aqui.';
 }

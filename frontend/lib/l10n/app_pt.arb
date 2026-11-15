@@ -599,5 +599,6 @@
         "type": "int"
       }
     }
-  }
+  },
+  "seGuardaEnTuBiblioteca": "Fica salvo na sua biblioteca e é usado quando você a toca aqui."
 }

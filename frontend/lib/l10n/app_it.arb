@@ -599,5 +599,6 @@
         "type": "int"
       }
     }
-  }
+  },
+  "seGuardaEnTuBiblioteca": "Salvato nella tua libreria e usato quando la riproduci qui."
 }

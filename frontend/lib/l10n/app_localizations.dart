@@ -2755,6 +2755,12 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'No había secuencias para eliminar'**
   String get eliminarTodasSecuenciasNada;
+
+  /// No description provided for @seGuardaEnTuBiblioteca.
+  ///
+  /// In es, this message translates to:
+  /// **'Se guarda en tu biblioteca y se usa cuando la reproducís acá.'**
+  String get seGuardaEnTuBiblioteca;
 }
 
 class _AppLocalizationsDelegate

@@ -599,5 +599,6 @@
         "type": "int"
       }
     }
-  }
+  },
+  "seGuardaEnTuBiblioteca": "Saved in your library and used when you play it here."
 }
