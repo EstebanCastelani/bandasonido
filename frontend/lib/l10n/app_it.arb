@@ -140,7 +140,7 @@
   "quitar": "Rimuovi",
   "noSePudoGuardarEl": "Impossibile salvare la regolazione: {error}",
   "seGuardaParaTodaLa": "Viene salvata per tutta la sala. Tonalità, tempo e volume si regolano separatamente.",
-  "tono": "TONALITÀ",
+  "tono": "TONALITÀ (SEMITONI)",
   "bajarUnSemitono": "Abbassa di un semitono",
   "subirUnSemitono": "Alza di un semitono",
   "elCambioDeTonoPor": "Per ora il cambio di tonalità funziona solo nella versione web.",
@@ -597,6 +597,45 @@
     "placeholders": {
       "n": {
         "type": "int"
+      }
+    }
+  },
+  "seGuardaEnTuBiblioteca": "Salvato nella tua libreria e usato quando la riproduci qui.",
+  "fraseSubimeRetorno": "Alza il mio ritorno",
+  "fraseBajameRetorno": "Abbassa il mio ritorno",
+  "fraseNoMeEscucho": "Non mi sento",
+  "fraseHayAcople": "C’è feedback",
+  "fraseHayZumbido": "C’è un ronzio",
+  "fraseMasVoz": "Più voce",
+  "fraseMenosVoz": "Meno voce",
+  "fraseMasReverb": "Più riverbero",
+  "fraseMenosReverb": "Meno riverbero",
+  "fraseMicSinSonido": "Microfono senza suono",
+  "fuenteVolumen": "volume",
+  "fuenteRetorno": "ritorno",
+  "fuenteVoz": "voce",
+  "fuenteGuitarra": "chitarra",
+  "fuenteTeclado": "tastiera",
+  "fuenteBajo": "basso",
+  "fuenteBateria": "batteria",
+  "fuentePista": "traccia",
+  "fuenteClick": "click",
+  "fuenteReverb": "riverbero",
+  "modoMas": "Più",
+  "modoMenos": "Meno",
+  "pedirMas": "Più {fuente}",
+  "@pedirMas": {
+    "placeholders": {
+      "fuente": {
+        "type": "String"
+      }
+    }
+  },
+  "pedirMenos": "Meno {fuente}",
+  "@pedirMenos": {
+    "placeholders": {
+      "fuente": {
+        "type": "String"
       }
     }
   }

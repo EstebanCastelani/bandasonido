@@ -578,22 +578,37 @@ class AppConstants {
   /// manda este texto tal cual: el sonidista lo ve en el idioma de quien lo
   /// envió.
   static List<String> pedidosRapidos(AppLocalizations l) => [
-        l.fraseVolumenRetorno,
-        l.fraseVolumenAl2,
-        l.fraseVolumenAl3,
-        l.fraseVolumenAl4,
-        l.fraseVolumenGuitarra,
-        l.fraseVolumenTeclado,
-        l.fraseVolumenTalkback,
-        l.fraseVolumenPista,
-        l.fraseVolumenClick,
-        l.fraseVolumenCoordinador,
-        l.fraseVolumenGeneral,
-        l.fraseMasVolumen,
-        l.fraseMenosVolumen,
+        l.fraseNoMeEscucho,
+        l.fraseHayAcople,
+        l.fraseHayZumbido,
+        l.fraseMicSinSonido,
         l.fraseListo,
       ];
+
+  /// Las fuentes de los botones "Más / Menos" de Pedidos (en minúscula, para
+  /// armar la frase: "Más voz", "Menos retorno"). Cada botón manda
+  /// `pedirMas` o `pedirMenos` según el selector.
+  static List<String> fuentesPedido(AppLocalizations l) => [
+        l.fuenteVolumen,
+        l.fuenteRetorno,
+        l.fuenteVoz,
+        l.fuenteGuitarra,
+        l.fuenteTeclado,
+        l.fuenteBajo,
+        l.fuenteBateria,
+        l.fuentePista,
+        l.fuenteClick,
+        l.fuenteReverb,
+      ];
 }
+
+/// Clave en el celular del selector Más / Menos de Pedidos (true = Menos): queda
+/// como lo dejó la persona, también al volver a abrir la app.
+const String kClaveModoPedidoMenos = 'pedido_modo_menos';
+
+/// Primera letra en mayúscula (para el texto de un botón).
+String capitalizar(String t) =>
+    t.isEmpty ? t : t[0].toUpperCase() + t.substring(1);
 
 /// Genera un código de sala de 8 caracteres alfanuméricos (excluye 0/O/1/I/L
 /// para que no se confundan al leerlos en voz alta o escribirlos a mano).
@@ -3880,6 +3895,23 @@ class SecuenciasService {
       }
     }
     await _refUsuario(uid).doc(id).delete();
+  }
+
+  /// Tono, tempo y volumen de una secuencia de la biblioteca (Mis secuencias):
+  /// se guardan en su documento y se usan al reproducirla ahí. No viajan a las
+  /// salas.
+  static Future<void> actualizarAjustesBiblioteca(
+    String uid,
+    String id, {
+    required int semitonos,
+    required int tempoPorcentaje,
+    required int volumenPorcentaje,
+  }) async {
+    await _refUsuario(uid).doc(id).update({
+      'semitonos': semitonos,
+      'tempoPorcentaje': tempoPorcentaje,
+      'volumenPorcentaje': volumenPorcentaje,
+    });
   }
 
   /// Elimina TODAS las secuencias de la biblioteca: sus archivos de audio (los
@@ -9113,6 +9145,10 @@ class _RequestScreenState extends State<RequestScreen>
   bool _pantallaEncendida = true;
 
   bool _esUrgente = false;
+
+  /// Selector de Pedidos: false = "Más", true = "Menos". No vuelve solo a
+  /// "Más" después de enviar: queda donde lo dejó la persona.
+  bool _modoMenos = false;
   StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _conexionSub;
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _respuestasSub;
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _precargaSub;
@@ -9150,6 +9186,7 @@ class _RequestScreenState extends State<RequestScreen>
     AnchoContenido.ampliar();
     _vigilarConexion();
     _vigilarRespuestas();
+    _cargarModoPedido();
     _precargaSub = SecuenciasService.precargarDeSala(widget.codigoSala);
 
     MiembrosSalaService.registrarPresencia(widget.codigoSala).catchError(
@@ -9387,39 +9424,154 @@ class _RequestScreenState extends State<RequestScreen>
     }
   }
 
-  Widget _construirGridFrases(List<String> pedidosRapidos) {
-    return GridView.builder(
-      padding: const EdgeInsets.all(8),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 3,
-          childAspectRatio: 1.8,
-          crossAxisSpacing: 6,
-          mainAxisSpacing: 6),
-      itemCount: pedidosRapidos.length,
-      itemBuilder: (context, i) {
-        final pedido = pedidosRapidos[i];
+  Future<void> _cargarModoPedido() async {
+    try {
+      final p = await SharedPreferences.getInstance();
+      final menos = p.getBool(kClaveModoPedidoMenos) ?? false;
+      if (mounted && menos != _modoMenos) setState(() => _modoMenos = menos);
+    } catch (_) {}
+  }
 
-        return ElevatedButton(
-          style: ElevatedButton.styleFrom(
-            padding: const EdgeInsets.symmetric(horizontal: 2),
-            backgroundColor: context.acento.withValues(alpha: 0.05),
-            elevation: 0,
-            shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(6),
-                side: BorderSide(color: context.acento.withValues(alpha: 0.2))),
+  Future<void> _cambiarModoPedido(bool menos) async {
+    if (menos == _modoMenos) return;
+    setState(() => _modoMenos = menos);
+    try {
+      final p = await SharedPreferences.getInstance();
+      await p.setBool(kClaveModoPedidoMenos, menos);
+    } catch (_) {}
+  }
+
+  /// Un botón de pedido rápido (frase o fuente) con el color indicado.
+  Widget _botonPedido(String texto, Color color, VoidCallback alTocar) {
+    return ElevatedButton(
+      style: ElevatedButton.styleFrom(
+        padding: const EdgeInsets.symmetric(horizontal: 2),
+        backgroundColor: color.withValues(alpha: 0.05),
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(6),
+            side: BorderSide(color: color.withValues(alpha: 0.2))),
+      ),
+      onPressed: alTocar,
+      // Con la letra muy grande una palabra larga ("coordinador") no entra
+      // en el botón y se cortaba: se limita cuánto crece solo acá.
+      child: MediaQuery.withClampedTextScaling(
+        maxScaleFactor: 1.15,
+        child: Text(texto,
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+      ),
+    );
+  }
+
+  /// Los dos botones grandes "Más" / "Menos": el que está elegido va relleno.
+  Widget _selectorMasMenos() {
+    final l = context.l10n;
+    const colorMenos = Colors.deepOrangeAccent;
+    Widget opcion(
+        {required String texto,
+        required IconData icono,
+        required bool activo,
+        required Color color,
+        required VoidCallback alTocar}) {
+      final contenido = Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icono, size: 18),
+          const SizedBox(width: 6),
+          Flexible(
+              child: Text(texto,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                      fontSize: 16, fontWeight: FontWeight.w600))),
+        ],
+      );
+      return SizedBox(
+        height: 44,
+        child: activo
+            ? FilledButton(
+                style: FilledButton.styleFrom(
+                    backgroundColor: color, foregroundColor: Colors.black),
+                onPressed: alTocar,
+                child: contenido)
+            : OutlinedButton(
+                style: OutlinedButton.styleFrom(
+                    side: BorderSide(color: color.withValues(alpha: 0.5)),
+                    foregroundColor: color),
+                onPressed: alTocar,
+                child: contenido),
+      );
+    }
+
+    return Row(
+      children: [
+        Expanded(
+          child: opcion(
+              texto: l.modoMas,
+              icono: Icons.arrow_upward,
+              activo: !_modoMenos,
+              color: context.acento,
+              alTocar: () => _cambiarModoPedido(false)),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: opcion(
+              texto: l.modoMenos,
+              icono: Icons.arrow_downward,
+              activo: _modoMenos,
+              color: colorMenos,
+              alTocar: () => _cambiarModoPedido(true)),
+        ),
+      ],
+    );
+  }
+
+  /// Selector Más / Menos con una fuente por botón, y debajo las frases
+  /// rápidas de la persona.
+  Widget _construirGridFrases(List<String> pedidosRapidos) {
+    final l = context.l10n;
+    final fuentes = AppConstants.fuentesPedido(l);
+    final colorModo = _modoMenos ? Colors.deepOrangeAccent : context.acento;
+    const delegado = SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 3,
+        childAspectRatio: 1.8,
+        crossAxisSpacing: 6,
+        mainAxisSpacing: 6);
+    return CustomScrollView(
+      slivers: [
+        SliverToBoxAdapter(
+          child: Padding(
+              padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
+              child: _selectorMasMenos()),
+        ),
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
+          sliver: SliverGrid(
+            gridDelegate: delegado,
+            delegate: SliverChildBuilderDelegate(
+              (context, i) => _botonPedido(
+                capitalizar(fuentes[i]),
+                colorModo,
+                () => _enviarMensaje(_modoMenos
+                    ? l.pedirMenos(fuentes[i])
+                    : l.pedirMas(fuentes[i])),
+              ),
+              childCount: fuentes.length,
+            ),
           ),
-          onPressed: () => _enviarMensaje(pedido),
-          // Con la letra muy grande una palabra larga ("coordinador") no entra
-          // en el botón y se cortaba: se limita cuánto crece solo acá.
-          child: MediaQuery.withClampedTextScaling(
-            maxScaleFactor: 1.15,
-            child: Text(pedido,
-                textAlign: TextAlign.center,
-                style:
-                    const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+        ),
+        SliverPadding(
+          padding: const EdgeInsets.all(8),
+          sliver: SliverGrid(
+            gridDelegate: delegado,
+            delegate: SliverChildBuilderDelegate(
+              (context, i) => _botonPedido(pedidosRapidos[i], context.acento,
+                  () => _enviarMensaje(pedidosRapidos[i])),
+              childCount: pedidosRapidos.length,
+            ),
           ),
-        );
-      },
+        ),
+      ],
     );
   }
 
@@ -10585,23 +10737,23 @@ class SetlistTab extends StatelessWidget {
                       value: 'tocado', child: Text(context.l10n.tocado)),
                 ],
               ),
-              title: Row(
+              title: Wrap(
+                spacing: 8,
+                runSpacing: 2,
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
-                  Flexible(
-                    child: Text(
-                      titulo,
-                      style: TextStyle(
-                        decoration:
-                            completado ? TextDecoration.lineThrough : null,
-                        fontStyle: pausado ? FontStyle.italic : null,
-                        color: completado
-                            ? Colors.grey
-                            : (pausado ? Colors.orange.shade800 : null),
-                      ),
+                  Text(
+                    titulo,
+                    style: TextStyle(
+                      decoration:
+                          completado ? TextDecoration.lineThrough : null,
+                      fontStyle: pausado ? FontStyle.italic : null,
+                      color: completado
+                          ? Colors.grey
+                          : (pausado ? Colors.orange.shade800 : null),
                     ),
                   ),
-                  if (esProximo || pausado) ...[
-                    const SizedBox(width: 8),
+                  if (esProximo || pausado)
                     Container(
                       padding: const EdgeInsets.symmetric(
                           horizontal: 6, vertical: 2),
@@ -10617,7 +10769,6 @@ class SetlistTab extends StatelessWidget {
                             color: Colors.white),
                       ),
                     ),
-                  ],
                 ],
               ),
               subtitle: Column(
@@ -10667,6 +10818,7 @@ class SetlistTab extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   IconButton(
+                    visualDensity: VisualDensity.compact,
                     icon: Icon(
                         notaSonido.isEmpty
                             ? Icons.sticky_note_2_outlined
@@ -10678,6 +10830,7 @@ class SetlistTab extends StatelessWidget {
                   ),
                   if (cifradoTexto.isNotEmpty)
                     IconButton(
+                      visualDensity: VisualDensity.compact,
                       icon: Icon(Icons.music_note, color: context.acento),
                       tooltip: context.l10n.verCifradoTransponer,
                       onPressed: () => Navigator.push(
@@ -10703,6 +10856,7 @@ class SetlistTab extends StatelessWidget {
                     ),
                   if (!esSonidista)
                     IconButton(
+                      visualDensity: VisualDensity.compact,
                       icon: const Icon(Icons.delete_outline, color: Colors.red),
                       tooltip: context.l10n.eliminar,
                       onPressed: () =>
@@ -10770,6 +10924,265 @@ class SetlistTab extends StatelessWidget {
 /// reproductor. Mantiene su estado vivo (AutomaticKeepAliveClientMixin) para
 /// que la pista siga sonando al pasar a Pedidos o Setlist — TabBarView
 /// destruye las pestañas que no se ven si no se le pide lo contrario.
+/// Texto del tono de una secuencia ("Tono original", "+2 semitonos"…).
+String textoSemitonosSecuencia(AppLocalizations l, int semitonos) {
+  if (semitonos == 0) return l.tonoOriginal;
+  return l.semitonosConSigno(semitonos > 0 ? '+' : '−', semitonos.abs());
+}
+
+/// "Tono +2 · Tempo 95% · Vol 80%", o null si la secuencia está como se subió.
+String? resumenAjustesSecuencia(AppLocalizations l, int semitonos,
+    int tempoPorcentaje, int volumenPorcentaje) {
+  final partes = [
+    if (semitonos != 0)
+      l.semitonosConSigno(semitonos > 0 ? '+' : '−', semitonos.abs()),
+    if (tempoPorcentaje != 100) l.ajusteTempo(tempoPorcentaje),
+    if (volumenPorcentaje != 100) l.ajusteVolumen(volumenPorcentaje),
+  ];
+  return partes.isEmpty ? null : partes.join(' · ');
+}
+
+/// Hoja de tono (±12 semitonos), tempo (50-150%) y volumen (0-100%) de una
+/// secuencia, como Music Speed Changer: ninguno cambia a los otros. Suena en
+/// vivo mientras se mueve y se guarda con [alGuardar] (los deslizadores, al
+/// soltarlos). El tono es solo para cuentas Pro. La usan la sala y Mis
+/// secuencias.
+Future<void> mostrarAjustesSecuencia(
+  BuildContext contexto, {
+  required ReproductorSecuencias reproductor,
+  required String id,
+  required String titulo,
+  required int semitonosIniciales,
+  required int tempoInicial,
+  required int volumenInicial,
+  required String textoGuardado,
+  required Future<void> Function(int semitonos, int tempo, int volumen)
+      alGuardar,
+}) async {
+  var semitonos = semitonosIniciales;
+  var tempo = tempoInicial;
+  var volumen = volumenInicial;
+  final uid = AuthService.currentUser?.uid;
+  final esPro = kFuncionesProGratisPorAhora ||
+      (uid != null && await UsuarioService.streamEsPro(uid).first);
+  if (!contexto.mounted) return;
+  final mensajero = ScaffoldMessenger.of(contexto);
+  final noSePudoGuardar = contexto.l10n.noSePudoGuardarEl;
+
+  void guardar() {
+    alGuardar(semitonos, tempo, volumen).catchError((e) {
+      mensajero.showSnackBar(
+        SnackBar(
+            content: Text(noSePudoGuardar(e)),
+            backgroundColor: Colors.redAccent),
+      );
+    });
+  }
+
+  await showModalBottomSheet<void>(
+    context: contexto,
+    isScrollControlled: true,
+    builder: (context) => StatefulBuilder(
+      builder: (context, setSheet) {
+        void cambiar(
+            {int? nuevoTono,
+            int? nuevoTempo,
+            int? nuevoVolumen,
+            bool guardarYa = true}) {
+          setSheet(() {
+            if (nuevoTono != null) semitonos = nuevoTono;
+            if (nuevoTempo != null) tempo = nuevoTempo;
+            if (nuevoVolumen != null) volumen = nuevoVolumen;
+          });
+          reproductor.aplicarAjustes(id,
+              tempo: tempo / 100, semitonos: semitonos, volumen: volumen / 100);
+          if (guardarYa) guardar();
+        }
+
+        final soportaTono = ReproductorSecuencias.soportaTono;
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(titulo,
+                    style: const TextStyle(
+                        fontSize: 18, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 4),
+                Text(
+                  textoGuardado,
+                  style: const TextStyle(fontSize: 12, color: Colors.grey),
+                ),
+                const SizedBox(height: 20),
+                Text(context.l10n.tono,
+                    style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1)),
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    IconButton.filledTonal(
+                      iconSize: 32,
+                      icon: const Icon(Icons.remove),
+                      tooltip: context.l10n.bajarUnSemitono,
+                      onPressed: soportaTono && esPro && semitonos > -12
+                          ? () => cambiar(nuevoTono: semitonos - 1)
+                          : null,
+                    ),
+                    SizedBox(
+                      width: 160,
+                      child: Text(
+                        textoSemitonosSecuencia(context.l10n, semitonos),
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                            fontSize: 20, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                    IconButton.filledTonal(
+                      iconSize: 32,
+                      icon: const Icon(Icons.add),
+                      tooltip: context.l10n.subirUnSemitono,
+                      onPressed: soportaTono && esPro && semitonos < 12
+                          ? () => cambiar(nuevoTono: semitonos + 1)
+                          : null,
+                    ),
+                  ],
+                ),
+                if (!esPro)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.lock_outline, size: 14),
+                        const SizedBox(width: 4),
+                        Flexible(
+                            child: Text(context.l10n.tonoSoloPro,
+                                style: const TextStyle(fontSize: 12))),
+                      ],
+                    ),
+                  ),
+                if (!soportaTono)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(
+                      context.l10n.elCambioDeTonoPor,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(fontSize: 12, color: Colors.grey),
+                    ),
+                  ),
+                const SizedBox(height: 20),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(context.l10n.tempo,
+                          style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 1)),
+                    ),
+                    Text('$tempo%',
+                        style: const TextStyle(
+                            fontSize: 20, fontWeight: FontWeight.bold)),
+                  ],
+                ),
+                Row(
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.remove),
+                      tooltip: context.l10n.masLento1,
+                      onPressed: tempo > 50
+                          ? () => cambiar(nuevoTempo: tempo - 1)
+                          : null,
+                    ),
+                    Expanded(
+                      child: Slider(
+                        value: tempo.toDouble(),
+                        min: 50,
+                        max: 150,
+                        divisions: 100,
+                        label: '$tempo%',
+                        onChanged: (v) =>
+                            cambiar(nuevoTempo: v.round(), guardarYa: false),
+                        onChangeEnd: (_) => guardar(),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.add),
+                      tooltip: context.l10n.masRapido1,
+                      onPressed: tempo < 150
+                          ? () => cambiar(nuevoTempo: tempo + 1)
+                          : null,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(context.l10n.volumen,
+                          style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 1)),
+                    ),
+                    Text('$volumen%',
+                        style: const TextStyle(
+                            fontSize: 20, fontWeight: FontWeight.bold)),
+                  ],
+                ),
+                Row(
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.volume_down),
+                      tooltip: context.l10n.bajar5,
+                      onPressed: volumen > 0
+                          ? () => cambiar(nuevoVolumen: max(0, volumen - 5))
+                          : null,
+                    ),
+                    Expanded(
+                      child: Slider(
+                        value: volumen.toDouble(),
+                        min: 0,
+                        max: 100,
+                        divisions: 100,
+                        label: '$volumen%',
+                        onChanged: (v) =>
+                            cambiar(nuevoVolumen: v.round(), guardarYa: false),
+                        onChangeEnd: (_) => guardar(),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.volume_up),
+                      tooltip: context.l10n.subir5,
+                      onPressed: volumen < 100
+                          ? () => cambiar(nuevoVolumen: min(100, volumen + 5))
+                          : null,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                TextButton.icon(
+                  icon: const Icon(Icons.restart_alt),
+                  label: Text(context.l10n.restablecerComoSeSubio),
+                  onPressed: semitonos == 0 && tempo == 100 && volumen == 100
+                      ? null
+                      : () => cambiar(
+                          nuevoTono: 0, nuevoTempo: 100, nuevoVolumen: 100),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    ),
+  );
+}
+
 class SecuenciasTab extends StatefulWidget {
   final String codigoSala;
   final String nombreUsuario;
@@ -10975,268 +11388,34 @@ class _SecuenciasTabState extends State<SecuenciasTab>
     await SecuenciasService.quitarDeSala(widget.codigoSala, id);
   }
 
-  static String _textoSemitonos(AppLocalizations l, int semitonos) {
-    if (semitonos == 0) return l.tonoOriginal;
-    return l.semitonosConSigno(semitonos > 0 ? '+' : '−', semitonos.abs());
-  }
-
-  /// "Tono +2 · Tempo 95% · Vol 80%", o null si la secuencia está como se
-  /// subió.
-  static String? _resumenAjustes(AppLocalizations l, int semitonos,
-      int tempoPorcentaje, int volumenPorcentaje) {
-    final partes = [
-      if (semitonos != 0)
-        l.ajusteTono('${semitonos > 0 ? '+' : '−'}${semitonos.abs()}'),
-      if (tempoPorcentaje != 100) l.ajusteTempo(tempoPorcentaje),
-      if (volumenPorcentaje != 100) l.ajusteVolumen(volumenPorcentaje),
-    ];
-    return partes.isEmpty ? null : partes.join(' · ');
-  }
-
-  /// Tono (±12 semitonos), tempo (50-150%) y volumen (0-100%) de una
-  /// secuencia, como Music Speed Changer: ninguno cambia a los otros. Suena
-  /// en vivo mientras se mueve y se guarda en la sala para todos (los
-  /// deslizadores, al soltarlos).
+  /// Hoja de tono, tempo y volumen de una secuencia de la sala (se guarda para
+  /// todos). Ver [mostrarAjustesSecuencia].
   Future<void> _ajustarTonoYTempo(
     String id,
     String titulo,
     int semitonosIniciales,
     int tempoInicial,
     int volumenInicial,
-  ) async {
-    var semitonos = semitonosIniciales;
-    var tempo = tempoInicial;
-    var volumen = volumenInicial;
-    final uid = AuthService.currentUser?.uid;
-    final esPro = kFuncionesProGratisPorAhora ||
-        (uid != null && await UsuarioService.streamEsPro(uid).first);
-    if (!mounted) return;
-
-    void guardar() {
-      SecuenciasService.actualizarAjustes(
-        widget.codigoSala,
-        id,
-        semitonos: semitonos,
-        tempoPorcentaje: tempo,
-        volumenPorcentaje: volumen,
-        ajustadoPor: widget.nombreUsuario,
-      ).catchError((e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-                content: Text(context.l10n.noSePudoGuardarEl(e)),
-                backgroundColor: Colors.redAccent),
-          );
-        }
-      });
-    }
-
-    await showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setSheet) {
-          void cambiar(
-              {int? nuevoTono,
-              int? nuevoTempo,
-              int? nuevoVolumen,
-              bool guardarYa = true}) {
-            setSheet(() {
-              if (nuevoTono != null) semitonos = nuevoTono;
-              if (nuevoTempo != null) tempo = nuevoTempo;
-              if (nuevoVolumen != null) volumen = nuevoVolumen;
-            });
-            _reproductor.aplicarAjustes(id,
-                tempo: tempo / 100,
-                semitonos: semitonos,
-                volumen: volumen / 100);
-            if (guardarYa) guardar();
-          }
-
-          final soportaTono = ReproductorSecuencias.soportaTono;
-          return SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Text(titulo,
-                      style: const TextStyle(
-                          fontSize: 18, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 4),
-                  Text(
-                    context.l10n.seGuardaParaTodaLa,
-                    style: const TextStyle(fontSize: 12, color: Colors.grey),
-                  ),
-                  const SizedBox(height: 20),
-                  Text(context.l10n.tono,
-                      style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 1)),
-                  const SizedBox(height: 8),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      IconButton.filledTonal(
-                        iconSize: 32,
-                        icon: const Icon(Icons.remove),
-                        tooltip: context.l10n.bajarUnSemitono,
-                        onPressed: soportaTono && esPro && semitonos > -12
-                            ? () => cambiar(nuevoTono: semitonos - 1)
-                            : null,
-                      ),
-                      SizedBox(
-                        width: 160,
-                        child: Text(
-                          _textoSemitonos(context.l10n, semitonos),
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                              fontSize: 20, fontWeight: FontWeight.bold),
-                        ),
-                      ),
-                      IconButton.filledTonal(
-                        iconSize: 32,
-                        icon: const Icon(Icons.add),
-                        tooltip: context.l10n.subirUnSemitono,
-                        onPressed: soportaTono && esPro && semitonos < 12
-                            ? () => cambiar(nuevoTono: semitonos + 1)
-                            : null,
-                      ),
-                    ],
-                  ),
-                  if (!esPro)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 4),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Icon(Icons.lock_outline, size: 14),
-                          const SizedBox(width: 4),
-                          Flexible(
-                              child: Text(context.l10n.tonoSoloPro,
-                                  style: const TextStyle(fontSize: 12))),
-                        ],
-                      ),
-                    ),
-                  if (!soportaTono)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 4),
-                      child: Text(
-                        context.l10n.elCambioDeTonoPor,
-                        textAlign: TextAlign.center,
-                        style:
-                            const TextStyle(fontSize: 12, color: Colors.grey),
-                      ),
-                    ),
-                  const SizedBox(height: 20),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(context.l10n.tempo,
-                            style: const TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: 1)),
-                      ),
-                      Text('$tempo%',
-                          style: const TextStyle(
-                              fontSize: 20, fontWeight: FontWeight.bold)),
-                    ],
-                  ),
-                  Row(
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.remove),
-                        tooltip: context.l10n.masLento1,
-                        onPressed: tempo > 50
-                            ? () => cambiar(nuevoTempo: tempo - 1)
-                            : null,
-                      ),
-                      Expanded(
-                        child: Slider(
-                          value: tempo.toDouble(),
-                          min: 50,
-                          max: 150,
-                          divisions: 100,
-                          label: '$tempo%',
-                          onChanged: (v) =>
-                              cambiar(nuevoTempo: v.round(), guardarYa: false),
-                          onChangeEnd: (_) => guardar(),
-                        ),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.add),
-                        tooltip: context.l10n.masRapido1,
-                        onPressed: tempo < 150
-                            ? () => cambiar(nuevoTempo: tempo + 1)
-                            : null,
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(context.l10n.volumen,
-                            style: const TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: 1)),
-                      ),
-                      Text('$volumen%',
-                          style: const TextStyle(
-                              fontSize: 20, fontWeight: FontWeight.bold)),
-                    ],
-                  ),
-                  Row(
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.volume_down),
-                        tooltip: context.l10n.bajar5,
-                        onPressed: volumen > 0
-                            ? () => cambiar(nuevoVolumen: max(0, volumen - 5))
-                            : null,
-                      ),
-                      Expanded(
-                        child: Slider(
-                          value: volumen.toDouble(),
-                          min: 0,
-                          max: 100,
-                          divisions: 100,
-                          label: '$volumen%',
-                          onChanged: (v) => cambiar(
-                              nuevoVolumen: v.round(), guardarYa: false),
-                          onChangeEnd: (_) => guardar(),
-                        ),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.volume_up),
-                        tooltip: context.l10n.subir5,
-                        onPressed: volumen < 100
-                            ? () => cambiar(nuevoVolumen: min(100, volumen + 5))
-                            : null,
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  TextButton.icon(
-                    icon: const Icon(Icons.restart_alt),
-                    label: Text(context.l10n.restablecerComoSeSubio),
-                    onPressed: semitonos == 0 && tempo == 100 && volumen == 100
-                        ? null
-                        : () => cambiar(
-                            nuevoTono: 0, nuevoTempo: 100, nuevoVolumen: 100),
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
+  ) =>
+      mostrarAjustesSecuencia(
+        context,
+        reproductor: _reproductor,
+        id: id,
+        titulo: titulo,
+        semitonosIniciales: semitonosIniciales,
+        tempoInicial: tempoInicial,
+        volumenInicial: volumenInicial,
+        textoGuardado: context.l10n.seGuardaParaTodaLa,
+        alGuardar: (semitonos, tempo, volumen) =>
+            SecuenciasService.actualizarAjustes(
+          widget.codigoSala,
+          id,
+          semitonos: semitonos,
+          tempoPorcentaje: tempo,
+          volumenPorcentaje: volumen,
+          ajustadoPor: widget.nombreUsuario,
+        ),
+      );
 
   @override
   Widget build(BuildContext context) {
@@ -11281,7 +11460,7 @@ class _SecuenciasTabState extends State<SecuenciasTab>
                   volumen: volumenPorcentaje / 100,
                 ));
           }
-          final ajustes = _resumenAjustes(
+          final ajustes = resumenAjustesSecuencia(
               context.l10n, semitonos, tempoPorcentaje, volumenPorcentaje);
           return FilaSecuencia(
             key: ValueKey(doc.id),
@@ -13065,14 +13244,56 @@ class _MisSecuenciasScreenState extends State<MisSecuenciasScreen> {
                                 ),
                               );
                             }
+                            final semitonos =
+                                (data['semitonos'] as num?)?.toInt() ?? 0;
+                            final tempoPorcentaje =
+                                (data['tempoPorcentaje'] as num?)?.toInt() ??
+                                    100;
+                            final volumenPorcentaje =
+                                (data['volumenPorcentaje'] as num?)?.toInt() ??
+                                    100;
+                            final ajustes = resumenAjustesSecuencia(
+                                context.l10n,
+                                semitonos,
+                                tempoPorcentaje,
+                                volumenPorcentaje);
                             return FilaSecuencia(
+                              key: ValueKey(id),
                               reproductor: _reproductor,
                               id: id,
                               titulo: titulo,
                               audioUrl: data['audioUrl'] as String? ?? '',
+                              subtitulo: ajustes,
+                              tempo: tempoPorcentaje / 100,
+                              semitonos: semitonos,
+                              volumen: volumenPorcentaje / 100,
                               acciones: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
+                                  IconButton(
+                                    icon: Icon(Icons.tune,
+                                        color: ajustes != null
+                                            ? context.acento
+                                            : null),
+                                    tooltip: context.l10n.tonoTempoYVolumen,
+                                    onPressed: () => mostrarAjustesSecuencia(
+                                      context,
+                                      reproductor: _reproductor,
+                                      id: id,
+                                      titulo: titulo,
+                                      semitonosIniciales: semitonos,
+                                      tempoInicial: tempoPorcentaje,
+                                      volumenInicial: volumenPorcentaje,
+                                      textoGuardado:
+                                          context.l10n.seGuardaEnTuBiblioteca,
+                                      alGuardar: (s, t, v) => SecuenciasService
+                                          .actualizarAjustesBiblioteca(
+                                              user.uid, id,
+                                              semitonos: s,
+                                              tempoPorcentaje: t,
+                                              volumenPorcentaje: v),
+                                    ),
+                                  ),
                                   IconButton(
                                     icon: const Icon(Icons.edit),
                                     tooltip: context.l10n.renombrar,

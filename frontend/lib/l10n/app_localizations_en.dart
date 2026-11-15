@@ -486,7 +486,7 @@ class AppLocalizationsEn extends AppLocalizations {
       'Saved for the whole room. Pitch, tempo and volume are changed separately.';
 
   @override
-  String get tono => 'PITCH';
+  String get tono => 'PITCH (SEMITONES)';
 
   @override
   String get bajarUnSemitono => 'Down one semitone';
@@ -1595,4 +1595,84 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get eliminarTodasSecuenciasNada => 'There were no tracks to delete';
+
+  @override
+  String get seGuardaEnTuBiblioteca =>
+      'Saved in your library and used when you play it here.';
+
+  @override
+  String get fraseSubimeRetorno => 'Turn up my monitor';
+
+  @override
+  String get fraseBajameRetorno => 'Turn down my monitor';
+
+  @override
+  String get fraseNoMeEscucho => 'I can’t hear myself';
+
+  @override
+  String get fraseHayAcople => 'Feedback!';
+
+  @override
+  String get fraseHayZumbido => 'There’s a buzz';
+
+  @override
+  String get fraseMasVoz => 'More vocals';
+
+  @override
+  String get fraseMenosVoz => 'Less vocals';
+
+  @override
+  String get fraseMasReverb => 'More reverb';
+
+  @override
+  String get fraseMenosReverb => 'Less reverb';
+
+  @override
+  String get fraseMicSinSonido => 'Mic has no sound';
+
+  @override
+  String get fuenteVolumen => 'volume';
+
+  @override
+  String get fuenteRetorno => 'monitor';
+
+  @override
+  String get fuenteVoz => 'vocals';
+
+  @override
+  String get fuenteGuitarra => 'guitar';
+
+  @override
+  String get fuenteTeclado => 'keys';
+
+  @override
+  String get fuenteBajo => 'bass';
+
+  @override
+  String get fuenteBateria => 'drums';
+
+  @override
+  String get fuentePista => 'track';
+
+  @override
+  String get fuenteClick => 'click';
+
+  @override
+  String get fuenteReverb => 'reverb';
+
+  @override
+  String get modoMas => 'More';
+
+  @override
+  String get modoMenos => 'Less';
+
+  @override
+  String pedirMas(String fuente) {
+    return 'More $fuente';
+  }
+
+  @override
+  String pedirMenos(String fuente) {
+    return 'Less $fuente';
+  }
 }

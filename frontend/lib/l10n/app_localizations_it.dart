@@ -490,7 +490,7 @@ class AppLocalizationsIt extends AppLocalizations {
       'Viene salvata per tutta la sala. Tonalità, tempo e volume si regolano separatamente.';
 
   @override
-  String get tono => 'TONALITÀ';
+  String get tono => 'TONALITÀ (SEMITONI)';
 
   @override
   String get bajarUnSemitono => 'Abbassa di un semitono';
@@ -1602,4 +1602,84 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String get eliminarTodasSecuenciasNada => 'Non c’erano sequenze da eliminare';
+
+  @override
+  String get seGuardaEnTuBiblioteca =>
+      'Salvato nella tua libreria e usato quando la riproduci qui.';
+
+  @override
+  String get fraseSubimeRetorno => 'Alza il mio ritorno';
+
+  @override
+  String get fraseBajameRetorno => 'Abbassa il mio ritorno';
+
+  @override
+  String get fraseNoMeEscucho => 'Non mi sento';
+
+  @override
+  String get fraseHayAcople => 'C’è feedback';
+
+  @override
+  String get fraseHayZumbido => 'C’è un ronzio';
+
+  @override
+  String get fraseMasVoz => 'Più voce';
+
+  @override
+  String get fraseMenosVoz => 'Meno voce';
+
+  @override
+  String get fraseMasReverb => 'Più riverbero';
+
+  @override
+  String get fraseMenosReverb => 'Meno riverbero';
+
+  @override
+  String get fraseMicSinSonido => 'Microfono senza suono';
+
+  @override
+  String get fuenteVolumen => 'volume';
+
+  @override
+  String get fuenteRetorno => 'ritorno';
+
+  @override
+  String get fuenteVoz => 'voce';
+
+  @override
+  String get fuenteGuitarra => 'chitarra';
+
+  @override
+  String get fuenteTeclado => 'tastiera';
+
+  @override
+  String get fuenteBajo => 'basso';
+
+  @override
+  String get fuenteBateria => 'batteria';
+
+  @override
+  String get fuentePista => 'traccia';
+
+  @override
+  String get fuenteClick => 'click';
+
+  @override
+  String get fuenteReverb => 'riverbero';
+
+  @override
+  String get modoMas => 'Più';
+
+  @override
+  String get modoMenos => 'Meno';
+
+  @override
+  String pedirMas(String fuente) {
+    return 'Più $fuente';
+  }
+
+  @override
+  String pedirMenos(String fuente) {
+    return 'Meno $fuente';
+  }
 }

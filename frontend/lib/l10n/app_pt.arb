@@ -140,7 +140,7 @@
   "quitar": "Remover",
   "noSePudoGuardarEl": "Não foi possível salvar o ajuste: {error}",
   "seGuardaParaTodaLa": "Fica salvo para toda a sala. Tom, tempo e volume são alterados separadamente.",
-  "tono": "TOM",
+  "tono": "TOM (SEMITONS)",
   "bajarUnSemitono": "Baixar um semitom",
   "subirUnSemitono": "Subir um semitom",
   "elCambioDeTonoPor": "A mudança de tom, por enquanto, só funciona na versão web.",
@@ -597,6 +597,45 @@
     "placeholders": {
       "n": {
         "type": "int"
+      }
+    }
+  },
+  "seGuardaEnTuBiblioteca": "Fica salvo na sua biblioteca e é usado quando você a toca aqui.",
+  "fraseSubimeRetorno": "Aumenta meu retorno",
+  "fraseBajameRetorno": "Abaixa meu retorno",
+  "fraseNoMeEscucho": "Não me escuto",
+  "fraseHayAcople": "Tem microfonia",
+  "fraseHayZumbido": "Tem um zumbido",
+  "fraseMasVoz": "Mais voz",
+  "fraseMenosVoz": "Menos voz",
+  "fraseMasReverb": "Mais reverb",
+  "fraseMenosReverb": "Menos reverb",
+  "fraseMicSinSonido": "Microfone sem som",
+  "fuenteVolumen": "volume",
+  "fuenteRetorno": "retorno",
+  "fuenteVoz": "voz",
+  "fuenteGuitarra": "guitarra",
+  "fuenteTeclado": "teclado",
+  "fuenteBajo": "baixo",
+  "fuenteBateria": "bateria",
+  "fuentePista": "pista",
+  "fuenteClick": "click",
+  "fuenteReverb": "reverb",
+  "modoMas": "Mais",
+  "modoMenos": "Menos",
+  "pedirMas": "Mais {fuente}",
+  "@pedirMas": {
+    "placeholders": {
+      "fuente": {
+        "type": "String"
+      }
+    }
+  },
+  "pedirMenos": "Menos {fuente}",
+  "@pedirMenos": {
+    "placeholders": {
+      "fuente": {
+        "type": "String"
       }
     }
   }

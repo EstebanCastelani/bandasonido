@@ -947,7 +947,7 @@ abstract class AppLocalizations {
   /// No description provided for @tono.
   ///
   /// In es, this message translates to:
-  /// **'TONO'**
+  /// **'TONO (SEMITONOS)'**
   String get tono;
 
   /// No description provided for @bajarUnSemitono.
@@ -2755,6 +2755,156 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'No había secuencias para eliminar'**
   String get eliminarTodasSecuenciasNada;
+
+  /// No description provided for @seGuardaEnTuBiblioteca.
+  ///
+  /// In es, this message translates to:
+  /// **'Se guarda en tu biblioteca y se usa cuando la reproducís acá.'**
+  String get seGuardaEnTuBiblioteca;
+
+  /// No description provided for @fraseSubimeRetorno.
+  ///
+  /// In es, this message translates to:
+  /// **'Subime el retorno'**
+  String get fraseSubimeRetorno;
+
+  /// No description provided for @fraseBajameRetorno.
+  ///
+  /// In es, this message translates to:
+  /// **'Bajame el retorno'**
+  String get fraseBajameRetorno;
+
+  /// No description provided for @fraseNoMeEscucho.
+  ///
+  /// In es, this message translates to:
+  /// **'No me escucho'**
+  String get fraseNoMeEscucho;
+
+  /// No description provided for @fraseHayAcople.
+  ///
+  /// In es, this message translates to:
+  /// **'Hay acople'**
+  String get fraseHayAcople;
+
+  /// No description provided for @fraseHayZumbido.
+  ///
+  /// In es, this message translates to:
+  /// **'Hay un zumbido'**
+  String get fraseHayZumbido;
+
+  /// No description provided for @fraseMasVoz.
+  ///
+  /// In es, this message translates to:
+  /// **'Más voz'**
+  String get fraseMasVoz;
+
+  /// No description provided for @fraseMenosVoz.
+  ///
+  /// In es, this message translates to:
+  /// **'Menos voz'**
+  String get fraseMenosVoz;
+
+  /// No description provided for @fraseMasReverb.
+  ///
+  /// In es, this message translates to:
+  /// **'Más reverb'**
+  String get fraseMasReverb;
+
+  /// No description provided for @fraseMenosReverb.
+  ///
+  /// In es, this message translates to:
+  /// **'Menos reverb'**
+  String get fraseMenosReverb;
+
+  /// No description provided for @fraseMicSinSonido.
+  ///
+  /// In es, this message translates to:
+  /// **'Micrófono sin sonido'**
+  String get fraseMicSinSonido;
+
+  /// No description provided for @fuenteVolumen.
+  ///
+  /// In es, this message translates to:
+  /// **'volumen'**
+  String get fuenteVolumen;
+
+  /// No description provided for @fuenteRetorno.
+  ///
+  /// In es, this message translates to:
+  /// **'retorno'**
+  String get fuenteRetorno;
+
+  /// No description provided for @fuenteVoz.
+  ///
+  /// In es, this message translates to:
+  /// **'voz'**
+  String get fuenteVoz;
+
+  /// No description provided for @fuenteGuitarra.
+  ///
+  /// In es, this message translates to:
+  /// **'guitarra'**
+  String get fuenteGuitarra;
+
+  /// No description provided for @fuenteTeclado.
+  ///
+  /// In es, this message translates to:
+  /// **'teclado'**
+  String get fuenteTeclado;
+
+  /// No description provided for @fuenteBajo.
+  ///
+  /// In es, this message translates to:
+  /// **'bajo'**
+  String get fuenteBajo;
+
+  /// No description provided for @fuenteBateria.
+  ///
+  /// In es, this message translates to:
+  /// **'batería'**
+  String get fuenteBateria;
+
+  /// No description provided for @fuentePista.
+  ///
+  /// In es, this message translates to:
+  /// **'pista'**
+  String get fuentePista;
+
+  /// No description provided for @fuenteClick.
+  ///
+  /// In es, this message translates to:
+  /// **'click'**
+  String get fuenteClick;
+
+  /// No description provided for @fuenteReverb.
+  ///
+  /// In es, this message translates to:
+  /// **'reverb'**
+  String get fuenteReverb;
+
+  /// No description provided for @modoMas.
+  ///
+  /// In es, this message translates to:
+  /// **'Más'**
+  String get modoMas;
+
+  /// No description provided for @modoMenos.
+  ///
+  /// In es, this message translates to:
+  /// **'Menos'**
+  String get modoMenos;
+
+  /// No description provided for @pedirMas.
+  ///
+  /// In es, this message translates to:
+  /// **'Más {fuente}'**
+  String pedirMas(String fuente);
+
+  /// No description provided for @pedirMenos.
+  ///
+  /// In es, this message translates to:
+  /// **'Menos {fuente}'**
+  String pedirMenos(String fuente);
 }
 
 class _AppLocalizationsDelegate

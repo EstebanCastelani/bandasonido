@@ -273,7 +273,7 @@
     }
   },
   "seGuardaParaTodaLa": "Se guarda para toda la sala. Tono, tempo y volumen se cambian por separado.",
-  "tono": "TONO",
+  "tono": "TONO (SEMITONOS)",
   "bajarUnSemitono": "Bajar un semitono",
   "subirUnSemitono": "Subir un semitono",
   "elCambioDeTonoPor": "El cambio de tono por ahora solo funciona en la versión web.",
@@ -1000,6 +1000,45 @@
     "placeholders": {
       "n": {
         "type": "int"
+      }
+    }
+  },
+  "seGuardaEnTuBiblioteca": "Se guarda en tu biblioteca y se usa cuando la reproducís acá.",
+  "fraseSubimeRetorno": "Subime el retorno",
+  "fraseBajameRetorno": "Bajame el retorno",
+  "fraseNoMeEscucho": "No me escucho",
+  "fraseHayAcople": "Hay acople",
+  "fraseHayZumbido": "Hay un zumbido",
+  "fraseMasVoz": "Más voz",
+  "fraseMenosVoz": "Menos voz",
+  "fraseMasReverb": "Más reverb",
+  "fraseMenosReverb": "Menos reverb",
+  "fraseMicSinSonido": "Micrófono sin sonido",
+  "fuenteVolumen": "volumen",
+  "fuenteRetorno": "retorno",
+  "fuenteVoz": "voz",
+  "fuenteGuitarra": "guitarra",
+  "fuenteTeclado": "teclado",
+  "fuenteBajo": "bajo",
+  "fuenteBateria": "batería",
+  "fuentePista": "pista",
+  "fuenteClick": "click",
+  "fuenteReverb": "reverb",
+  "modoMas": "Más",
+  "modoMenos": "Menos",
+  "pedirMas": "Más {fuente}",
+  "@pedirMas": {
+    "placeholders": {
+      "fuente": {
+        "type": "String"
+      }
+    }
+  },
+  "pedirMenos": "Menos {fuente}",
+  "@pedirMenos": {
+    "placeholders": {
+      "fuente": {
+        "type": "String"
       }
     }
   }

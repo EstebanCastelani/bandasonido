@@ -489,7 +489,7 @@ class AppLocalizationsEs extends AppLocalizations {
       'Se guarda para toda la sala. Tono, tempo y volumen se cambian por separado.';
 
   @override
-  String get tono => 'TONO';
+  String get tono => 'TONO (SEMITONOS)';
 
   @override
   String get bajarUnSemitono => 'Bajar un semitono';
@@ -1605,4 +1605,84 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get eliminarTodasSecuenciasNada => 'No había secuencias para eliminar';
+
+  @override
+  String get seGuardaEnTuBiblioteca =>
+      'Se guarda en tu biblioteca y se usa cuando la reproducís acá.';
+
+  @override
+  String get fraseSubimeRetorno => 'Subime el retorno';
+
+  @override
+  String get fraseBajameRetorno => 'Bajame el retorno';
+
+  @override
+  String get fraseNoMeEscucho => 'No me escucho';
+
+  @override
+  String get fraseHayAcople => 'Hay acople';
+
+  @override
+  String get fraseHayZumbido => 'Hay un zumbido';
+
+  @override
+  String get fraseMasVoz => 'Más voz';
+
+  @override
+  String get fraseMenosVoz => 'Menos voz';
+
+  @override
+  String get fraseMasReverb => 'Más reverb';
+
+  @override
+  String get fraseMenosReverb => 'Menos reverb';
+
+  @override
+  String get fraseMicSinSonido => 'Micrófono sin sonido';
+
+  @override
+  String get fuenteVolumen => 'volumen';
+
+  @override
+  String get fuenteRetorno => 'retorno';
+
+  @override
+  String get fuenteVoz => 'voz';
+
+  @override
+  String get fuenteGuitarra => 'guitarra';
+
+  @override
+  String get fuenteTeclado => 'teclado';
+
+  @override
+  String get fuenteBajo => 'bajo';
+
+  @override
+  String get fuenteBateria => 'batería';
+
+  @override
+  String get fuentePista => 'pista';
+
+  @override
+  String get fuenteClick => 'click';
+
+  @override
+  String get fuenteReverb => 'reverb';
+
+  @override
+  String get modoMas => 'Más';
+
+  @override
+  String get modoMenos => 'Menos';
+
+  @override
+  String pedirMas(String fuente) {
+    return 'Más $fuente';
+  }
+
+  @override
+  String pedirMenos(String fuente) {
+    return 'Menos $fuente';
+  }
 }
