@@ -1641,13 +1641,48 @@ class AppLocalizationsEs extends AppLocalizations {
   String get fraseMicSinSonido => 'Micrófono sin sonido';
 
   @override
-  String get agregarFrasesSugeridas => 'Agregar frases sugeridas';
+  String get fuenteVolumen => 'volumen';
 
   @override
-  String frasesSugeridasAgregadas(int n) {
-    return 'Se agregaron $n frases';
+  String get fuenteRetorno => 'retorno';
+
+  @override
+  String get fuenteVoz => 'voz';
+
+  @override
+  String get fuenteGuitarra => 'guitarra';
+
+  @override
+  String get fuenteTeclado => 'teclado';
+
+  @override
+  String get fuenteBajo => 'bajo';
+
+  @override
+  String get fuenteBateria => 'batería';
+
+  @override
+  String get fuentePista => 'pista';
+
+  @override
+  String get fuenteClick => 'click';
+
+  @override
+  String get fuenteReverb => 'reverb';
+
+  @override
+  String get modoMas => 'Más';
+
+  @override
+  String get modoMenos => 'Menos';
+
+  @override
+  String pedirMas(String fuente) {
+    return 'Más $fuente';
   }
 
   @override
-  String get frasesSugeridasNada => 'Ya tenés todas las frases sugeridas';
+  String pedirMenos(String fuente) {
+    return 'Menos $fuente';
+  }
 }

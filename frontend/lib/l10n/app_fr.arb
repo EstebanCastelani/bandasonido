@@ -611,14 +611,32 @@
   "fraseMasReverb": "Plus de reverb",
   "fraseMenosReverb": "Moins de reverb",
   "fraseMicSinSonido": "Micro sans son",
-  "agregarFrasesSugeridas": "Ajouter les phrases suggérées",
-  "frasesSugeridasAgregadas": "{n} phrases ajoutées",
-  "@frasesSugeridasAgregadas": {
+  "fuenteVolumen": "volume",
+  "fuenteRetorno": "retour",
+  "fuenteVoz": "voix",
+  "fuenteGuitarra": "guitare",
+  "fuenteTeclado": "clavier",
+  "fuenteBajo": "basse",
+  "fuenteBateria": "batterie",
+  "fuentePista": "piste",
+  "fuenteClick": "click",
+  "fuenteReverb": "reverb",
+  "modoMas": "Plus",
+  "modoMenos": "Moins",
+  "pedirMas": "Plus de {fuente}",
+  "@pedirMas": {
     "placeholders": {
-      "n": {
-        "type": "int"
+      "fuente": {
+        "type": "String"
       }
     }
   },
-  "frasesSugeridasNada": "Vous avez déjà toutes les phrases suggérées"
+  "pedirMenos": "Moins de {fuente}",
+  "@pedirMenos": {
+    "placeholders": {
+      "fuente": {
+        "type": "String"
+      }
+    }
+  }
 }

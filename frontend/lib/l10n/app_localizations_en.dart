@@ -1631,14 +1631,48 @@ class AppLocalizationsEn extends AppLocalizations {
   String get fraseMicSinSonido => 'Mic has no sound';
 
   @override
-  String get agregarFrasesSugeridas => 'Add suggested phrases';
+  String get fuenteVolumen => 'volume';
 
   @override
-  String frasesSugeridasAgregadas(int n) {
-    return '$n phrases added';
+  String get fuenteRetorno => 'monitor';
+
+  @override
+  String get fuenteVoz => 'vocals';
+
+  @override
+  String get fuenteGuitarra => 'guitar';
+
+  @override
+  String get fuenteTeclado => 'keys';
+
+  @override
+  String get fuenteBajo => 'bass';
+
+  @override
+  String get fuenteBateria => 'drums';
+
+  @override
+  String get fuentePista => 'track';
+
+  @override
+  String get fuenteClick => 'click';
+
+  @override
+  String get fuenteReverb => 'reverb';
+
+  @override
+  String get modoMas => 'More';
+
+  @override
+  String get modoMenos => 'Less';
+
+  @override
+  String pedirMas(String fuente) {
+    return 'More $fuente';
   }
 
   @override
-  String get frasesSugeridasNada =>
-      'You already have all the suggested phrases';
+  String pedirMenos(String fuente) {
+    return 'Less $fuente';
+  }
 }

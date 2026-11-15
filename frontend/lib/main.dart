@@ -578,46 +578,37 @@ class AppConstants {
   /// manda este texto tal cual: el sonidista lo ve en el idioma de quien lo
   /// envió.
   static List<String> pedidosRapidos(AppLocalizations l) => [
-        l.fraseVolumenRetorno,
-        l.fraseVolumenAl2,
-        l.fraseVolumenAl3,
-        l.fraseVolumenAl4,
-        l.fraseVolumenGuitarra,
-        l.fraseVolumenTeclado,
-        l.fraseVolumenTalkback,
-        l.fraseVolumenPista,
-        l.fraseVolumenClick,
-        l.fraseVolumenCoordinador,
-        l.fraseVolumenGeneral,
-        l.fraseMasVolumen,
-        l.fraseMenosVolumen,
-        l.fraseSubimeRetorno,
-        l.fraseBajameRetorno,
         l.fraseNoMeEscucho,
         l.fraseHayAcople,
         l.fraseHayZumbido,
-        l.fraseMasVoz,
-        l.fraseMenosVoz,
-        l.fraseMasReverb,
-        l.fraseMenosReverb,
         l.fraseMicSinSonido,
         l.fraseListo,
       ];
 
-  /// De las frases [base], las que todavía no están en [actuales] (sin
-  /// distinguir mayúsculas ni espacios de más). Sirve para sumar las
-  /// sugeridas nuevas a quien ya tiene sus frases guardadas.
-  static List<String> frasesFaltantes(
-      List<String> base, Iterable<String> actuales) {
-    String norm(String t) => t.trim().toLowerCase();
-    final tengo = actuales.map(norm).toSet();
-    final vistas = <String>{};
-    return [
-      for (final f in base)
-        if (!tengo.contains(norm(f)) && vistas.add(norm(f))) f,
-    ];
-  }
+  /// Las fuentes de los botones "Más / Menos" de Pedidos (en minúscula, para
+  /// armar la frase: "Más voz", "Menos retorno"). Cada botón manda
+  /// `pedirMas` o `pedirMenos` según el selector.
+  static List<String> fuentesPedido(AppLocalizations l) => [
+        l.fuenteVolumen,
+        l.fuenteRetorno,
+        l.fuenteVoz,
+        l.fuenteGuitarra,
+        l.fuenteTeclado,
+        l.fuenteBajo,
+        l.fuenteBateria,
+        l.fuentePista,
+        l.fuenteClick,
+        l.fuenteReverb,
+      ];
 }
+
+/// Clave en el celular del selector Más / Menos de Pedidos (true = Menos): queda
+/// como lo dejó la persona, también al volver a abrir la app.
+const String kClaveModoPedidoMenos = 'pedido_modo_menos';
+
+/// Primera letra en mayúscula (para el texto de un botón).
+String capitalizar(String t) =>
+    t.isEmpty ? t : t[0].toUpperCase() + t.substring(1);
 
 /// Genera un código de sala de 8 caracteres alfanuméricos (excluye 0/O/1/I/L
 /// para que no se confundan al leerlos en voz alta o escribirlos a mano).
@@ -2851,33 +2842,6 @@ class FrasesService {
 
   static Future<void> eliminarFrase(String uid, String id) async {
     await _ref(uid).doc(id).delete();
-  }
-
-  /// Suma a las frases del usuario las sugeridas (AppConstants.pedidosRapidos)
-  /// que no tenga ya, al final de su lista y sin pasar de [kMaximoFrases].
-  /// No toca ni cambia las que ya tiene. Devuelve cuántas agregó.
-  static Future<int> agregarSugeridas(String uid) async {
-    final snap = await _ref(uid).orderBy('orden').limit(kMaximoFrases).get();
-    final actuales = snap.docs.map((d) => d.data()['texto'] as String? ?? '');
-    var faltan = AppConstants.frasesFaltantes(
-        AppConstants.pedidosRapidos(L10n.t), actuales);
-    final lugar = max(0, kMaximoFrases - snap.docs.length);
-    if (faltan.length > lugar) faltan = faltan.sublist(0, lugar);
-    if (faltan.isEmpty) return 0;
-    final ultimo = snap.docs.isEmpty
-        ? -1
-        : (snap.docs.last.data()['orden'] as num?)?.toInt() ??
-            snap.docs.length - 1;
-    final batch = FirebaseFirestore.instance.batch();
-    for (var i = 0; i < faltan.length; i++) {
-      batch.set(_ref(uid).doc(), {
-        'texto': faltan[i],
-        'orden': ultimo + 1 + i,
-        'createdAt': FieldValue.serverTimestamp(),
-      });
-    }
-    await batch.commit();
-    return faltan.length;
   }
 
   /// Copia el set base (AppConstants.pedidosRapidos) a la colección personal
@@ -9181,6 +9145,10 @@ class _RequestScreenState extends State<RequestScreen>
   bool _pantallaEncendida = true;
 
   bool _esUrgente = false;
+
+  /// Selector de Pedidos: false = "Más", true = "Menos". No vuelve solo a
+  /// "Más" después de enviar: queda donde lo dejó la persona.
+  bool _modoMenos = false;
   StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _conexionSub;
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _respuestasSub;
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _precargaSub;
@@ -9218,6 +9186,7 @@ class _RequestScreenState extends State<RequestScreen>
     AnchoContenido.ampliar();
     _vigilarConexion();
     _vigilarRespuestas();
+    _cargarModoPedido();
     _precargaSub = SecuenciasService.precargarDeSala(widget.codigoSala);
 
     MiembrosSalaService.registrarPresencia(widget.codigoSala).catchError(
@@ -9455,39 +9424,154 @@ class _RequestScreenState extends State<RequestScreen>
     }
   }
 
-  Widget _construirGridFrases(List<String> pedidosRapidos) {
-    return GridView.builder(
-      padding: const EdgeInsets.all(8),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 3,
-          childAspectRatio: 1.8,
-          crossAxisSpacing: 6,
-          mainAxisSpacing: 6),
-      itemCount: pedidosRapidos.length,
-      itemBuilder: (context, i) {
-        final pedido = pedidosRapidos[i];
+  Future<void> _cargarModoPedido() async {
+    try {
+      final p = await SharedPreferences.getInstance();
+      final menos = p.getBool(kClaveModoPedidoMenos) ?? false;
+      if (mounted && menos != _modoMenos) setState(() => _modoMenos = menos);
+    } catch (_) {}
+  }
 
-        return ElevatedButton(
-          style: ElevatedButton.styleFrom(
-            padding: const EdgeInsets.symmetric(horizontal: 2),
-            backgroundColor: context.acento.withValues(alpha: 0.05),
-            elevation: 0,
-            shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(6),
-                side: BorderSide(color: context.acento.withValues(alpha: 0.2))),
+  Future<void> _cambiarModoPedido(bool menos) async {
+    if (menos == _modoMenos) return;
+    setState(() => _modoMenos = menos);
+    try {
+      final p = await SharedPreferences.getInstance();
+      await p.setBool(kClaveModoPedidoMenos, menos);
+    } catch (_) {}
+  }
+
+  /// Un botón de pedido rápido (frase o fuente) con el color indicado.
+  Widget _botonPedido(String texto, Color color, VoidCallback alTocar) {
+    return ElevatedButton(
+      style: ElevatedButton.styleFrom(
+        padding: const EdgeInsets.symmetric(horizontal: 2),
+        backgroundColor: color.withValues(alpha: 0.05),
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(6),
+            side: BorderSide(color: color.withValues(alpha: 0.2))),
+      ),
+      onPressed: alTocar,
+      // Con la letra muy grande una palabra larga ("coordinador") no entra
+      // en el botón y se cortaba: se limita cuánto crece solo acá.
+      child: MediaQuery.withClampedTextScaling(
+        maxScaleFactor: 1.15,
+        child: Text(texto,
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+      ),
+    );
+  }
+
+  /// Los dos botones grandes "Más" / "Menos": el que está elegido va relleno.
+  Widget _selectorMasMenos() {
+    final l = context.l10n;
+    const colorMenos = Colors.deepOrangeAccent;
+    Widget opcion(
+        {required String texto,
+        required IconData icono,
+        required bool activo,
+        required Color color,
+        required VoidCallback alTocar}) {
+      final contenido = Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icono, size: 18),
+          const SizedBox(width: 6),
+          Flexible(
+              child: Text(texto,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                      fontSize: 16, fontWeight: FontWeight.w600))),
+        ],
+      );
+      return SizedBox(
+        height: 44,
+        child: activo
+            ? FilledButton(
+                style: FilledButton.styleFrom(
+                    backgroundColor: color, foregroundColor: Colors.black),
+                onPressed: alTocar,
+                child: contenido)
+            : OutlinedButton(
+                style: OutlinedButton.styleFrom(
+                    side: BorderSide(color: color.withValues(alpha: 0.5)),
+                    foregroundColor: color),
+                onPressed: alTocar,
+                child: contenido),
+      );
+    }
+
+    return Row(
+      children: [
+        Expanded(
+          child: opcion(
+              texto: l.modoMas,
+              icono: Icons.arrow_upward,
+              activo: !_modoMenos,
+              color: context.acento,
+              alTocar: () => _cambiarModoPedido(false)),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: opcion(
+              texto: l.modoMenos,
+              icono: Icons.arrow_downward,
+              activo: _modoMenos,
+              color: colorMenos,
+              alTocar: () => _cambiarModoPedido(true)),
+        ),
+      ],
+    );
+  }
+
+  /// Selector Más / Menos con una fuente por botón, y debajo las frases
+  /// rápidas de la persona.
+  Widget _construirGridFrases(List<String> pedidosRapidos) {
+    final l = context.l10n;
+    final fuentes = AppConstants.fuentesPedido(l);
+    final colorModo = _modoMenos ? Colors.deepOrangeAccent : context.acento;
+    const delegado = SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 3,
+        childAspectRatio: 1.8,
+        crossAxisSpacing: 6,
+        mainAxisSpacing: 6);
+    return CustomScrollView(
+      slivers: [
+        SliverToBoxAdapter(
+          child: Padding(
+              padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
+              child: _selectorMasMenos()),
+        ),
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
+          sliver: SliverGrid(
+            gridDelegate: delegado,
+            delegate: SliverChildBuilderDelegate(
+              (context, i) => _botonPedido(
+                capitalizar(fuentes[i]),
+                colorModo,
+                () => _enviarMensaje(_modoMenos
+                    ? l.pedirMenos(fuentes[i])
+                    : l.pedirMas(fuentes[i])),
+              ),
+              childCount: fuentes.length,
+            ),
           ),
-          onPressed: () => _enviarMensaje(pedido),
-          // Con la letra muy grande una palabra larga ("coordinador") no entra
-          // en el botón y se cortaba: se limita cuánto crece solo acá.
-          child: MediaQuery.withClampedTextScaling(
-            maxScaleFactor: 1.15,
-            child: Text(pedido,
-                textAlign: TextAlign.center,
-                style:
-                    const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+        ),
+        SliverPadding(
+          padding: const EdgeInsets.all(8),
+          sliver: SliverGrid(
+            gridDelegate: delegado,
+            delegate: SliverChildBuilderDelegate(
+              (context, i) => _botonPedido(pedidosRapidos[i], context.acento,
+                  () => _enviarMensaje(pedidosRapidos[i])),
+              childCount: pedidosRapidos.length,
+            ),
           ),
-        );
-      },
+        ),
+      ],
     );
   }
 
@@ -10653,23 +10737,23 @@ class SetlistTab extends StatelessWidget {
                       value: 'tocado', child: Text(context.l10n.tocado)),
                 ],
               ),
-              title: Row(
+              title: Wrap(
+                spacing: 8,
+                runSpacing: 2,
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
-                  Flexible(
-                    child: Text(
-                      titulo,
-                      style: TextStyle(
-                        decoration:
-                            completado ? TextDecoration.lineThrough : null,
-                        fontStyle: pausado ? FontStyle.italic : null,
-                        color: completado
-                            ? Colors.grey
-                            : (pausado ? Colors.orange.shade800 : null),
-                      ),
+                  Text(
+                    titulo,
+                    style: TextStyle(
+                      decoration:
+                          completado ? TextDecoration.lineThrough : null,
+                      fontStyle: pausado ? FontStyle.italic : null,
+                      color: completado
+                          ? Colors.grey
+                          : (pausado ? Colors.orange.shade800 : null),
                     ),
                   ),
-                  if (esProximo || pausado) ...[
-                    const SizedBox(width: 8),
+                  if (esProximo || pausado)
                     Container(
                       padding: const EdgeInsets.symmetric(
                           horizontal: 6, vertical: 2),
@@ -10685,7 +10769,6 @@ class SetlistTab extends StatelessWidget {
                             color: Colors.white),
                       ),
                     ),
-                  ],
                 ],
               ),
               subtitle: Column(
@@ -10735,6 +10818,7 @@ class SetlistTab extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   IconButton(
+                    visualDensity: VisualDensity.compact,
                     icon: Icon(
                         notaSonido.isEmpty
                             ? Icons.sticky_note_2_outlined
@@ -10746,6 +10830,7 @@ class SetlistTab extends StatelessWidget {
                   ),
                   if (cifradoTexto.isNotEmpty)
                     IconButton(
+                      visualDensity: VisualDensity.compact,
                       icon: Icon(Icons.music_note, color: context.acento),
                       tooltip: context.l10n.verCifradoTransponer,
                       onPressed: () => Navigator.push(
@@ -10771,6 +10856,7 @@ class SetlistTab extends StatelessWidget {
                     ),
                   if (!esSonidista)
                     IconButton(
+                      visualDensity: VisualDensity.compact,
                       icon: const Icon(Icons.delete_outline, color: Colors.red),
                       tooltip: context.l10n.eliminar,
                       onPressed: () =>
@@ -11573,36 +11659,12 @@ class FrasesAdminScreen extends StatelessWidget {
     await FrasesService.editarFrase(uid, id, texto);
   }
 
-  Future<void> _agregarSugeridas(BuildContext context, String uid) async {
-    final mensajero = ScaffoldMessenger.of(context);
-    final l = context.l10n;
-    try {
-      final n = await FrasesService.agregarSugeridas(uid);
-      mensajero.showSnackBar(SnackBar(
-          content: Text(
-              n == 0 ? l.frasesSugeridasNada : l.frasesSugeridasAgregadas(n))));
-    } catch (e) {
-      mensajero
-          .showSnackBar(SnackBar(content: Text(l.error(mensajeError(l, e)))));
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final user = AuthService.currentUser;
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(context.l10n.misFrases2),
-        actions: [
-          if (user != null && !user.isAnonymous)
-            IconButton(
-              icon: const Icon(Icons.playlist_add),
-              tooltip: context.l10n.agregarFrasesSugeridas,
-              onPressed: () => _agregarSugeridas(context, user.uid),
-            ),
-        ],
-      ),
+      appBar: AppBar(title: Text(context.l10n.misFrases2)),
       body: (user == null || user.isAnonymous)
           ? Center(child: Text(context.l10n.necesitasIniciarSesionParaEditar))
           : StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(

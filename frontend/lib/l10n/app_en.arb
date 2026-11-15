@@ -611,14 +611,32 @@
   "fraseMasReverb": "More reverb",
   "fraseMenosReverb": "Less reverb",
   "fraseMicSinSonido": "Mic has no sound",
-  "agregarFrasesSugeridas": "Add suggested phrases",
-  "frasesSugeridasAgregadas": "{n} phrases added",
-  "@frasesSugeridasAgregadas": {
+  "fuenteVolumen": "volume",
+  "fuenteRetorno": "monitor",
+  "fuenteVoz": "vocals",
+  "fuenteGuitarra": "guitar",
+  "fuenteTeclado": "keys",
+  "fuenteBajo": "bass",
+  "fuenteBateria": "drums",
+  "fuentePista": "track",
+  "fuenteClick": "click",
+  "fuenteReverb": "reverb",
+  "modoMas": "More",
+  "modoMenos": "Less",
+  "pedirMas": "More {fuente}",
+  "@pedirMas": {
     "placeholders": {
-      "n": {
-        "type": "int"
+      "fuente": {
+        "type": "String"
       }
     }
   },
-  "frasesSugeridasNada": "You already have all the suggested phrases"
+  "pedirMenos": "Less {fuente}",
+  "@pedirMenos": {
+    "placeholders": {
+      "fuente": {
+        "type": "String"
+      }
+    }
+  }
 }

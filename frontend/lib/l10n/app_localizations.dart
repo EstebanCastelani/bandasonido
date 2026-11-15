@@ -2822,23 +2822,89 @@ abstract class AppLocalizations {
   /// **'Micrófono sin sonido'**
   String get fraseMicSinSonido;
 
-  /// No description provided for @agregarFrasesSugeridas.
+  /// No description provided for @fuenteVolumen.
   ///
   /// In es, this message translates to:
-  /// **'Agregar frases sugeridas'**
-  String get agregarFrasesSugeridas;
+  /// **'volumen'**
+  String get fuenteVolumen;
 
-  /// No description provided for @frasesSugeridasAgregadas.
+  /// No description provided for @fuenteRetorno.
   ///
   /// In es, this message translates to:
-  /// **'Se agregaron {n} frases'**
-  String frasesSugeridasAgregadas(int n);
+  /// **'retorno'**
+  String get fuenteRetorno;
 
-  /// No description provided for @frasesSugeridasNada.
+  /// No description provided for @fuenteVoz.
   ///
   /// In es, this message translates to:
-  /// **'Ya tenés todas las frases sugeridas'**
-  String get frasesSugeridasNada;
+  /// **'voz'**
+  String get fuenteVoz;
+
+  /// No description provided for @fuenteGuitarra.
+  ///
+  /// In es, this message translates to:
+  /// **'guitarra'**
+  String get fuenteGuitarra;
+
+  /// No description provided for @fuenteTeclado.
+  ///
+  /// In es, this message translates to:
+  /// **'teclado'**
+  String get fuenteTeclado;
+
+  /// No description provided for @fuenteBajo.
+  ///
+  /// In es, this message translates to:
+  /// **'bajo'**
+  String get fuenteBajo;
+
+  /// No description provided for @fuenteBateria.
+  ///
+  /// In es, this message translates to:
+  /// **'batería'**
+  String get fuenteBateria;
+
+  /// No description provided for @fuentePista.
+  ///
+  /// In es, this message translates to:
+  /// **'pista'**
+  String get fuentePista;
+
+  /// No description provided for @fuenteClick.
+  ///
+  /// In es, this message translates to:
+  /// **'click'**
+  String get fuenteClick;
+
+  /// No description provided for @fuenteReverb.
+  ///
+  /// In es, this message translates to:
+  /// **'reverb'**
+  String get fuenteReverb;
+
+  /// No description provided for @modoMas.
+  ///
+  /// In es, this message translates to:
+  /// **'Más'**
+  String get modoMas;
+
+  /// No description provided for @modoMenos.
+  ///
+  /// In es, this message translates to:
+  /// **'Menos'**
+  String get modoMenos;
+
+  /// No description provided for @pedirMas.
+  ///
+  /// In es, this message translates to:
+  /// **'Más {fuente}'**
+  String pedirMas(String fuente);
+
+  /// No description provided for @pedirMenos.
+  ///
+  /// In es, this message translates to:
+  /// **'Menos {fuente}'**
+  String pedirMenos(String fuente);
 }
 
 class _AppLocalizationsDelegate

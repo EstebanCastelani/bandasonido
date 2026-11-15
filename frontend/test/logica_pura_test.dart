@@ -248,16 +248,13 @@ void main() {
     test('ya no hay frases de un solo símbolo ("+" o "-")', () {
       expect(frases.where((f) => f.trim().length < 3), isEmpty);
     });
-    test('incluye "Más volumen" y "Menos volumen"', () {
-      expect(frases, containsAll(['Más volumen', 'Menos volumen']));
-    });
-    test('incluye las frases simples nuevas', () {
+    test('son los avisos simples, con "Listo" al final', () {
       expect(
           frases,
           containsAll(
-              ['Subime el retorno', 'No me escucho', 'Hay acople', 'Más voz']));
+              ['No me escucho', 'Hay acople', 'Hay un zumbido', 'Listo']));
+      expect(frases.last, 'Listo');
     });
-    test('"Listo" queda al final', () => expect(frases.last, 'Listo'));
     test('todas entran en un botón (hasta 28 letras)', () {
       expect(frases.where((f) => f.length > 28), isEmpty);
     });
@@ -273,19 +270,42 @@ void main() {
         expect(otras.toSet(), hasLength(otras.length));
       }
     });
-    group('frasesFaltantes', () {
-      test('devuelve solo las que no están, sin mirar mayúsculas', () {
-        expect(
-            AppConstants.frasesFaltantes(
-                ['Más voz', 'Hay acople', 'Listo'], [' más VOZ ', 'Otra']),
-            ['Hay acople', 'Listo']);
-      });
-      test('si ya están todas, no devuelve nada', () {
-        expect(AppConstants.frasesFaltantes(['A', 'B'], ['a', 'b']), isEmpty);
-      });
-      test('no repite una frase base duplicada', () {
-        expect(AppConstants.frasesFaltantes(['A', 'a', 'B'], []), ['A', 'B']);
-      });
+  });
+
+  group('selector Más / Menos de Pedidos', () {
+    final langs = [
+      AppLocalizationsEs(),
+      AppLocalizationsEn(),
+      AppLocalizationsPt(),
+      AppLocalizationsFr(),
+      AppLocalizationsIt(),
+    ];
+    test('hay 10 fuentes, sin repetir, en cada idioma', () {
+      for (final l in langs) {
+        final f = AppConstants.fuentesPedido(l);
+        expect(f, hasLength(10));
+        expect(f.toSet(), hasLength(10));
+      }
+    });
+    test('arma las frases en cada idioma', () {
+      final es = AppLocalizationsEs();
+      expect(es.pedirMas('voz'), 'Más voz');
+      expect(es.pedirMenos('retorno'), 'Menos retorno');
+      expect(AppLocalizationsEn().pedirMas('vocals'), 'More vocals');
+      expect(AppLocalizationsFr().pedirMenos('voix'), 'Moins de voix');
+    });
+    test('el texto enviado entra en el tope de un pedido', () {
+      for (final l in langs) {
+        for (final f in AppConstants.fuentesPedido(l)) {
+          expect(l.pedirMas(f).length, lessThanOrEqualTo(kMaxCaracteresPedido));
+          expect(
+              l.pedirMenos(f).length, lessThanOrEqualTo(kMaxCaracteresPedido));
+        }
+      }
+    });
+    test('capitalizar', () {
+      expect(capitalizar('batería'), 'Batería');
+      expect(capitalizar(''), '');
     });
   });
 
