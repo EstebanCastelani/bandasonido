@@ -10,7 +10,11 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'dart:ui';
 
+import 'package:appsonido_frontend/l10n/app_localizations_en.dart';
 import 'package:appsonido_frontend/l10n/app_localizations_es.dart';
+import 'package:appsonido_frontend/l10n/app_localizations_fr.dart';
+import 'package:appsonido_frontend/l10n/app_localizations_it.dart';
+import 'package:appsonido_frontend/l10n/app_localizations_pt.dart';
 import 'package:audioplayers/audioplayers.dart' show PlayerState;
 import 'package:just_audio/just_audio.dart' as ja;
 import 'package:appsonido_frontend/main.dart';
@@ -246,6 +250,42 @@ void main() {
     });
     test('incluye "Más volumen" y "Menos volumen"', () {
       expect(frases, containsAll(['Más volumen', 'Menos volumen']));
+    });
+    test('incluye las frases simples nuevas', () {
+      expect(
+          frases,
+          containsAll(
+              ['Subime el retorno', 'No me escucho', 'Hay acople', 'Más voz']));
+    });
+    test('"Listo" queda al final', () => expect(frases.last, 'Listo'));
+    test('todas entran en un botón (hasta 28 letras)', () {
+      expect(frases.where((f) => f.length > 28), isEmpty);
+    });
+    test('en todos los idiomas hay las mismas frases y ninguna repetida', () {
+      for (final l in [
+        AppLocalizationsEn(),
+        AppLocalizationsPt(),
+        AppLocalizationsFr(),
+        AppLocalizationsIt(),
+      ]) {
+        final otras = AppConstants.pedidosRapidos(l);
+        expect(otras, hasLength(frases.length));
+        expect(otras.toSet(), hasLength(otras.length));
+      }
+    });
+    group('frasesFaltantes', () {
+      test('devuelve solo las que no están, sin mirar mayúsculas', () {
+        expect(
+            AppConstants.frasesFaltantes(
+                ['Más voz', 'Hay acople', 'Listo'], [' más VOZ ', 'Otra']),
+            ['Hay acople', 'Listo']);
+      });
+      test('si ya están todas, no devuelve nada', () {
+        expect(AppConstants.frasesFaltantes(['A', 'B'], ['a', 'b']), isEmpty);
+      });
+      test('no repite una frase base duplicada', () {
+        expect(AppConstants.frasesFaltantes(['A', 'a', 'B'], []), ['A', 'B']);
+      });
     });
   });
 
@@ -1514,6 +1554,22 @@ Tu gloria llena la tierra///
       expect((r.actual, r.siguiente), (null, null));
       r = temaActualYSiguiente([]);
       expect((r.actual, r.siguiente), (null, null));
+    });
+  });
+
+  group('tono de las secuencias: por semitonos', () {
+    test('cada semitono sube el tono un 12.º de octava', () {
+      expect(factorDeTono(0), 1);
+      expect(factorDeTono(1), closeTo(1.0595, 0.0001));
+      expect(factorDeTono(12), closeTo(2, 1e-9));
+      expect(factorDeTono(-12), closeTo(0.5, 1e-9));
+    });
+    test('el resumen dice semitonos, no tonos', () {
+      final l = AppLocalizationsEs();
+      expect(resumenAjustesSecuencia(l, 2, 100, 100), '+2 semitonos');
+      expect(
+          resumenAjustesSecuencia(l, -1, 95, 100), '−1 semitono · Tempo 95%');
+      expect(resumenAjustesSecuencia(l, 0, 100, 100), isNull);
     });
   });
 }

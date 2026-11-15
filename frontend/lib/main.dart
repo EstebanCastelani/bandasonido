@@ -591,8 +591,32 @@ class AppConstants {
         l.fraseVolumenGeneral,
         l.fraseMasVolumen,
         l.fraseMenosVolumen,
+        l.fraseSubimeRetorno,
+        l.fraseBajameRetorno,
+        l.fraseNoMeEscucho,
+        l.fraseHayAcople,
+        l.fraseHayZumbido,
+        l.fraseMasVoz,
+        l.fraseMenosVoz,
+        l.fraseMasReverb,
+        l.fraseMenosReverb,
+        l.fraseMicSinSonido,
         l.fraseListo,
       ];
+
+  /// De las frases [base], las que todavía no están en [actuales] (sin
+  /// distinguir mayúsculas ni espacios de más). Sirve para sumar las
+  /// sugeridas nuevas a quien ya tiene sus frases guardadas.
+  static List<String> frasesFaltantes(
+      List<String> base, Iterable<String> actuales) {
+    String norm(String t) => t.trim().toLowerCase();
+    final tengo = actuales.map(norm).toSet();
+    final vistas = <String>{};
+    return [
+      for (final f in base)
+        if (!tengo.contains(norm(f)) && vistas.add(norm(f))) f,
+    ];
+  }
 }
 
 /// Genera un código de sala de 8 caracteres alfanuméricos (excluye 0/O/1/I/L
@@ -2827,6 +2851,33 @@ class FrasesService {
 
   static Future<void> eliminarFrase(String uid, String id) async {
     await _ref(uid).doc(id).delete();
+  }
+
+  /// Suma a las frases del usuario las sugeridas (AppConstants.pedidosRapidos)
+  /// que no tenga ya, al final de su lista y sin pasar de [kMaximoFrases].
+  /// No toca ni cambia las que ya tiene. Devuelve cuántas agregó.
+  static Future<int> agregarSugeridas(String uid) async {
+    final snap = await _ref(uid).orderBy('orden').limit(kMaximoFrases).get();
+    final actuales = snap.docs.map((d) => d.data()['texto'] as String? ?? '');
+    var faltan = AppConstants.frasesFaltantes(
+        AppConstants.pedidosRapidos(L10n.t), actuales);
+    final lugar = max(0, kMaximoFrases - snap.docs.length);
+    if (faltan.length > lugar) faltan = faltan.sublist(0, lugar);
+    if (faltan.isEmpty) return 0;
+    final ultimo = snap.docs.isEmpty
+        ? -1
+        : (snap.docs.last.data()['orden'] as num?)?.toInt() ??
+            snap.docs.length - 1;
+    final batch = FirebaseFirestore.instance.batch();
+    for (var i = 0; i < faltan.length; i++) {
+      batch.set(_ref(uid).doc(), {
+        'texto': faltan[i],
+        'orden': ultimo + 1 + i,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+    }
+    await batch.commit();
+    return faltan.length;
   }
 
   /// Copia el set base (AppConstants.pedidosRapidos) a la colección personal
@@ -10798,7 +10849,7 @@ String? resumenAjustesSecuencia(AppLocalizations l, int semitonos,
     int tempoPorcentaje, int volumenPorcentaje) {
   final partes = [
     if (semitonos != 0)
-      l.ajusteTono('${semitonos > 0 ? '+' : '−'}${semitonos.abs()}'),
+      l.semitonosConSigno(semitonos > 0 ? '+' : '−', semitonos.abs()),
     if (tempoPorcentaje != 100) l.ajusteTempo(tempoPorcentaje),
     if (volumenPorcentaje != 100) l.ajusteVolumen(volumenPorcentaje),
   ];
@@ -11522,12 +11573,36 @@ class FrasesAdminScreen extends StatelessWidget {
     await FrasesService.editarFrase(uid, id, texto);
   }
 
+  Future<void> _agregarSugeridas(BuildContext context, String uid) async {
+    final mensajero = ScaffoldMessenger.of(context);
+    final l = context.l10n;
+    try {
+      final n = await FrasesService.agregarSugeridas(uid);
+      mensajero.showSnackBar(SnackBar(
+          content: Text(
+              n == 0 ? l.frasesSugeridasNada : l.frasesSugeridasAgregadas(n))));
+    } catch (e) {
+      mensajero
+          .showSnackBar(SnackBar(content: Text(l.error(mensajeError(l, e)))));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final user = AuthService.currentUser;
 
     return Scaffold(
-      appBar: AppBar(title: Text(context.l10n.misFrases2)),
+      appBar: AppBar(
+        title: Text(context.l10n.misFrases2),
+        actions: [
+          if (user != null && !user.isAnonymous)
+            IconButton(
+              icon: const Icon(Icons.playlist_add),
+              tooltip: context.l10n.agregarFrasesSugeridas,
+              onPressed: () => _agregarSugeridas(context, user.uid),
+            ),
+        ],
+      ),
       body: (user == null || user.isAnonymous)
           ? Center(child: Text(context.l10n.necesitasIniciarSesionParaEditar))
           : StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(

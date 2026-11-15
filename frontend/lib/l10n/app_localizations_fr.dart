@@ -493,7 +493,7 @@ class AppLocalizationsFr extends AppLocalizations {
       'Enregistré pour toute la salle. Tonalité, tempo et volume se règlent séparément.';
 
   @override
-  String get tono => 'TONALITÉ';
+  String get tono => 'TONALITÉ (DEMI-TONS)';
 
   @override
   String get bajarUnSemitono => 'Baisser d’un demi-ton';
@@ -1614,4 +1614,46 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get seGuardaEnTuBiblioteca =>
       'Enregistré dans votre bibliothèque et utilisé quand vous la lisez ici.';
+
+  @override
+  String get fraseSubimeRetorno => 'Monte mon retour';
+
+  @override
+  String get fraseBajameRetorno => 'Baisse mon retour';
+
+  @override
+  String get fraseNoMeEscucho => 'Je ne m’entends pas';
+
+  @override
+  String get fraseHayAcople => 'Il y a du larsen';
+
+  @override
+  String get fraseHayZumbido => 'Il y a un bourdonnement';
+
+  @override
+  String get fraseMasVoz => 'Plus de voix';
+
+  @override
+  String get fraseMenosVoz => 'Moins de voix';
+
+  @override
+  String get fraseMasReverb => 'Plus de reverb';
+
+  @override
+  String get fraseMenosReverb => 'Moins de reverb';
+
+  @override
+  String get fraseMicSinSonido => 'Micro sans son';
+
+  @override
+  String get agregarFrasesSugeridas => 'Ajouter les phrases suggérées';
+
+  @override
+  String frasesSugeridasAgregadas(int n) {
+    return '$n phrases ajoutées';
+  }
+
+  @override
+  String get frasesSugeridasNada =>
+      'Vous avez déjà toutes les phrases suggérées';
 }

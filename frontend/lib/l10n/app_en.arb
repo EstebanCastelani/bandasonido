@@ -140,7 +140,7 @@
   "quitar": "Remove",
   "noSePudoGuardarEl": "Could not save the setting: {error}",
   "seGuardaParaTodaLa": "Saved for the whole room. Pitch, tempo and volume are changed separately.",
-  "tono": "PITCH",
+  "tono": "PITCH (SEMITONES)",
   "bajarUnSemitono": "Down one semitone",
   "subirUnSemitono": "Up one semitone",
   "elCambioDeTonoPor": "Pitch change only works in the web version for now.",
@@ -600,5 +600,25 @@
       }
     }
   },
-  "seGuardaEnTuBiblioteca": "Saved in your library and used when you play it here."
+  "seGuardaEnTuBiblioteca": "Saved in your library and used when you play it here.",
+  "fraseSubimeRetorno": "Turn up my monitor",
+  "fraseBajameRetorno": "Turn down my monitor",
+  "fraseNoMeEscucho": "I can’t hear myself",
+  "fraseHayAcople": "Feedback!",
+  "fraseHayZumbido": "There’s a buzz",
+  "fraseMasVoz": "More vocals",
+  "fraseMenosVoz": "Less vocals",
+  "fraseMasReverb": "More reverb",
+  "fraseMenosReverb": "Less reverb",
+  "fraseMicSinSonido": "Mic has no sound",
+  "agregarFrasesSugeridas": "Add suggested phrases",
+  "frasesSugeridasAgregadas": "{n} phrases added",
+  "@frasesSugeridasAgregadas": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "frasesSugeridasNada": "You already have all the suggested phrases"
 }

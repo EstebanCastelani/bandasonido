@@ -140,7 +140,7 @@
   "quitar": "Remover",
   "noSePudoGuardarEl": "Não foi possível salvar o ajuste: {error}",
   "seGuardaParaTodaLa": "Fica salvo para toda a sala. Tom, tempo e volume são alterados separadamente.",
-  "tono": "TOM",
+  "tono": "TOM (SEMITONS)",
   "bajarUnSemitono": "Baixar um semitom",
   "subirUnSemitono": "Subir um semitom",
   "elCambioDeTonoPor": "A mudança de tom, por enquanto, só funciona na versão web.",
@@ -600,5 +600,25 @@
       }
     }
   },
-  "seGuardaEnTuBiblioteca": "Fica salvo na sua biblioteca e é usado quando você a toca aqui."
+  "seGuardaEnTuBiblioteca": "Fica salvo na sua biblioteca e é usado quando você a toca aqui.",
+  "fraseSubimeRetorno": "Aumenta meu retorno",
+  "fraseBajameRetorno": "Abaixa meu retorno",
+  "fraseNoMeEscucho": "Não me escuto",
+  "fraseHayAcople": "Tem microfonia",
+  "fraseHayZumbido": "Tem um zumbido",
+  "fraseMasVoz": "Mais voz",
+  "fraseMenosVoz": "Menos voz",
+  "fraseMasReverb": "Mais reverb",
+  "fraseMenosReverb": "Menos reverb",
+  "fraseMicSinSonido": "Microfone sem som",
+  "agregarFrasesSugeridas": "Adicionar frases sugeridas",
+  "frasesSugeridasAgregadas": "{n} frases adicionadas",
+  "@frasesSugeridasAgregadas": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "frasesSugeridasNada": "Você já tem todas as frases sugeridas"
 }

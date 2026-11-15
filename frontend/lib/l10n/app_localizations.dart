@@ -947,7 +947,7 @@ abstract class AppLocalizations {
   /// No description provided for @tono.
   ///
   /// In es, this message translates to:
-  /// **'TONO'**
+  /// **'TONO (SEMITONOS)'**
   String get tono;
 
   /// No description provided for @bajarUnSemitono.
@@ -2761,6 +2761,84 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'Se guarda en tu biblioteca y se usa cuando la reproducís acá.'**
   String get seGuardaEnTuBiblioteca;
+
+  /// No description provided for @fraseSubimeRetorno.
+  ///
+  /// In es, this message translates to:
+  /// **'Subime el retorno'**
+  String get fraseSubimeRetorno;
+
+  /// No description provided for @fraseBajameRetorno.
+  ///
+  /// In es, this message translates to:
+  /// **'Bajame el retorno'**
+  String get fraseBajameRetorno;
+
+  /// No description provided for @fraseNoMeEscucho.
+  ///
+  /// In es, this message translates to:
+  /// **'No me escucho'**
+  String get fraseNoMeEscucho;
+
+  /// No description provided for @fraseHayAcople.
+  ///
+  /// In es, this message translates to:
+  /// **'Hay acople'**
+  String get fraseHayAcople;
+
+  /// No description provided for @fraseHayZumbido.
+  ///
+  /// In es, this message translates to:
+  /// **'Hay un zumbido'**
+  String get fraseHayZumbido;
+
+  /// No description provided for @fraseMasVoz.
+  ///
+  /// In es, this message translates to:
+  /// **'Más voz'**
+  String get fraseMasVoz;
+
+  /// No description provided for @fraseMenosVoz.
+  ///
+  /// In es, this message translates to:
+  /// **'Menos voz'**
+  String get fraseMenosVoz;
+
+  /// No description provided for @fraseMasReverb.
+  ///
+  /// In es, this message translates to:
+  /// **'Más reverb'**
+  String get fraseMasReverb;
+
+  /// No description provided for @fraseMenosReverb.
+  ///
+  /// In es, this message translates to:
+  /// **'Menos reverb'**
+  String get fraseMenosReverb;
+
+  /// No description provided for @fraseMicSinSonido.
+  ///
+  /// In es, this message translates to:
+  /// **'Micrófono sin sonido'**
+  String get fraseMicSinSonido;
+
+  /// No description provided for @agregarFrasesSugeridas.
+  ///
+  /// In es, this message translates to:
+  /// **'Agregar frases sugeridas'**
+  String get agregarFrasesSugeridas;
+
+  /// No description provided for @frasesSugeridasAgregadas.
+  ///
+  /// In es, this message translates to:
+  /// **'Se agregaron {n} frases'**
+  String frasesSugeridasAgregadas(int n);
+
+  /// No description provided for @frasesSugeridasNada.
+  ///
+  /// In es, this message translates to:
+  /// **'Ya tenés todas las frases sugeridas'**
+  String get frasesSugeridasNada;
 }
 
 class _AppLocalizationsDelegate

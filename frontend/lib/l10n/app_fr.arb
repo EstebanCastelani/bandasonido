@@ -140,7 +140,7 @@
   "quitar": "Retirer",
   "noSePudoGuardarEl": "Impossible d’enregistrer le réglage : {error}",
   "seGuardaParaTodaLa": "Enregistré pour toute la salle. Tonalité, tempo et volume se règlent séparément.",
-  "tono": "TONALITÉ",
+  "tono": "TONALITÉ (DEMI-TONS)",
   "bajarUnSemitono": "Baisser d’un demi-ton",
   "subirUnSemitono": "Monter d’un demi-ton",
   "elCambioDeTonoPor": "Le changement de tonalité ne fonctionne pour l’instant que sur la version web.",
@@ -600,5 +600,25 @@
       }
     }
   },
-  "seGuardaEnTuBiblioteca": "Enregistré dans votre bibliothèque et utilisé quand vous la lisez ici."
+  "seGuardaEnTuBiblioteca": "Enregistré dans votre bibliothèque et utilisé quand vous la lisez ici.",
+  "fraseSubimeRetorno": "Monte mon retour",
+  "fraseBajameRetorno": "Baisse mon retour",
+  "fraseNoMeEscucho": "Je ne m’entends pas",
+  "fraseHayAcople": "Il y a du larsen",
+  "fraseHayZumbido": "Il y a un bourdonnement",
+  "fraseMasVoz": "Plus de voix",
+  "fraseMenosVoz": "Moins de voix",
+  "fraseMasReverb": "Plus de reverb",
+  "fraseMenosReverb": "Moins de reverb",
+  "fraseMicSinSonido": "Micro sans son",
+  "agregarFrasesSugeridas": "Ajouter les phrases suggérées",
+  "frasesSugeridasAgregadas": "{n} phrases ajoutées",
+  "@frasesSugeridasAgregadas": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "frasesSugeridasNada": "Vous avez déjà toutes les phrases suggérées"
 }

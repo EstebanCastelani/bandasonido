@@ -489,7 +489,7 @@ class AppLocalizationsEs extends AppLocalizations {
       'Se guarda para toda la sala. Tono, tempo y volumen se cambian por separado.';
 
   @override
-  String get tono => 'TONO';
+  String get tono => 'TONO (SEMITONOS)';
 
   @override
   String get bajarUnSemitono => 'Bajar un semitono';
@@ -1609,4 +1609,45 @@ class AppLocalizationsEs extends AppLocalizations {
   @override
   String get seGuardaEnTuBiblioteca =>
       'Se guarda en tu biblioteca y se usa cuando la reproducís acá.';
+
+  @override
+  String get fraseSubimeRetorno => 'Subime el retorno';
+
+  @override
+  String get fraseBajameRetorno => 'Bajame el retorno';
+
+  @override
+  String get fraseNoMeEscucho => 'No me escucho';
+
+  @override
+  String get fraseHayAcople => 'Hay acople';
+
+  @override
+  String get fraseHayZumbido => 'Hay un zumbido';
+
+  @override
+  String get fraseMasVoz => 'Más voz';
+
+  @override
+  String get fraseMenosVoz => 'Menos voz';
+
+  @override
+  String get fraseMasReverb => 'Más reverb';
+
+  @override
+  String get fraseMenosReverb => 'Menos reverb';
+
+  @override
+  String get fraseMicSinSonido => 'Micrófono sin sonido';
+
+  @override
+  String get agregarFrasesSugeridas => 'Agregar frases sugeridas';
+
+  @override
+  String frasesSugeridasAgregadas(int n) {
+    return 'Se agregaron $n frases';
+  }
+
+  @override
+  String get frasesSugeridasNada => 'Ya tenés todas las frases sugeridas';
 }
