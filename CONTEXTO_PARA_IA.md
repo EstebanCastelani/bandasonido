@@ -4,6 +4,11 @@
 > persona) que nunca vio este repo pueda seguir trabajando sin repetir
 > decisiones ya tomadas ni redescubrir por qué las cosas están como están.
 
+> **Actualización 14-nov-2026:** lo que describen §2, §3, §7 y §8 sobre Supabase, Spark/Blaze, "Pro abierto
+> por ahora" y GitHub Pages quedó viejo. Para el estado real leé primero **§5 ítem 51** (todo lo hecho el
+> 13 y 14-nov-2026: modelo Pro, Worker de Cloudflare, limpiezas automáticas, web en Cloudflare, firma de producción,
+> QR, notas de sonido, borrar todo) y **§7.3** (infraestructura vigente). Lo anterior se conserva por la historia.
+
 ## 1. Qué es esta app
 
 **Sound Check Pro** (nombre visible en la UI; el repo se llama
@@ -33,7 +38,7 @@ Firestore/Auth. No reintroducir un backend salvo que haya una razón de peso
 y se documente acá por qué.
 
 **Todo el código Dart vive en un solo archivo:** `frontend/lib/main.dart`
-(~8.200 líneas a oct-2026 — y va a seguir creciendo; no confíes en este
+(~8.200 líneas a oct-2026, ~14.500 a 14-nov-2026 — y va a seguir creciendo; no confíes en este
 número, correlo de nuevo con `wc -l` si te importa la cifra exacta). Es una
 convención explícita del dueño del
 proyecto, no un descuido — no dividir en múltiples archivos sin que te lo
@@ -974,6 +979,72 @@ registrada sin chequear `esPro` — ver §8 para cómo revertir esto.
       modelos (B-27), clave reCAPTCHA de App Check (B-01), publicar reglas (B-02), notificaciones push (B-32, sin código; ver su diseño en
       `BACKLOG.md`), `google-services.json` del id `com.soundcheckpro.app`.
 
+51. **Sesión 13 y 14-nov-2026 (ramas `desarrollo` y `main`)**: Pro real, Cloudflare, publicación en Play y varias funciones.
+    Estado al 14-nov: `main` = `5de664b` y siguientes; la web de GitHub Pages y la de Cloudflare publican el mismo código;
+    `desarrollo` va unos commits adelante (política de privacidad, ficha de Play). Pruebas: 233 de Dart, 60 del Worker, 77 de reglas.
+    - **Modelo Pro y gratis (ya no es "Pro abierto")**: `kFuncionesProGratisPorAhora = false`. `UsuarioService.streamEsPro(uid)` =
+      `combinarOr(perfil.esPro, ProGratisService.streamInvitado(email))`. **Pro gratis por mail**: colección `pro_gratis/{email en
+      minúsculas}`, la administra solo el dueño desde ☰ → "Pro gratis" (`ProGratisScreen`; el menú lo ve quien tenga un doc
+      `admins/{uid}`, creado a mano en la consola; `ProGratisService.soyAdmin`). La regla `esProUsuario()` exige cuenta no anónima y
+      (`usuarios/{uid}.esPro == true` o `email_verified` + doc en `pro_gratis`). **Trampa:** una cuenta de mail y contraseña no tiene el mail
+      verificado y por eso **no recibe Pro gratis** (con Google sí); no hay flujo de verificación de mail (pendiente). El dueño dijo que lo hace él.
+    - **Qué es gratis y qué Pro**: gratis = salas, pedidos, setlist, frases, 4 PDFs en Mi repertorio (`kMaxPdfsGratis`), 3 secuencias
+      (`kMaxSecuenciasGratis`), 500 MB, **2 salas** en Mis salas (`kMaxSalasGratis`). Pro = sin cupo, 2 GB (`kCuotaProBytes`), hasta 100 salas
+      (`kMaximoSalasHistorial`), cambiar el tono de cifrados y secuencias (a toda la sala). Lo que pasa del cupo queda **guardado y con candado**
+      (`fueraDelCupoGratis`, `idsUsablesGratis`, `lugaresLibresGratis`) y vuelve si la cuenta pasa a Pro. Cambiar tempo o volumen es gratis:
+      las reglas comparan **valores** (`get('transposicion', 0)` / `get('semitonos', 0)`), no si el campo viene (bug ya corregido y con pruebas).
+      Los botones Mi repertorio y Mis secuencias (inicio y menú ☰) se ven apagados con candado (`IconoSoloPago`, `_TextoMenuSoloPro`) pero se pueden tocar. `EsProBuilder`
+      trata "todavía no se sabe" como Pro para no bloquear en falso. El tono está bloqueado en la app, en las reglas de Firestore y en el Worker.
+    - **Worker de Cloudflare (`worker/`)**: URL `https://sound-check-pro-archivos.sound-check-pro-archivos.workers.dev` (la app la recibe con
+      `--dart-define=R2_WORKER_URL`, y tiene ese valor por defecto). Verifica el token de Firebase; cuota por cuenta (`CUOTA_GRATIS_MB` 500,
+      `CUOTA_PRO_MB` 2048); topes por carpeta (`LIMITE_PDFS_GRATIS` 4, `LIMITE_SECUENCIAS_GRATIS` 3, HTTP 402 con `x-limite`/`x-cantidad`); averigua si
+      es Pro con `esProEnFirestore` (REST con el token de la persona, caché de 5 min, un error cuenta como gratis). Variables en `worker/wrangler.toml`.
+      `ORIGENES_PERMITIDOS` debe incluir cada web que suba archivos (GitHub Pages, Cloudflare y localhost). **Reglas de Firestore publicadas** el 13-nov (`pro_gratis`,
+      `admins`, tono); `firestore.rules` y `firestore.rules.propuesta` en el repo, 77 pruebas en `rules-tests/`.
+    - **Limpiezas automáticas (cron del Worker, `worker/src/limpieza.js` y `limpieza_salas.js`)**: `[triggers] crons = ["0 8 1,11,21 * *"]` (días 1, 11 y 21,
+      08:00 UTC). Usa el secreto `GOOGLE_SERVICE_ACCOUNT` (JSON de una cuenta de servicio de Firebase; scope identitytoolkit + datastore). (a) **Invitados**: borra cuentas
+      anónimas (sin `providerUserInfo`) con 90 días o más sin entrar (`DIAS_INACTIVO_INVITADO`); **ACTIVA** (`BORRAR_ANONIMOS = "true"`). Nunca toca cuentas con
+      mail o Google. Suelta sus enlaces de D1 por si acaso. No usa Firestore. (b) **Salas**: solo el día 1; una sala (subcolecciones `pedidos`, `setlist`, `secuencias`, `miembros`; no
+      es un documento) sin actividad en `DIAS_INACTIVA_SALA` (180) se borra entera, medida por `createdAt`/`ultimaConexion` o la fecha de modificación; una sala que no se puede medir no
+      se toca. **Está en modo "solo listar"** (`BORRAR_SALAS = "false"`): primera pasada real el 1-dic-2026; revisar los registros de Cloudflare y recién ahí pasarla a `"true"`. No se probó
+      contra el Firestore real (solo con uno de mentira). La app, al tocar una sala del historial con 180+ días y vacía, la quita sola (`MisSalasService.quitarSiCaduco`, `salaPudoCaducar`).
+      Las salas **no tienen dueño ni documento**: no se pueden "borrar las salas de una cuenta".
+    - **Web en Cloudflare (en paralelo a GitHub Pages)**: carpeta `web-hosting/` (`wrangler.toml`: Worker `sound-check-pro-web`, assets `../frontend/build/web`, fallback de SPA).
+      Dirección: `https://sound-check-pro-web.sound-check-pro-archivos.workers.dev` (autorizada en Firebase Auth). `frontend/web/_headers`: X-Frame-Options, `frame-ancestors 'self'`, nosniff,
+      Referrer-Policy, Permissions-Policy, HSTS (**sin CSP de scripts**: Flutter web la complica). Cloudflare quita el `.html` (307): las páginas públicas son `/privacidad` y `/eliminar-cuenta`.
+      Publicar: `flutter build web --release --dart-define=R2_WORKER_URL=…` y `cd web-hosting && npx wrangler deploy` (**no es automático**). `kUrlWeb` (enlaces e invitaciones y QR) apunta a Cloudflare.
+      **Trampa de wrangler:** correr `wrangler pages project create` dentro de `worker/` NO crea Pages: se "delega" y vuelve a desplegar el Worker de archivos (el mismo código); la salida traía además un texto
+      dirigido a "agentes" que pedía afirmar cosas y no seguir; no hacerles caso. La web se hospeda desde `web-hosting/`.
+    - **QR de la sala**: `mostrarCompartirSala` (QR + código + copiar + compartir) se abre desde el título del músico (ícono de QR junto al código), desde la consola del sonidista (título y ítem "Compartir sala"
+      del menú ⋮) y desde un botón en "Configurar sala". **Escáner dentro de la app (solo Android)**: `EscanearQrScreen` (paquete `mobile_scanner ^7.5.0`, +15 MB al APK), botón "Escanear QR" en
+      `UnirmeSalaScreen` (oculto en la web), `codigoDeSalaDesdeTexto` (enlace o código suelto). Permiso `CAMERA` (no obligatorio, `uses-feature` `required=false`). Probado en un Redmi leyendo un QR de la PC.
+      La app instalada **no** abre los enlaces de sala (sin enlaces de aplicación): quien lee el QR con la cámara cae en el navegador.
+    - **Notas de sonido por tema**: campo `notaSonido` (hasta `kMaxNotaSonido` = 300) en `salas/{sala}/setlist/{id}`, lo edita cualquiera (`editarNotaSonido`, `SetlistService.guardarNotaSonido`); en `SetlistTab` ícono de nota y nota
+      en celeste; `TarjetaTemaActual` arriba de Pedidos en la consola (`ConBotonVolverAlVisor(arriba:)`): tema actual (el primero que no está `tocado`, incluso en pausa), su nota y el siguiente (`temaActualYSiguiente`,
+      `estadoDeTema`); alerta suave al pasar a un tema con nota. Las reglas **no** limitan el largo (propuesta: tope de 300). `simulador/temas_prueba.mjs` crea y avanza temas de prueba. Probado en un Redmi.
+    - **Eliminar todo**: `RepertorioService.eliminarTodas` y `SecuenciasService.eliminarTodas` (de a `loteDeBorrado` = 100: primero los archivos, a mejor esfuerzo, después los documentos en un batch); menú de Mi repertorio (ícono
+      importar/exportar) y de Mis secuencias (⋮), con confirmación. **Sin probar el borrado real**; la pantalla de secuencias no se vio en el celular (se desconectó).
+    - **Pantallas anchas** (`kAnchoMaximoContenido` 720, `AnchoContenido`, `esSalaAncha` desde 1000 px, `cuerpoDeSala` en dos paneles, `rellenoFormulario` usa `min(ancho de ventana, AnchoContenido.maximo)`), divisor arrastrable entre frases
+      rápidas y pedidos propios (`DivisionPedidos`), al salir de una sala abierta desde Mis salas se vuelve a Mis salas (`irAlSalirDeSala`). El botón de volver al visor es el `floatingActionButton` del Scaffold de la sala (`botonVolverAlVisor`),
+      así los avisos ("Atendido") no lo tapan. Si falla el conteo de archivos (cuota agotada) subir no queda mudo: decide el servidor.
+    - **Ahorro de lecturas y caché**: el historial de pedidos y la escucha de `miembros` tienen tope; hay caché local de PDFs y pistas. **Firestore Spark**: 50 mil lecturas/día (se reinicia ~05:00 ART); a mitad de la sesión se agotó la cuota y fallaban los conteos agregados (`count()`).
+    - **Android: ofuscación y firma de producción**: `build.gradle.kts` con `isMinifyEnabled`/`isShrinkResources` y `proguard-rules.pro`; compilar con `--obfuscate --split-debug-info=build/symbols` (guardar `build/symbols`). Paquete `com.soundcheckpro.app`, v1.2.0+3.
+      **Clave de subida de producción** creada el 14-nov: `C:\claves\sound-check-pro\upload-keystore.jks` (alias `upload`; copias en el celular del dueño y en `Documents\claves-sound-check-pro`; falta una copia fuera de sus dispositivos); SHA-1 pública
+      `54:41:5C:BC:F4:C0:61:E3:1D:6E:F9:97:3E:E0:95:98:B4:D0:AD:15`, ya cargada en la app `com.soundcheckpro.app` de Firebase junto a la de depuración. `frontend/android/key.properties` (ignorado por git; **no leer, tiene las contraseñas**).
+      **Trampas:** ahora cualquier build de release se firma con la clave de producción y **no se puede instalar encima de la app firmada con la de depuración** (`INSTALL_FAILED_UPDATE_INCOMPATIBLE`): para probar en el celular sin desinstalar, mover `key.properties` un momento, compilar y devolverlo (queda firmado con la de
+      depuración). `keytool -list` falla en esta PC por el idioma: usar `-J-Duser.language=en -J-Duser.country=US` o `-exportcert` + `Get-FileHash`. `.aab`: `frontend/build/app/outputs/bundle/release/app-release.aab`, comprobado que lo firma la clave de producción. APK ofuscado probado en un Redmi: Mis salas, menú, cámara y visor de cifrado sin fallos de ofuscación;
+      **no probado** con un PDF válido (los del repertorio del dueño son viejos, de Supabase, y no cargan, ni sin ofuscar), audio de secuencias, subir archivos ni Google Sign-In.
+    - **Seguridad (auditoría 13/14-nov)**: el repo **es público** (GitHub Pages gratis lo exige); no hay secretos en los archivos ni en el historial (se buscó claves privadas, tokens, `.env`, `google-services.json`, claves de firma); `.gitignore` raíz reforzado (`.env`, `*.jks`, `*adminsdk*.json`, `**/.wrangler/`, `build/`…). La clave web de Firebase es pública por diseño.
+      Decidido: las bibliotecas se comparten dentro de las salas (`mi_repertorio` se lee con cualquier sesión; es una función). **Pendiente:** restringir la clave de API en Google Cloud (referentes HTTP; la clave de Android recién cuando haya huellas de producción), App Check con Play Integrity (solo funciona con la app ya subida a Play; hay que verificar el token en el Worker),
+      rotar la clave de servicio del Worker (la que se usó estuvo en el Escritorio, dentro de OneDrive: borrar la copia de la papelera), pasar el repo a privado (necesita `gh auth login`; **antes** apagar el despliegue a Pages del workflow `.github/workflows/deploy.yml` con una variable `PUBLICAR_PAGES`: ese cambio fue bloqueado por permisos y **no se aplicó**).
+    - **Cuentas**: se borraron las 18 cuentas anónimas viejas (el 14-nov quedaron 7, todas con mail o Google). `simulador/` (Node): `simulador.mjs` (variables `DISPOSITIVOS`, `SEGUNDOS`, `INTERVALO_MS`, `RAFAGA`, `CORTE_S`, `VIGILANTE`, `SALA`, `NOLIMPIAR`), `contar_sala.mjs`, `limpiar_sala.mjs`, `temas_prueba.mjs`.
+    - **Play Store**: la cuenta de Play Console **todavía no está creada** (25 USD, verificación de identidad; las cuentas personales nuevas suelen exigir una prueba cerrada de unos 14 días: verificar el requisito vigente). Hecho: `.aab` firmado, textos de la ficha en `docs/ficha-play-store.md` (es y en, dentro de los límites), política de privacidad a nombre de Esteban Castelani en
+      `frontend/web/privacidad.html` (publicada en `https://sound-check-pro-web.sound-check-pro-archivos.workers.dev/privacidad`; falta que la revise alguien con conocimiento legal) y la de eliminar cuenta en `/eliminar-cuenta`. Tras la primera subida, Play muestra la huella de "Firma de apps de Play": **hay que agregarla también en Firebase** o Google Sign-In falla en la versión de la tienda.
+      `docs/politica-de-privacidad-borrador.html` es el borrador viejo (habla de Supabase): **tiene cambios del dueño sin commitear; no tocarlo ni incluirlo en commits**.
+    - **Hoja de ruta decidida (14-nov)**: se analizó un prompt con 5 fases (notas de sonido, banda permanente, agenda, herramientas del sonidista, modelo Pro). Se hizo la fase 1 (ítem de arriba). Se **posterga** banda/agenda hasta validar con bandas o iglesias (para iglesias hace falta asignar quién toca cada domingo, no solo "voy/no voy"), el stage plot y el rider en PDF, y el plan "Banda" (necesita cobro, B-45).
+      Orden acordado: cerrar Play (cuenta, subida a pruebas internas, App Check), notas de sonido (hecho), lista de canales (barata), y una versión chica de la fase 5 (`puedeUsar(FuncionPro)` y pantalla de planes).
+    - **Sin probar / pendiente de este ítem**: el borrado real de repertorio y secuencias, la pantalla de borrar secuencias en un celular, el aviso sonoro de las notas, el limpiador de salas contra Firestore real, probar con una cuenta gratis la tarjeta y las notas, iPhone/Safari, otros modelos de Android, el escáner con luz difícil, "Continuar con Google" en la web de Cloudflare (el dominio está autorizado; no se probó el inicio de sesión), y la verificación de mail para Pro gratis.
+
 ## 6. Modelo de seguridad de las salas — trade-off consciente, no bug
 
 `salas/{codigoSala}/pedidos` y `.../setlist` se leen/escriben con
@@ -1030,6 +1101,14 @@ de la app real.
   → Credenciales, para que nadie más pueda consumir la cuota del proyecto
   con ella. No se hizo porque requiere acceso a Google Cloud Console que no
   siempre está disponible en sesión.
+
+### 7.3 Infraestructura vigente (14-nov-2026; reemplaza lo viejo de arriba)
+
+- **Firebase (plan Spark)**: Auth (Email, Google, Anónimo), Firestore (reglas publicadas: salas, usuarios, `pro_gratis`, `admins`), Crashlytics. Cuotas diarias de Spark; sin TTL (necesita Blaze). **Ya no hay Firebase Storage ni Supabase**: los archivos van a Cloudflare.
+- **Cloudflare**: Worker de archivos (`worker/`, R2 `sound-check-pro-archivos`, D1 con los enlaces y la cuota por cuenta, cron de limpieza, secreto `GOOGLE_SERVICE_ACCOUNT`) y la web (`web-hosting/`). Cuenta del dueño; cada despliegue con `npx wrangler deploy` (esta PC está logueada).
+- **Dominios autorizados en Firebase Auth**: `localhost`, `appbandasonido.firebaseapp.com`, `appbandasonido.web.app`, `estebancastelani.github.io`, `sound-check-pro-web.sound-check-pro-archivos.workers.dev`.
+- **GitHub**: repo público `EstebanCastelani/bandasonido`; ramas `main` (publicada) y `desarrollo`; CI `.github/workflows/deploy.yml` (formato, análisis, pruebas, y compila y publica en GitHub Pages). No hay dominio propio (el dueño no quiere pagarlo por ahora).
+- **Google Play**: sin cuenta todavía; ver §5 ítem 51.
 
 ### 7.1 Migración temporal de Storage a Supabase (mientras no hay Blaze)
 
@@ -1202,9 +1281,10 @@ app, esto es lo primero para revisar.
 ## 8. Deudas técnicas y pendientes explícitos
 
 **Bloqueantes para "app paga" real:**
+- *(Actualización 14-nov-2026: `kFuncionesProGratisPorAhora` ya es `false` y Pro se aplica de verdad; ver §5 ítem 51. Lo que sigue de este punto describe el estado viejo.)*
 - No hay ningún sistema de cobro (Stripe, Play Billing, etc.). `esPro` se
-  activa a mano desde la consola de Firebase. Hasta que exista cobro real,
-  `kFuncionesProGratisPorAhora = true` en `main.dart` mantiene la función de
+  activa a mano desde la consola de Firebase, o con la lista "Pro gratis" por mail. Antes,
+  `kFuncionesProGratisPorAhora = true` en `main.dart` mantenía la función de
   subir PDFs abierta a cualquier cuenta registrada. Para reactivar el gate:
   poner esa constante en `false` y descomentar la condición `esPro == true`
   que ya está dejada comentada en `firestore.rules` y `storage.rules`.

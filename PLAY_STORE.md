@@ -74,11 +74,12 @@ Nota original: el *applicationId* **no se puede cambiar una vez publicada** y ti
 | Ubicación, contactos, fotos, publicidad, analítica | **No** | — | — |
 Cifrado en tránsito: sí (HTTPS). Eliminación: ver §7.
 
-## 6. Política de privacidad 🔑
-Hay un borrador en `docs/politica-de-privacidad-borrador.html` basado en los datos que de verdad guarda la app. Hay que:
-1. Reemplazar los textos entre corchetes (`[TU NOMBRE O RAZÓN SOCIAL]`, `[TU CORREO DE CONTACTO]`).
-2. Hacerla revisar por una persona con conocimiento legal (menciona la ley argentina 25.326; no es asesoramiento).
-3. Copiarla a `frontend/web/privacidad.html` y publicar: quedará en `https://estebancastelani.github.io/bandasonido/privacidad.html`, que es la URL que pide Play. (No la dejé en `web/` para no publicar una página con datos incompletos.)
+## 6. Política de privacidad
+**Hecha (14-nov-2026)** en `frontend/web/privacidad.html`, a nombre de Esteban Castelani, con los datos reales de la app (Firebase, Cloudflare, Crashlytics, cámara del QR, eliminación automática de invitados y salas inactivas). Se publica con la web de Cloudflare (ver `OPERACION.md` §1, paso 5). Direcciones públicas para Play Console:
+- **Política de privacidad:** `https://sound-check-pro-web.sound-check-pro-archivos.workers.dev/privacidad`
+- **Eliminar la cuenta (enlace web):** `https://sound-check-pro-web.sound-check-pro-archivos.workers.dev/eliminar-cuenta`
+
+Pendiente: que la revise una persona con conocimiento legal (menciona la ley argentina 25.326; no es asesoramiento), y actualizarla y su fecha cada vez que cambie qué datos guarda la app. El borrador viejo de `docs/` quedó desactualizado (hablaba de Supabase).
 
 ## 7. Bloqueantes de política que hay que resolver antes
 1. **Eliminar la cuenta desde la app.** Play exige una opción **dentro de la app** y un **enlace web** para pedir la eliminación. La opción dentro de la app ya existe (menú → Configuración → "Eliminar mi cuenta"). Pendientes 🔑: (a) ~~publicar `firestore.rules`~~ **hecho el 25-oct-2026**, (b) ~~probarlo con una cuenta de prueba~~ **probado por el dueño el 25-oct-2026: funciona**, (c) ~~enlace web~~ **publicado**: `https://estebancastelani.github.io/bandasonido/eliminar-cuenta.html` (pegar esa URL en Play Console → Seguridad de los datos).
