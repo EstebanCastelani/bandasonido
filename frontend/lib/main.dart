@@ -1189,12 +1189,14 @@ class DetectorSwipe {
   }
 }
 
-/// Si es `true`, las funciones Pro (Mi repertorio, Mis secuencias, el
-/// interruptor de la pantalla de inicio) quedan liberadas para cualquier
-/// usuario logueado, para poder probarlas. En `false` solo las tiene quien
-/// es Pro de verdad: `esPro` en su perfil o su mail en la lista Pro gratis
-/// (menú ⋮ → Pro gratis). Todavía no hay cobro: Pro se da a mano.
-const bool kFuncionesProGratisPorAhora = false;
+/// **Modo lanzamiento (15-nov-2026): `true`.** Todas las funciones Pro (Mi
+/// repertorio y Mis secuencias sin cupo, tono, historial de salas) quedan abiertas
+/// para cualquier cuenta mientras no haya cobro. Para volver a que solo las tenga
+/// quien es Pro de verdad (`esPro` en su perfil o su mail en la lista Pro gratis,
+/// menú ⋮ → Pro gratis), ponerlo en `false` **y** revertir los otros dos lados:
+/// `tonoAbierto()` en `firestore.rules` (hay que publicarlas) y
+/// `LIMITE_PDFS_GRATIS` / `LIMITE_SECUENCIAS_GRATIS` en `worker/wrangler.toml`.
+const bool kFuncionesProGratisPorAhora = true;
 
 // --- TRANSPOSICIÓN DE CIFRADOS (ACORDES EN TEXTO) ---
 
@@ -7504,6 +7506,29 @@ class PlanProScreen extends StatelessWidget {
                 textAlign: TextAlign.center,
                 style:
                     const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+            if (kFuncionesProGratisPorAhora) ...[
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: context.acento.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(10),
+                  border:
+                      Border.all(color: context.acento.withValues(alpha: 0.4)),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(Icons.celebration_outlined, color: context.acento),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(l.planProLanzamiento,
+                          style: const TextStyle(fontSize: 14)),
+                    ),
+                  ],
+                ),
+              ),
+            ],
             const SizedBox(height: 20),
             beneficio(Icons.library_music, l.planProRepertorio),
             beneficio(Icons.graphic_eq, l.planProSecuencias),
@@ -7557,8 +7582,11 @@ class _BotonesDeCuenta extends StatelessWidget {
     return StreamBuilder<bool>(
       stream: UsuarioService.streamEsPro(uid),
       builder: (context, snapshot) {
-        // Mientras carga no se apaga el botón (evita un parpadeo).
-        final noEsPro = snapshot.hasData && snapshot.data != true;
+        // Mientras carga no se apaga el botón (evita un parpadeo); en el modo
+        // lanzamiento no se apaga nunca.
+        final noEsPro = !kFuncionesProGratisPorAhora &&
+            snapshot.hasData &&
+            snapshot.data != true;
         Widget boton(IconData icono, String texto, Widget Function() pantalla,
                 {bool soloPago = false}) =>
             Padding(

@@ -261,7 +261,11 @@ for (const juego of juegos) {
       });
     });
 
-    describe('tono: solo con Pro', () => {
+    describe('tono: solo con Pro (o abierto a todos en el modo lanzamiento)', () => {
+      // Con tonoAbierto() en true (lanzamiento) una cuenta sin Pro también cambia el tono;
+      // con false se vuelve a exigir Pro. Las pruebas leen el interruptor de las reglas.
+      const tonoAbierto = /function tonoAbierto\(\)\s*\{\s*return true;/.test(readFileSync(join(raiz, juego.archivo), 'utf8'));
+      const sinPro = (promesa) => (tonoAbierto ? assertSucceeds(promesa) : assertFails(promesa));
       const ctx = (uid, extra = {}, proveedor = 'google.com') =>
         entorno
           .authenticatedContext(uid, { firebase: { sign_in_provider: proveedor }, ...extra })
@@ -289,10 +293,10 @@ for (const juego of juegos) {
       });
       it('sin Pro, con perfil gratis, anónimo o mail sin verificar, no se cambia', async () => {
         await preparar();
-        await assertFails(updateDoc(doc(gratis(), setlist), { transposicion: 2 }));
-        await assertFails(updateDoc(doc(p.anonimo, setlist), { transposicion: 2 }));
-        await assertFails(updateDoc(doc(proListaSinVerificar(), setlist), { transposicion: 2 }));
-        await assertFails(updateDoc(doc(ctx('sinperfil', { email: 'x@mail.com', email_verified: true }), setlist), { transposicion: 2 }));
+        await sinPro(updateDoc(doc(gratis(), setlist), { transposicion: 2 }));
+        await sinPro(updateDoc(doc(p.anonimo, setlist), { transposicion: 2 }));
+        await sinPro(updateDoc(doc(proListaSinVerificar(), setlist), { transposicion: 2 }));
+        await sinPro(updateDoc(doc(ctx('sinperfil', { email: 'x@mail.com', email_verified: true }), setlist), { transposicion: 2 }));
       });
       it('un gratuito sí cambia lo demás del setlist y puede escribir 0 al crear', async () => {
         await preparar();
@@ -302,12 +306,12 @@ for (const juego of juegos) {
       });
       it('crear un tema ya transpuesto también pide Pro', async () => {
         await preparar();
-        await assertFails(setDoc(doc(gratis(), `salas/${SALA}/setlist/t4`), { titulo: 'X', orden: 3, transposicion: 3 }));
+        await sinPro(setDoc(doc(gratis(), `salas/${SALA}/setlist/t4`), { titulo: 'X', orden: 3, transposicion: 3 }));
         await assertSucceeds(setDoc(doc(proPerfil(), `salas/${SALA}/setlist/t4`), { titulo: 'X', orden: 3, transposicion: 3 }));
       });
       it('secuencias: el tono pide Pro, el tempo y el volumen no', async () => {
         await preparar();
-        await assertFails(updateDoc(doc(gratis(), secuencia), { semitonos: 2, tempoPorcentaje: 100, volumenPorcentaje: 100 }));
+        await sinPro(updateDoc(doc(gratis(), secuencia), { semitonos: 2, tempoPorcentaje: 100, volumenPorcentaje: 100 }));
         // La app manda siempre los tres campos: con el tono igual, no cuenta como cambio de tono.
         await assertSucceeds(updateDoc(doc(gratis(), secuencia), { semitonos: 0, tempoPorcentaje: 120, volumenPorcentaje: 80 }));
         await assertSucceeds(updateDoc(doc(proPerfil(), secuencia), { semitonos: 2, tempoPorcentaje: 100, volumenPorcentaje: 100 }));
@@ -316,13 +320,13 @@ for (const juego of juegos) {
         await preparar();
         await sembrar(entorno, `salas/${SALA}/secuencias/s2`, { titulo: 'Pista vieja' });
         await assertSucceeds(updateDoc(doc(gratis(), `salas/${SALA}/secuencias/s2`), { semitonos: 0, tempoPorcentaje: 105, volumenPorcentaje: 100 }));
-        await assertFails(updateDoc(doc(gratis(), `salas/${SALA}/secuencias/s2`), { semitonos: 1, tempoPorcentaje: 105, volumenPorcentaje: 100 }));
+        await sinPro(updateDoc(doc(gratis(), `salas/${SALA}/secuencias/s2`), { semitonos: 1, tempoPorcentaje: 105, volumenPorcentaje: 100 }));
       });
       it('setlist sin el campo transposicion: escribir 0 no cuenta, escribir otro valor sí', async () => {
         await preparar();
         await sembrar(entorno, `salas/${SALA}/setlist/t9`, { titulo: 'Sin tono', orden: 9 });
         await assertSucceeds(updateDoc(doc(gratis(), `salas/${SALA}/setlist/t9`), { transposicion: 0 }));
-        await assertFails(updateDoc(doc(gratis(), `salas/${SALA}/setlist/t9`), { transposicion: 2 }));
+        await sinPro(updateDoc(doc(gratis(), `salas/${SALA}/setlist/t9`), { transposicion: 2 }));
         await assertSucceeds(updateDoc(doc(proPerfil(), `salas/${SALA}/setlist/t9`), { transposicion: 2 }));
       });
       it('quien no tiene Pro puede borrar temas y leer como siempre', async () => {
