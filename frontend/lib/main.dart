@@ -602,10 +602,6 @@ class AppConstants {
       ];
 }
 
-/// Clave en el celular del selector Más / Menos de Pedidos (true = Menos): queda
-/// como lo dejó la persona, también al volver a abrir la app.
-const String kClaveModoPedidoMenos = 'pedido_modo_menos';
-
 /// Primera letra en mayúscula (para el texto de un botón).
 String capitalizar(String t) =>
     t.isEmpty ? t : t[0].toUpperCase() + t.substring(1);
@@ -9146,8 +9142,8 @@ class _RequestScreenState extends State<RequestScreen>
 
   bool _esUrgente = false;
 
-  /// Selector de Pedidos: false = "Más", true = "Menos". No vuelve solo a
-  /// "Más" después de enviar: queda donde lo dejó la persona.
+  /// Selector de Pedidos: false = "Más", true = "Menos". Vuelve solo a "Más"
+  /// después de enviar un pedido, para no mandar un "Menos" sin querer.
   bool _modoMenos = false;
   StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _conexionSub;
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _respuestasSub;
@@ -9186,7 +9182,6 @@ class _RequestScreenState extends State<RequestScreen>
     AnchoContenido.ampliar();
     _vigilarConexion();
     _vigilarRespuestas();
-    _cargarModoPedido();
     _precargaSub = SecuenciasService.precargarDeSala(widget.codigoSala);
 
     MiembrosSalaService.registrarPresencia(widget.codigoSala).catchError(
@@ -9385,6 +9380,8 @@ class _RequestScreenState extends State<RequestScreen>
   Future<void> _enviarMensaje(String texto, {bool? urgenteForzado}) async {
     final limpio = texto.trim();
     if (limpio.isEmpty) return;
+    // El texto ya salió armado con el modo elegido: el selector vuelve a "Más".
+    if (_modoMenos) setState(() => _modoMenos = false);
     final urgente = urgenteForzado ?? _esUrgente;
     final l = context.l10n;
     final messenger = ScaffoldMessenger.of(context);
@@ -9424,21 +9421,8 @@ class _RequestScreenState extends State<RequestScreen>
     }
   }
 
-  Future<void> _cargarModoPedido() async {
-    try {
-      final p = await SharedPreferences.getInstance();
-      final menos = p.getBool(kClaveModoPedidoMenos) ?? false;
-      if (mounted && menos != _modoMenos) setState(() => _modoMenos = menos);
-    } catch (_) {}
-  }
-
-  Future<void> _cambiarModoPedido(bool menos) async {
-    if (menos == _modoMenos) return;
-    setState(() => _modoMenos = menos);
-    try {
-      final p = await SharedPreferences.getInstance();
-      await p.setBool(kClaveModoPedidoMenos, menos);
-    } catch (_) {}
+  void _cambiarModoPedido(bool menos) {
+    if (menos != _modoMenos) setState(() => _modoMenos = menos);
   }
 
   /// Un botón de pedido rápido (frase o fuente) con el color indicado.
