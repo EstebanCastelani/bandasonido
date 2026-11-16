@@ -2909,7 +2909,7 @@ abstract class AppLocalizations {
   /// No description provided for @planProLanzamiento.
   ///
   /// In es, this message translates to:
-  /// **'Gratis durante el lanzamiento: todas las funciones están abiertas para todos. Más adelante, algunas pasarán a la versión Pro.'**
+  /// **'Gratis durante el lanzamiento: todo está abierto para todos, sin los límites de abajo. Más adelante, esos límites se aplicarán a la versión gratis.'**
   String get planProLanzamiento;
 }
 
