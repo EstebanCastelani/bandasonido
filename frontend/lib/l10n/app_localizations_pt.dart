@@ -1685,5 +1685,5 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String get planProLanzamiento =>
-      'Grátis durante o lançamento: todos os recursos estão abertos para todos. Mais adiante, alguns passarão para a versão Pro.';
+      'Grátis durante o lançamento: tudo está aberto para todos, sem os limites abaixo. Mais adiante, esses limites valerão para a versão grátis.';
 }
