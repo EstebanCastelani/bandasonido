@@ -602,10 +602,6 @@ class AppConstants {
       ];
 }
 
-/// Clave en el celular del selector Más / Menos de Pedidos (true = Menos): queda
-/// como lo dejó la persona, también al volver a abrir la app.
-const String kClaveModoPedidoMenos = 'pedido_modo_menos';
-
 /// Primera letra en mayúscula (para el texto de un botón).
 String capitalizar(String t) =>
     t.isEmpty ? t : t[0].toUpperCase() + t.substring(1);
@@ -1193,12 +1189,14 @@ class DetectorSwipe {
   }
 }
 
-/// Si es `true`, las funciones Pro (Mi repertorio, Mis secuencias, el
-/// interruptor de la pantalla de inicio) quedan liberadas para cualquier
-/// usuario logueado, para poder probarlas. En `false` solo las tiene quien
-/// es Pro de verdad: `esPro` en su perfil o su mail en la lista Pro gratis
-/// (menú ⋮ → Pro gratis). Todavía no hay cobro: Pro se da a mano.
-const bool kFuncionesProGratisPorAhora = false;
+/// **Modo lanzamiento (15-nov-2026): `true`.** Todas las funciones Pro (Mi
+/// repertorio y Mis secuencias sin cupo, tono, historial de salas) quedan abiertas
+/// para cualquier cuenta mientras no haya cobro. Para volver a que solo las tenga
+/// quien es Pro de verdad (`esPro` en su perfil o su mail en la lista Pro gratis,
+/// menú ⋮ → Pro gratis), ponerlo en `false` **y** revertir los otros dos lados:
+/// `tonoAbierto()` en `firestore.rules` (hay que publicarlas) y
+/// `LIMITE_PDFS_GRATIS` / `LIMITE_SECUENCIAS_GRATIS` en `worker/wrangler.toml`.
+const bool kFuncionesProGratisPorAhora = true;
 
 // --- TRANSPOSICIÓN DE CIFRADOS (ACORDES EN TEXTO) ---
 
@@ -7508,6 +7506,29 @@ class PlanProScreen extends StatelessWidget {
                 textAlign: TextAlign.center,
                 style:
                     const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+            if (kFuncionesProGratisPorAhora) ...[
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: context.acento.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(10),
+                  border:
+                      Border.all(color: context.acento.withValues(alpha: 0.4)),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(Icons.celebration_outlined, color: context.acento),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(l.planProLanzamiento,
+                          style: const TextStyle(fontSize: 14)),
+                    ),
+                  ],
+                ),
+              ),
+            ],
             const SizedBox(height: 20),
             beneficio(Icons.library_music, l.planProRepertorio),
             beneficio(Icons.graphic_eq, l.planProSecuencias),
@@ -7561,8 +7582,11 @@ class _BotonesDeCuenta extends StatelessWidget {
     return StreamBuilder<bool>(
       stream: UsuarioService.streamEsPro(uid),
       builder: (context, snapshot) {
-        // Mientras carga no se apaga el botón (evita un parpadeo).
-        final noEsPro = snapshot.hasData && snapshot.data != true;
+        // Mientras carga no se apaga el botón (evita un parpadeo); en el modo
+        // lanzamiento no se apaga nunca.
+        final noEsPro = !kFuncionesProGratisPorAhora &&
+            snapshot.hasData &&
+            snapshot.data != true;
         Widget boton(IconData icono, String texto, Widget Function() pantalla,
                 {bool soloPago = false}) =>
             Padding(
@@ -9146,8 +9170,8 @@ class _RequestScreenState extends State<RequestScreen>
 
   bool _esUrgente = false;
 
-  /// Selector de Pedidos: false = "Más", true = "Menos". No vuelve solo a
-  /// "Más" después de enviar: queda donde lo dejó la persona.
+  /// Selector de Pedidos: false = "Más", true = "Menos". Vuelve solo a "Más"
+  /// después de enviar un pedido, para no mandar un "Menos" sin querer.
   bool _modoMenos = false;
   StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _conexionSub;
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _respuestasSub;
@@ -9186,7 +9210,6 @@ class _RequestScreenState extends State<RequestScreen>
     AnchoContenido.ampliar();
     _vigilarConexion();
     _vigilarRespuestas();
-    _cargarModoPedido();
     _precargaSub = SecuenciasService.precargarDeSala(widget.codigoSala);
 
     MiembrosSalaService.registrarPresencia(widget.codigoSala).catchError(
@@ -9385,6 +9408,8 @@ class _RequestScreenState extends State<RequestScreen>
   Future<void> _enviarMensaje(String texto, {bool? urgenteForzado}) async {
     final limpio = texto.trim();
     if (limpio.isEmpty) return;
+    // El texto ya salió armado con el modo elegido: el selector vuelve a "Más".
+    if (_modoMenos) setState(() => _modoMenos = false);
     final urgente = urgenteForzado ?? _esUrgente;
     final l = context.l10n;
     final messenger = ScaffoldMessenger.of(context);
@@ -9424,21 +9449,8 @@ class _RequestScreenState extends State<RequestScreen>
     }
   }
 
-  Future<void> _cargarModoPedido() async {
-    try {
-      final p = await SharedPreferences.getInstance();
-      final menos = p.getBool(kClaveModoPedidoMenos) ?? false;
-      if (mounted && menos != _modoMenos) setState(() => _modoMenos = menos);
-    } catch (_) {}
-  }
-
-  Future<void> _cambiarModoPedido(bool menos) async {
-    if (menos == _modoMenos) return;
-    setState(() => _modoMenos = menos);
-    try {
-      final p = await SharedPreferences.getInstance();
-      await p.setBool(kClaveModoPedidoMenos, menos);
-    } catch (_) {}
+  void _cambiarModoPedido(bool menos) {
+    if (menos != _modoMenos) setState(() => _modoMenos = menos);
   }
 
   /// Un botón de pedido rápido (frase o fuente) con el color indicado.

@@ -638,5 +638,6 @@
         "type": "String"
       }
     }
-  }
+  },
+  "planProLanzamiento": "Gratuit pendant le lancement : toutes les fonctions sont ouvertes à tous. Plus tard, certaines passeront dans la version Pro."
 }

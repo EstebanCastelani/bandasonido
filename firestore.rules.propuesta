@@ -59,10 +59,10 @@ service cloud.firestore {
     match /salas/{salaId}/setlist/{itemId} {
       allow read, delete: if request.auth != null && salaId != null && salaId.size() > 0;
       allow create: if request.auth != null && salaId != null && salaId.size() > 0
-                    && (request.resource.data.get('transposicion', 0) == 0 || esProUsuario());
+                    && (request.resource.data.get('transposicion', 0) == 0 || tonoAbierto() || esProUsuario());
       allow update: if request.auth != null && salaId != null && salaId.size() > 0
                     && (request.resource.data.get('transposicion', 0) == resource.data.get('transposicion', 0)
-                        || esProUsuario());
+                        || tonoAbierto() || esProUsuario());
     }
 
     // Secuencias (pistas de audio) cargadas para el show de hoy: mismo
@@ -73,10 +73,10 @@ service cloud.firestore {
     match /salas/{salaId}/secuencias/{itemId} {
       allow read, delete: if request.auth != null && salaId != null && salaId.size() > 0;
       allow create: if request.auth != null && salaId != null && salaId.size() > 0
-                    && (request.resource.data.get('semitonos', 0) == 0 || esProUsuario());
+                    && (request.resource.data.get('semitonos', 0) == 0 || tonoAbierto() || esProUsuario());
       allow update: if request.auth != null && salaId != null && salaId.size() > 0
                     && (request.resource.data.get('semitonos', 0) == resource.data.get('semitonos', 0)
-                        || esProUsuario());
+                        || tonoAbierto() || esProUsuario());
     }
 
     // Presencia de compañeros con cuenta real en la sala (para que el
@@ -183,6 +183,13 @@ service cloud.firestore {
     function esAdmin() {
       return request.auth != null
           && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+
+    // Modo lanzamiento (15-nov-2026): el tono (transposicion y semitonos) lo puede
+    // cambiar cualquier cuenta con sesión, no solo Pro. Para volver a exigir Pro,
+    // cambiar a false (y publicar las reglas).
+    function tonoAbierto() {
+      return true;
     }
 
     function esProUsuario() {

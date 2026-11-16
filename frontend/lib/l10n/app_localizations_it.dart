@@ -1682,4 +1682,8 @@ class AppLocalizationsIt extends AppLocalizations {
   String pedirMenos(String fuente) {
     return 'Meno $fuente';
   }
+
+  @override
+  String get planProLanzamiento =>
+      'Gratis durante il lancio: tutte le funzioni sono aperte a tutti. Più avanti, alcune passeranno alla versione Pro.';
 }

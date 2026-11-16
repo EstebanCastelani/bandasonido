@@ -42,8 +42,8 @@ Modo show que bloquea la pantalla para evitar toques por error, pantalla siempre
 **En tu idioma**
 Español, inglés, portugués, francés e italiano.
 
-**Gratis para empezar**
-Crear y unirse a salas, enviar y recibir pedidos, el setlist y tus frases son siempre gratis. La versión Pro suma repertorio y secuencias sin límite, cambio de tono y más espacio para tus archivos.
+**Gratis durante el lanzamiento**
+Todas las funciones están abiertas para todos mientras dure el lanzamiento: repertorio y secuencias sin tope, cambio de tono, historial de salas. Crear y unirse a salas, enviar y recibir pedidos, el setlist y tus frases serán siempre gratis. Más adelante, algunas funciones pasarán a una versión Pro opcional.
 
 Tus datos: usamos Firebase y Cloudflare para que todo funcione. No hay publicidad. Podés eliminar tu cuenta desde la app.
 
@@ -81,8 +81,8 @@ Show mode locks the screen against accidental touches, keep-screen-on, dark mode
 **In your language**
 Spanish, English, Portuguese, French and Italian.
 
-**Free to start**
-Creating and joining rooms, sending and receiving requests, the setlist and your phrases are always free. Pro adds unlimited repertoire and tracks, key changes and more storage for your files.
+**Free during the launch**
+Every feature is open to everyone while the launch lasts: unlimited repertoire and tracks, key changes, room history. Creating and joining rooms, sending and receiving requests, the setlist and your phrases will always be free. Later, some features will move to an optional Pro version.
 
 Your data: we use Firebase and Cloudflare to make everything work. No ads. You can delete your account from the app.
 
@@ -100,5 +100,5 @@ Capturas sugeridas: 1) pedidos del músico, 2) consola del sonidista con el tema
 
 ## Notas
 - Verificar que cada función mencionada exista en la versión que se sube.
-- "Cambio de tono" y "repertorio sin límite" son de la versión Pro; la ficha lo aclara.
+- Durante el lanzamiento todo está abierto (modo lanzamiento, 15-nov-2026); la ficha lo dice. Cuando se active el cobro hay que volver a los topes y actualizar este texto.
 - Si más adelante se cobra Pro con Google Play Billing, hay que declararlo en la ficha y en el formulario de datos.

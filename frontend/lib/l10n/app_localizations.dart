@@ -2905,6 +2905,12 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'Menos {fuente}'**
   String pedirMenos(String fuente);
+
+  /// No description provided for @planProLanzamiento.
+  ///
+  /// In es, this message translates to:
+  /// **'Gratis durante el lanzamiento: todas las funciones están abiertas para todos. Más adelante, algunas pasarán a la versión Pro.'**
+  String get planProLanzamiento;
 }
 
 class _AppLocalizationsDelegate

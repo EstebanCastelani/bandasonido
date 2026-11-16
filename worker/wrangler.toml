@@ -13,9 +13,12 @@ FIREBASE_PROJECT_ID = "appbandasonido"
 CUOTA_GRATIS_MB = "500"
 CUOTA_PRO_MB = "2048"
 # Cuántos PDFs y secuencias puede tener una cuenta sin Pro (kMaxPdfsGratis y
-# kMaxSecuenciasGratis en la app). Con Pro no hay límite.
-LIMITE_PDFS_GRATIS = "4"
-LIMITE_SECUENCIAS_GRATIS = "3"
+# kMaxSecuenciasGratis en la app: 4 y 3). Con Pro no hay límite. **Modo lanzamiento
+# (15-nov-2026): 100000, es decir sin tope** (el espacio por cuenta sigue en
+# CUOTA_GRATIS_MB). Para volver a los topes, poner 4 y 3 (junto con
+# kFuncionesProGratisPorAhora = false y tonoAbierto() = false en firestore.rules).
+LIMITE_PDFS_GRATIS = "100000"
+LIMITE_SECUENCIAS_GRATIS = "100000"
 DIAS_INACTIVO_INVITADO = "90"
 BORRAR_ANONIMOS = "true"
 DIAS_INACTIVA_SALA = "180"
