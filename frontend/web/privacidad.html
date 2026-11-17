@@ -12,6 +12,13 @@
   body{font-family:system-ui,Segoe UI,Roboto,sans-serif;max-width:46rem;margin:0 auto;padding:1.5rem 1rem 3rem;line-height:1.6;color:#1b1b1f;background:#fff}
   @media (prefers-color-scheme:dark){body{background:#101014;color:#ececf1}a{color:#7fd6ea}}
   h1{font-size:1.6rem} h2{font-size:1.15rem;margin-top:2rem} th,td{border:1px solid #8885;padding:.4rem .6rem;text-align:left;vertical-align:top} table{border-collapse:collapse;width:100%}
+  @media (max-width:640px){
+    table,tbody,tr,td{display:block;width:100%}
+    tr:first-child{display:none}
+    tr{margin:0 0 .9rem;border:1px solid #8885;border-radius:8px;padding:.2rem 0}
+    td{border:0;padding:.3rem .7rem}
+    td::before{content:attr(data-label) ": ";font-weight:600;opacity:.75}
+  }
 </style>
 </head>
 <body>
@@ -23,17 +30,17 @@
 <h2>1. Qué datos tratamos</h2>
 <table>
 <tr><th>Dato</th><th>Cuándo</th><th>Para qué</th></tr>
-<tr><td>Nombre y rol que escribís al crear o unirte a una sala</td><td>Siempre</td><td>Mostrar quién envía cada pedido</td></tr>
-<tr><td>Correo electrónico, nombre y foto de tu cuenta</td><td>Solo si creás una cuenta o iniciás sesión con Google</td><td>Autenticarte y guardar tu biblioteca</td></tr>
-<tr><td>Identificador anónimo de usuario</td><td>Cuando entrás como invitado</td><td>Permitirte usar una sala sin cuenta</td></tr>
-<tr><td>Contenido que creás: pedidos, respuestas, frases rápidas, setlist, notas de sonido, repertorio (PDF) y secuencias (audio)</td><td>Cuando lo usás</td><td>Brindar la funcionalidad de la app</td></tr>
-<tr><td>Si tu pedido fue visto o atendido por el sonidista</td><td>Cuando enviás un pedido</td><td>Avisarte el estado de tu pedido</td></tr>
-<tr><td>Historial de las salas en las que entraste con tu cuenta (código, rol y nombre que le pusiste)</td><td>Solo con cuenta</td><td>Volver a entrar con un toque</td></tr>
-<tr><td>Tu correo en una lista de cuentas con Pro gratis</td><td>Solo si el administrador de la app te lo otorga</td><td>Activar las funciones Pro sin cargo</td></tr>
-<tr><td>Cantidad y tamaño de los archivos que subiste, y una huella técnica de cada archivo</td><td>Cuando subís un PDF o una secuencia</td><td>Aplicar los límites de espacio y no guardar copias repetidas</td></tr>
-<tr><td>Informes de errores: modelo del dispositivo, versión de Android y detalle técnico del fallo (sin el contenido de tus datos)</td><td>Solo en la app instalada, cuando se produce un error</td><td>Detectar y corregir fallos</td></tr>
-<tr><td>Preferencias en tu dispositivo: idioma, colores, modo claro/oscuro, última sala, alertas</td><td>Siempre</td><td>Recordar tus ajustes (se guardan en tu dispositivo)</td></tr>
-<tr><td>Copia en tu dispositivo o navegador de los PDF del setlist y de las secuencias de una sala</td><td>Cuando abrís una sala</td><td>Abrirlos más rápido y sin conexión (se guardan en tu dispositivo o navegador y el sistema puede borrarlas)</td></tr>
+<tr><td data-label="Dato">Nombre y rol que escribís al crear o unirte a una sala</td><td data-label="Cuándo">Siempre</td><td data-label="Para qué">Mostrar quién envía cada pedido</td></tr>
+<tr><td data-label="Dato">Correo electrónico, nombre y foto de tu cuenta</td><td data-label="Cuándo">Solo si creás una cuenta o iniciás sesión con Google</td><td data-label="Para qué">Autenticarte y guardar tu biblioteca</td></tr>
+<tr><td data-label="Dato">Identificador anónimo de usuario</td><td data-label="Cuándo">Cuando entrás como invitado</td><td data-label="Para qué">Permitirte usar una sala sin cuenta</td></tr>
+<tr><td data-label="Dato">Contenido que creás: pedidos, respuestas, frases rápidas, setlist, notas de sonido, repertorio (PDF) y secuencias (audio)</td><td data-label="Cuándo">Cuando lo usás</td><td data-label="Para qué">Brindar la funcionalidad de la app</td></tr>
+<tr><td data-label="Dato">Si tu pedido fue visto o atendido por el sonidista</td><td data-label="Cuándo">Cuando enviás un pedido</td><td data-label="Para qué">Avisarte el estado de tu pedido</td></tr>
+<tr><td data-label="Dato">Historial de las salas en las que entraste con tu cuenta (código, rol y nombre que le pusiste)</td><td data-label="Cuándo">Solo con cuenta</td><td data-label="Para qué">Volver a entrar con un toque</td></tr>
+<tr><td data-label="Dato">Tu correo en una lista de cuentas con Pro gratis</td><td data-label="Cuándo">Solo si el administrador de la app te lo otorga</td><td data-label="Para qué">Activar las funciones Pro sin cargo</td></tr>
+<tr><td data-label="Dato">Cantidad y tamaño de los archivos que subiste, y una huella técnica de cada archivo</td><td data-label="Cuándo">Cuando subís un PDF o una secuencia</td><td data-label="Para qué">Aplicar los límites de espacio y no guardar copias repetidas</td></tr>
+<tr><td data-label="Dato">Informes de errores: modelo del dispositivo, versión de Android y detalle técnico del fallo (sin el contenido de tus datos)</td><td data-label="Cuándo">Solo en la app instalada, cuando se produce un error</td><td data-label="Para qué">Detectar y corregir fallos</td></tr>
+<tr><td data-label="Dato">Preferencias en tu dispositivo: idioma, colores, modo claro/oscuro, última sala, alertas</td><td data-label="Cuándo">Siempre</td><td data-label="Para qué">Recordar tus ajustes (se guardan en tu dispositivo)</td></tr>
+<tr><td data-label="Dato">Copia en tu dispositivo o navegador de los PDF del setlist y de las secuencias de una sala</td><td data-label="Cuándo">Cuando abrís una sala</td><td data-label="Para qué">Abrirlos más rápido y sin conexión (se guardan en tu dispositivo o navegador y el sistema puede borrarlas)</td></tr>
 </table>
 <p><strong>Cámara:</strong> la app solo pide permiso para usar la cámara cuando tocás “Escanear QR” para unirte a una sala. Las imágenes no se guardan ni se envían a ningún lado. El permiso es opcional: también podés escribir el código de la sala.</p>
 <p>No recopilamos tu ubicación, contactos, fotos ni micrófono, no mostramos publicidad y no usamos herramientas de seguimiento ni de analítica de uso. El único servicio de diagnóstico es el de informes de errores indicado arriba.</p>
