@@ -639,5 +639,7 @@
       }
     }
   },
-  "planProLanzamiento": "Free during the launch: everything is open to everyone, without the limits below. Later, those limits will apply to the free version."
+  "planProLanzamiento": "Free during the launch: everything is open to everyone, without the limits below. Later, those limits will apply to the free version.",
+  "politicaDePrivacidad": "Privacy policy",
+  "noSePudoAbrirElEnlace": "The link could not be opened"
 }
