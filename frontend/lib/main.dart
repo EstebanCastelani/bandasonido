@@ -45,6 +45,7 @@ import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 
 import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
 import 'package:share_plus/share_plus.dart';
@@ -403,7 +404,7 @@ void irAlSalirDeSala(BuildContext context, {bool volverAMisSalas = false}) {
 
 /// Versión de la app que se muestra en Configuración. Tiene que coincidir
 /// con `version:` de pubspec.yaml (lo verifica una prueba).
-const String kVersionApp = '1.2.0';
+const String kVersionApp = '1.2.1';
 
 /// Dirección pública de la versión web (para armar el enlace de una sala).
 const String kUrlWeb =
@@ -453,6 +454,22 @@ String? codigoDeSalaDesdeTexto(String? texto) {
   if (RegExp(r'^[A-Z0-9]{8}$').hasMatch(suelto)) return suelto;
   final uri = Uri.tryParse(t);
   return uri == null ? null : codigoDeSalaDesdeUri(uri);
+}
+
+/// Política de privacidad pública (Google Play exige un enlace dentro de la
+/// app). Es una página de la web (frontend/web/privacidad.html).
+const String kUrlPoliticaPrivacidad = '${kUrlWeb}privacidad';
+
+/// Abre la política de privacidad en el navegador.
+Future<void> abrirPoliticaPrivacidad(BuildContext context) async {
+  final mensajero = ScaffoldMessenger.of(context);
+  final fallo = context.l10n.noSePudoAbrirElEnlace;
+  var abierto = false;
+  try {
+    abierto = await launchUrl(Uri.parse(kUrlPoliticaPrivacidad),
+        mode: LaunchMode.externalApplication);
+  } catch (_) {}
+  if (!abierto) mensajero.showSnackBar(SnackBar(content: Text(fallo)));
 }
 
 /// Enlace para unirse a una sala desde el navegador.
@@ -7911,6 +7928,8 @@ class MenuHamburguesa extends StatelessWidget {
           Navigator.push(context, MaterialPageRoute(builder: (_) => pantalla));
         } else if (valor == 'salir') {
           alSalir?.call();
+        } else if (valor == 'privacidad') {
+          abrirPoliticaPrivacidad(context);
         } else if (valor == 'guia') {
           mostrarGuiaDeBienvenida(context);
         } else if (valor == 'instalar') {
@@ -7933,6 +7952,9 @@ class MenuHamburguesa extends StatelessWidget {
         ],
         _ItemConfiguracion(conCuenta: conCuenta),
         PopupMenuItem(value: 'guia', child: Text(context.l10n.comoFunciona)),
+        PopupMenuItem(
+            value: 'privacidad',
+            child: Text(context.l10n.politicaDePrivacidad)),
         if (kIsWeb)
           PopupMenuItem(
               value: 'instalar', child: Text(context.l10n.instalarApp)),

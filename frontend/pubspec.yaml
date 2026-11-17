@@ -1,7 +1,7 @@
 name: appsonido_frontend
 description: MVP multiplataforma para AppSonido
 publish_to: "none"
-version: 1.2.0+3
+version: 1.2.1+4
 
 environment:
   sdk: ">=3.4.0 <4.0.0"
@@ -32,6 +32,7 @@ dependencies:
   firebase_crashlytics: ^4.3.10
   just_audio: ^0.10.6
   mobile_scanner: ^7.5.0
+  url_launcher: ^6.3.3
 
 dev_dependencies:
   flutter_test:

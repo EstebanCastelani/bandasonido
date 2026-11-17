@@ -2911,6 +2911,18 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'Gratis durante el lanzamiento: todo está abierto para todos, sin los límites de abajo. Más adelante, esos límites se aplicarán a la versión gratis.'**
   String get planProLanzamiento;
+
+  /// No description provided for @politicaDePrivacidad.
+  ///
+  /// In es, this message translates to:
+  /// **'Política de privacidad'**
+  String get politicaDePrivacidad;
+
+  /// No description provided for @noSePudoAbrirElEnlace.
+  ///
+  /// In es, this message translates to:
+  /// **'No se pudo abrir el enlace'**
+  String get noSePudoAbrirElEnlace;
 }
 
 class _AppLocalizationsDelegate

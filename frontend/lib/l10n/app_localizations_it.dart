@@ -1686,4 +1686,10 @@ class AppLocalizationsIt extends AppLocalizations {
   @override
   String get planProLanzamiento =>
       'Gratis durante il lancio: tutto è aperto a tutti, senza i limiti qui sotto. Più avanti, questi limiti varranno per la versione gratuita.';
+
+  @override
+  String get politicaDePrivacidad => 'Informativa sulla privacy';
+
+  @override
+  String get noSePudoAbrirElEnlace => 'Impossibile aprire il link';
 }

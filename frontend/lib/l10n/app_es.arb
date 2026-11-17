@@ -1042,5 +1042,7 @@
       }
     }
   },
-  "planProLanzamiento": "Gratis durante el lanzamiento: todo está abierto para todos, sin los límites de abajo. Más adelante, esos límites se aplicarán a la versión gratis."
+  "planProLanzamiento": "Gratis durante el lanzamiento: todo está abierto para todos, sin los límites de abajo. Más adelante, esos límites se aplicarán a la versión gratis.",
+  "politicaDePrivacidad": "Política de privacidad",
+  "noSePudoAbrirElEnlace": "No se pudo abrir el enlace"
 }
